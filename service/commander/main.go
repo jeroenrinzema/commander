@@ -7,6 +7,9 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
+// CommandHandle ...
+type CommandHandle func(Command)
+
 var (
 	commands = make(chan Command)
 	consume  = "commander"
@@ -28,14 +31,54 @@ func (c *Commander) ConsumeCommands() {
 	for {
 		msg, err := consumer.ReadMessage(-1)
 
-		fmt.Println(msg)
-
 		if err != nil {
 			panic(err)
 		}
 
+		fmt.Println("Received:", string(msg.Value))
+
 		command := Command{}
 		json.Unmarshal(msg.Value, &command)
+
+		commands <- command
+	}
+}
+
+// NewEvent ...
+func (c *Commander) NewEvent(event Event) error {
+	producer := NewProducer(c.Brokers)
+	delivery := make(chan kafka.Event)
+
+	defer close(delivery)
+
+	value, _ := json.Marshal(event)
+	err := producer.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &produce, Partition: kafka.PartitionAny},
+		Value:          []byte(value),
+	}, delivery)
+
+	if err != nil {
+		panic(err)
+	}
+
+	response := <-delivery
+	message := response.(*kafka.Message)
+
+	if message.TopicPartition.Error != nil {
+		return message.TopicPartition.Error
+	}
+
+	return nil
+}
+
+// CommandHandle ...
+func (c *Commander) CommandHandle(action string, callback CommandHandle) {
+	for command := range commands {
+		if command.Action != action {
+			continue
+		}
+
+		callback(command)
 	}
 }
 

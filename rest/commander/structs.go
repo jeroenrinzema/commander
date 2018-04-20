@@ -13,6 +13,8 @@ type Command struct {
 
 // Event ...
 type Event struct {
-	Command
-	Parent uuid.UUID `json:"parent"`
+	Parent uuid.UUID   `json:"parent"`
+	ID     uuid.UUID   `json:"id"`
+	Action string      `json:"action"`
+	Data   interface{} `json:"data"`
 }

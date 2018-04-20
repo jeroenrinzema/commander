@@ -30,9 +30,13 @@ func (c *Commander) AsyncCommand(command Command) error {
 	producer := NewProducer(c.Brokers)
 	delivery := make(chan kafka.Event)
 
+	fmt.Println("Sending command:", command)
+
 	defer close(delivery)
 
 	value, _ := json.Marshal(command)
+	fmt.Println("Marshal:", string(value))
+
 	err := producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
 		Value:          []byte(value),
@@ -42,10 +46,8 @@ func (c *Commander) AsyncCommand(command Command) error {
 		panic(err)
 	}
 
-	event := <-delivery
-	fmt.Println("delivered!")
-	fmt.Println(event.String(), command)
-	message := event.(*kafka.Message)
+	response := <-delivery
+	message := response.(*kafka.Message)
 
 	if message.TopicPartition.Error != nil {
 		return message.TopicPartition.Error
@@ -76,8 +78,7 @@ syncEvent:
 				break
 			}
 
-			fmt.Println(event)
-			return event, nil
+			return e, nil
 		case <-ctx.Done():
 			break syncEvent
 		}
@@ -96,11 +97,13 @@ func (c *Commander) ConsumeEvents() {
 		msg, err := consumer.ReadMessage(-1)
 
 		if err != nil {
-			fmt.Printf("Consumer error: %v (%v)\n", err, msg)
-			break
+			panic(err)
 		}
 
-		fmt.Printf("Message on %s: %s\n", msg.TopicPartition, string(msg.Value))
+		event := Event{}
+		json.Unmarshal(msg.Value, &event)
+
+		events <- event
 	}
 }
 

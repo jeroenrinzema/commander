@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -26,18 +27,27 @@ func main() {
 		Group:   "commands",
 	}
 
+	fmt.Println("Sending commands")
+
 	com.OpenProducer()
-	com.ConsumeEvents()
+	go com.ConsumeEvents()
 
 	start := time.Now()
-	for i := 0; i < 50; i++ {
-		send(&com)
+	for i := 0; i < 1000; i++ {
+		// Send a new_email or new_user command
+		r := rand.Intn(2)
+		if r > 0 {
+			newEmail(&com)
+		} else {
+			newUser(&com)
+		}
 	}
+
 	elapsed := time.Since(start)
 	log.Printf("Took %s", elapsed)
 }
 
-func send(com *commander.Commander) {
+func newUser(com *commander.Commander) {
 	id, _ := uuid.NewV4()
 
 	type user struct {
@@ -53,12 +63,32 @@ func send(com *commander.Commander) {
 		Data:   string(data),
 	}
 
-	res, err := com.SyncCommand(command)
+	_, err := com.SyncCommand(command)
 
 	if err != nil {
 		fmt.Println("Something went wrong:", err.Error())
 		return
 	}
+}
 
-	fmt.Println("Received response:", res)
+func newEmail(com *commander.Commander) {
+	id, _ := uuid.NewV4()
+
+	type email struct {
+		Email string `json:"email"`
+	}
+
+	data, _ := json.Marshal(email{"john@example.com"})
+	command := commander.Command{
+		ID:     id,
+		Action: "new_email",
+		Data:   string(data),
+	}
+
+	_, err := com.SyncCommand(command)
+
+	if err != nil {
+		fmt.Println("Something went wrong:", err.Error())
+		return
+	}
 }

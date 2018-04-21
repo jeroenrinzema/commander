@@ -3,6 +3,7 @@ package main
 import (
 	"commander/service/commander"
 	"fmt"
+	"time"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -16,12 +17,11 @@ func main() {
 	fmt.Println("Consuming commands")
 
 	com.OpenProducer()
-	com.ConsumeCommands()
 
-	com.CommandHandle("new_user", func(command commander.Command) {
+	commander.CommandHandle("new_user").Start(func(command commander.Command) {
 		id, _ := uuid.NewV4()
 
-		fmt.Println(command)
+		fmt.Printf("new_user %s\n", time.Now())
 
 		event := commander.Event{
 			Parent: command.ID,
@@ -29,6 +29,22 @@ func main() {
 			Action: "user_created",
 		}
 
-		com.NewEvent(event)
+		go com.NewEvent(event)
 	})
+
+	commander.CommandHandle("new_email").Start(func(command commander.Command) {
+		id, _ := uuid.NewV4()
+
+		fmt.Printf("new_email %s\n", time.Now())
+
+		event := commander.Event{
+			Parent: command.ID,
+			ID:     id,
+			Action: "email_changed",
+		}
+
+		go com.NewEvent(event)
+	})
+
+	com.ConsumeCommands()
 }

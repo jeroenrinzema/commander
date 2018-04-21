@@ -2,12 +2,10 @@ package commander
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
-
-// CommandHandle ...
-type CommandHandle func(Command)
 
 var (
 	commands = make(chan Command)
@@ -15,44 +13,49 @@ var (
 	produce  = "events"
 )
 
-// Commander ...
+// Commander create a new commander instance
 type Commander struct {
 	Brokers  string
 	Group    string
 	Producer *kafka.Producer
 }
 
-// ConsumeCommands ...
+// ConsumeCommands creates a new consumer and starts listening on the commands Topic
+// When a new command message is received is checked if the command exists on the handles slice.
+// If the command is found will a message be send over the source channel.
 func (c *Commander) ConsumeCommands() {
 	consumer := NewConsumer(c.Brokers, c.Group)
 	consumer.SubscribeTopics([]string{"commands"}, nil)
 
-	go func() {
-		for {
-			msg, err := consumer.ReadMessage(-1)
+	for {
+		msg, err := consumer.ReadMessage(-1)
 
-			if err != nil {
-				panic(err)
+		if err != nil {
+			panic(err)
+		}
+
+		command := Command{}
+		json.Unmarshal(msg.Value, &command)
+
+		fmt.Println("Received command,", command.Action)
+
+		for _, handle := range handles {
+			if handle.Action != command.Action {
+				continue
 			}
 
-			command := Command{}
-			json.Unmarshal(msg.Value, &command)
-
-			commands <- command
+			handle.source <- command
 		}
-	}()
+	}
 }
 
-// NewEvent ...
+// NewEvent send a new event to the event kafka topic
 func (c *Commander) NewEvent(event Event) error {
-	producer := NewProducer(c.Brokers)
 	delivery := make(chan kafka.Event)
-
 	defer close(delivery)
-	defer producer.Close()
 
 	value, _ := json.Marshal(event)
-	err := producer.Produce(&kafka.Message{
+	err := c.Producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &produce, Partition: kafka.PartitionAny},
 		Value:          []byte(value),
 	}, delivery)
@@ -71,23 +74,12 @@ func (c *Commander) NewEvent(event Event) error {
 	return nil
 }
 
-// CommandHandle ...
-func (c *Commander) CommandHandle(action string, callback CommandHandle) {
-	for command := range commands {
-		if command.Action != action {
-			continue
-		}
-
-		callback(command)
-	}
-}
-
-// OpenProducer ...
+// OpenProducer open a new kafka producer and store it in the struct
 func (c *Commander) OpenProducer() {
 	c.Producer = NewProducer(c.Brokers)
 }
 
-// NewConsumer ...
+// NewConsumer create a new kafka consumer that connects to the given brokers and group
 func NewConsumer(brokers string, group string) *kafka.Consumer {
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": brokers,
@@ -102,7 +94,7 @@ func NewConsumer(brokers string, group string) *kafka.Consumer {
 	return consumer
 }
 
-// NewProducer ...
+// NewProducer create a new kafka producer that connects to the given brokers
 func NewProducer(brokers string) *kafka.Producer {
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
 

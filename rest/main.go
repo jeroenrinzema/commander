@@ -1,13 +1,14 @@
 package main
 
 import (
-	"commander/rest/commander"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"time"
+
+	"github.com/sysco-middleware/commander/rest/commander"
 
 	uuid "github.com/satori/go.uuid"
 )

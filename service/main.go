@@ -1,9 +1,10 @@
 package main
 
 import (
-	"commander/service/commander"
 	"fmt"
 	"time"
+
+	"github.com/sysco-middleware/commander/service/commander"
 
 	uuid "github.com/satori/go.uuid"
 )

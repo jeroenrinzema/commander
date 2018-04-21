@@ -11,14 +11,15 @@ import (
 )
 
 func main() {
-	com := commander.Commander{
+	server := commander.Commander{
 		Brokers: "localhost",
 		Group:   "commands",
 	}
 
 	fmt.Println("Consuming commands")
 
-	com.OpenProducer()
+	server.OpenProducer()
+	server.OpenConsumer()
 
 	commander.CommandHandle("new_user").Start(func(command commander.Command) {
 		id, _ := uuid.NewV4()
@@ -38,7 +39,7 @@ func main() {
 			Data:   data,
 		}
 
-		go com.NewEvent(event)
+		go server.NewEvent(event)
 	})
 
 	commander.CommandHandle("new_email").Start(func(command commander.Command) {
@@ -52,8 +53,8 @@ func main() {
 			Action: "email_changed",
 		}
 
-		go com.NewEvent(event)
+		go server.NewEvent(event)
 	})
 
-	com.ConsumeCommands()
+	server.ConsumeCommands()
 }

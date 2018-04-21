@@ -44,6 +44,7 @@ type Commander struct {
 	Brokers  string
 	Group    string
 	Producer *kafka.Producer
+	Consumer *kafka.Consumer
 }
 
 // AsyncCommand create a async command.
@@ -112,15 +113,19 @@ func (c *Commander) OpenProducer() {
 	c.Producer = NewProducer(c.Brokers)
 }
 
+// OpenConsumer open a new kafka consumer and store it in the struct
+func (c *Commander) OpenConsumer() {
+	c.Consumer = NewConsumer(c.Brokers, c.Group)
+}
+
 // ConsumeEvents creates a new consumer and starts listening on the events Topic
 // When a new event message is received is checked if the command exists on the handles slice.
 // If the command is found will a message be send over the source channel.
 func (c *Commander) ConsumeEvents() {
-	consumer := NewConsumer(c.Brokers, c.Group)
-	consumer.SubscribeTopics([]string{eventsTopic}, nil)
+	c.Consumer.SubscribeTopics([]string{eventsTopic}, nil)
 
 	for {
-		msg, err := consumer.ReadMessage(-1)
+		msg, err := c.Consumer.ReadMessage(-1)
 
 		if err != nil {
 			panic(err)
@@ -143,11 +148,10 @@ func (c *Commander) ConsumeEvents() {
 // When a new command message is received is checked if the command exists on the handles slice.
 // If the command is found will a message be send over the source channel.
 func (c *Commander) ConsumeCommands() {
-	consumer := NewConsumer(c.Brokers, c.Group)
-	consumer.SubscribeTopics([]string{"commands"}, nil)
+	c.Consumer.SubscribeTopics([]string{"commands"}, nil)
 
 	for {
-		msg, err := consumer.ReadMessage(-1)
+		msg, err := c.Consumer.ReadMessage(-1)
 
 		if err != nil {
 			panic(err)

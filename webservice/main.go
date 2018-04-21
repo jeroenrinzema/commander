@@ -23,6 +23,8 @@ func main() {
 	})
 
 	server.OpenProducer()
+	server.OpenConsumer()
+
 	go server.ConsumeEvents()
 
 	router := rest.Router()

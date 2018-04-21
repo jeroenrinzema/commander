@@ -2,7 +2,6 @@ package commander
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
@@ -18,30 +17,30 @@ var (
 
 // Commander ...
 type Commander struct {
-	Brokers string
-	Group   string
+	Brokers  string
+	Group    string
+	Producer *kafka.Producer
 }
 
 // ConsumeCommands ...
 func (c *Commander) ConsumeCommands() {
 	consumer := NewConsumer(c.Brokers, c.Group)
-
 	consumer.SubscribeTopics([]string{"commands"}, nil)
 
-	for {
-		msg, err := consumer.ReadMessage(-1)
+	go func() {
+		for {
+			msg, err := consumer.ReadMessage(-1)
 
-		if err != nil {
-			panic(err)
+			if err != nil {
+				panic(err)
+			}
+
+			command := Command{}
+			json.Unmarshal(msg.Value, &command)
+
+			commands <- command
 		}
-
-		fmt.Println("Received:", string(msg.Value))
-
-		command := Command{}
-		json.Unmarshal(msg.Value, &command)
-
-		commands <- command
-	}
+	}()
 }
 
 // NewEvent ...
@@ -50,6 +49,7 @@ func (c *Commander) NewEvent(event Event) error {
 	delivery := make(chan kafka.Event)
 
 	defer close(delivery)
+	defer producer.Close()
 
 	value, _ := json.Marshal(event)
 	err := producer.Produce(&kafka.Message{
@@ -82,12 +82,17 @@ func (c *Commander) CommandHandle(action string, callback CommandHandle) {
 	}
 }
 
+// OpenProducer ...
+func (c *Commander) OpenProducer() {
+	c.Producer = NewProducer(c.Brokers)
+}
+
 // NewConsumer ...
 func NewConsumer(brokers string, group string) *kafka.Consumer {
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": brokers,
 		"group.id":          group,
-		"auto.offset.reset": "earliest",
+		// "auto.offset.reset": "earliest",
 	})
 
 	if err != nil {

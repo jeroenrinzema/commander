@@ -2,8 +2,11 @@ package main
 
 import (
 	"commander/rest/commander"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"time"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -23,8 +26,18 @@ func main() {
 		Group:   "commands",
 	}
 
-	go com.ConsumeEvents()
+	com.OpenProducer()
+	com.ConsumeEvents()
 
+	start := time.Now()
+	for i := 0; i < 50; i++ {
+		send(&com)
+	}
+	elapsed := time.Since(start)
+	log.Printf("Took %s", elapsed)
+}
+
+func send(com *commander.Commander) {
 	id, _ := uuid.NewV4()
 
 	type user struct {
@@ -33,13 +46,12 @@ func main() {
 		Email    string `json:"email"`
 	}
 
+	data, _ := json.Marshal(user{"john", "doeisthebest", "john@example.com"})
 	command := commander.Command{
 		ID:     id,
 		Action: "new_user",
-		Data:   user{"john", "doeisthebest", "john@example.com"},
+		Data:   string(data),
 	}
-
-	fmt.Println("Sending a sync command")
 
 	res, err := com.SyncCommand(command)
 

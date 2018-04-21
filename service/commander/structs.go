@@ -6,15 +6,15 @@ import (
 
 // Command ...
 type Command struct {
-	ID     uuid.UUID   `json:"id"`
-	Action string      `json:"action"`
-	Data   interface{} `json:"data"`
+	ID     uuid.UUID `json:"id"`
+	Action string    `json:"action"`
+	Data   string    `json:"data"`
 }
 
 // Event ...
 type Event struct {
-	Parent uuid.UUID   `json:"parent"`
-	ID     uuid.UUID   `json:"id"`
-	Action string      `json:"action"`
-	Data   interface{} `json:"data"`
+	Parent uuid.UUID `json:"parent"`
+	ID     uuid.UUID `json:"id"`
+	Action string    `json:"action"`
+	Data   string    `json:"data"`
 }

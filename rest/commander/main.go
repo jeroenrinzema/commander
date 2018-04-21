@@ -21,23 +21,19 @@ var (
 
 // Commander ...
 type Commander struct {
-	Brokers string
-	Group   string
+	Brokers  string
+	Group    string
+	Producer *kafka.Producer
 }
 
 // AsyncCommand ...
 func (c *Commander) AsyncCommand(command Command) error {
-	producer := NewProducer(c.Brokers)
 	delivery := make(chan kafka.Event)
-
-	fmt.Println("Sending command:", command)
-
 	defer close(delivery)
 
 	value, _ := json.Marshal(command)
-	fmt.Println("Marshal:", string(value))
 
-	err := producer.Produce(&kafka.Message{
+	err := c.Producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
 		Value:          []byte(value),
 	}, delivery)
@@ -58,6 +54,7 @@ func (c *Commander) AsyncCommand(command Command) error {
 
 // SyncCommand ...
 func (c *Commander) SyncCommand(command Command) (Event, error) {
+	fmt.Println("Sending:", command)
 	err := c.AsyncCommand(command)
 	event := Event{}
 
@@ -74,11 +71,11 @@ syncEvent:
 	for {
 		select {
 		case e := <-events:
-			if e.Action == command.Action {
-				break
+			fmt.Println("event")
+			if e.Parent == command.ID {
+				fmt.Println("match")
+				return e, nil
 			}
-
-			return e, nil
 		case <-ctx.Done():
 			break syncEvent
 		}
@@ -87,24 +84,32 @@ syncEvent:
 	return event, errors.New("timeout reached")
 }
 
+// OpenProducer ...
+func (c *Commander) OpenProducer() {
+	c.Producer = NewProducer(c.Brokers)
+}
+
 // ConsumeEvents ...
 func (c *Commander) ConsumeEvents() {
 	consumer := NewConsumer(c.Brokers, c.Group)
-
 	consumer.SubscribeTopics([]string{"events"}, nil)
 
-	for {
-		msg, err := consumer.ReadMessage(-1)
+	go func() {
+		for {
+			msg, err := consumer.ReadMessage(-1)
 
-		if err != nil {
-			panic(err)
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Println("received:", string(msg.Value))
+
+			event := Event{}
+			json.Unmarshal(msg.Value, &event)
+
+			events <- event
 		}
-
-		event := Event{}
-		json.Unmarshal(msg.Value, &event)
-
-		events <- event
-	}
+	}()
 }
 
 // NewConsumer ...
@@ -112,7 +117,7 @@ func NewConsumer(brokers string, group string) *kafka.Consumer {
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": brokers,
 		"group.id":          group,
-		"auto.offset.reset": "earliest",
+		// "auto.offset.reset": "earliest",
 	})
 
 	if err != nil {

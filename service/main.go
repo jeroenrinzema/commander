@@ -15,12 +15,13 @@ func main() {
 
 	fmt.Println("Consuming commands")
 
-	go com.ConsumeCommands()
+	com.OpenProducer()
+	com.ConsumeCommands()
 
 	com.CommandHandle("new_user", func(command commander.Command) {
-		fmt.Println("Command received: new_user,", command)
-
 		id, _ := uuid.NewV4()
+
+		fmt.Println(command)
 
 		event := commander.Event{
 			Parent: command.ID,
@@ -28,7 +29,6 @@ func main() {
 			Action: "user_created",
 		}
 
-		fmt.Println("Sending response event.")
 		com.NewEvent(event)
 	})
 }

@@ -223,7 +223,9 @@ func NewConsumer(brokers string, group string) *kafka.Consumer {
 
 // NewProducer create a new kafka producer that connects to the given brokers
 func NewProducer(brokers string) *kafka.Producer {
-	producer, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
+	producer, err := kafka.NewProducer(&kafka.ConfigMap{
+		"bootstrap.servers": brokers,
+	})
 
 	if err != nil {
 		panic(err)

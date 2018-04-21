@@ -20,16 +20,16 @@ func authenticate(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
-	server := commander.NewServer(&commander.Config{
+	hub := commander.NewHub(&commander.Config{
 		Brokers: "localhost",
 		Group:   "commands",
 	})
 
 	websocket.NewHub() // Create a new websocket hub to store all active connections
-	server.OpenProducer()
-	server.OpenConsumer()
+	hub.OpenProducer()
+	hub.OpenConsumer()
 
-	go server.ConsumeEvents()
+	go hub.ConsumeEvents()
 
 	router := routes()
 	http.ListenAndServe(":8080", router)

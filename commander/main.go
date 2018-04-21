@@ -20,23 +20,23 @@ var (
 	eventsTopic   = "events"
 )
 
-// Server a variable that stores the current commander server
-var Server *Commander
+// Hub a variable that stores the current commander hub
+var Hub *Commander
 
-// Config used to create a new commander server
+// Config used to create a new commander hub
 type Config struct {
 	Brokers string
 	Group   string
 }
 
-// NewServer create a new commander server
-func NewServer(config *Config) *Commander {
-	Server = &Commander{
+// NewHub create a new commander hub
+func NewHub(config *Config) *Commander {
+	Hub = &Commander{
 		Brokers: config.Brokers,
 		Group:   config.Group,
 	}
 
-	return Server
+	return Hub
 }
 
 // Commander create a new commander instance

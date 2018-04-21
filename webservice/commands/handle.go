@@ -12,8 +12,10 @@ func handle(w http.ResponseWriter, r *http.Request, command commander.Command) {
 	params := r.URL.Query()
 	sync := len(params["sync"]) > 0
 
+	hub := commander.Hub
+
 	if sync {
-		event, err := commander.Server.SyncCommand(command)
+		event, err := hub.SyncCommand(command)
 
 		if err != nil {
 			res.SendPanic(err.Error(), command)
@@ -24,7 +26,7 @@ func handle(w http.ResponseWriter, r *http.Request, command commander.Command) {
 		return
 	}
 
-	err := commander.Server.AsyncCommand(command)
+	err := hub.AsyncCommand(command)
 
 	if err != nil {
 		res.SendPanic(err.Error(), nil)

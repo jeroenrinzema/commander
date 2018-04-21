@@ -99,11 +99,11 @@ func (r *Response) SendStatusWithMessage(status int, message string) {
 
 // SendPanic send a 500 "Internal Server Error" back with a status message
 // The given message will be used in the meta field
-func (r *Response) SendPanic(message string) {
+func (r *Response) SendPanic(message string, body interface{}) {
 	setJSON(r.ResponseWriter)
 	setHTTPStatus(r, http.StatusInternalServerError)
 	setHTTPMessage(r, message)
-	setBody(r, nil)
+	setBody(r, body)
 }
 
 // SendNotAllowed send a 405 "Method Not Allowed" back with an empty body
@@ -137,8 +137,8 @@ type responseMeta struct {
 }
 
 type responseBody struct {
-	Meta responseMeta `json:"meta"`
-	Data interface{}  `json:"data"`
+	Meta    responseMeta `json:"meta"`
+	Message interface{}  `json:"message"`
 }
 
 func setHTTPStatus(r *Response, status int) {

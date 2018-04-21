@@ -148,7 +148,7 @@ func (c *Commander) ConsumeEvents() {
 // When a new command message is received is checked if the command exists on the handles slice.
 // If the command is found will a message be send over the source channel.
 func (c *Commander) ConsumeCommands() {
-	c.Consumer.SubscribeTopics([]string{"commands"}, nil)
+	c.Consumer.SubscribeTopics([]string{commandsTopic}, nil)
 
 	for {
 		msg, err := c.Consumer.ReadMessage(-1)

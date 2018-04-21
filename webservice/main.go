@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/sysco-middleware/commander/webservice/websocket"
+
+	"github.com/gorilla/mux"
 	"github.com/sysco-middleware/commander/commander"
 	"github.com/sysco-middleware/commander/webservice/commands"
 	"github.com/sysco-middleware/commander/webservice/rest"
@@ -22,15 +25,22 @@ func main() {
 		Group:   "commands",
 	})
 
+	websocket.NewHub() // Create a new websocket hub to store all active connections
 	server.OpenProducer()
 	server.OpenConsumer()
 
 	go server.ConsumeEvents()
 
-	router := rest.Router()
-	command := router.PathPrefix("/command/").Subrouter()
+	router := routes()
+	http.ListenAndServe(":8080", router)
+}
 
+func routes() *mux.Router {
+	router := rest.Router()
+
+	command := router.PathPrefix("/command/").Subrouter()
 	command.HandleFunc("/new_user", rest.Use(commands.NewUser, authenticate)).Methods("POST")
 
-	http.ListenAndServe(":8080", router)
+	router.HandleFunc("/ws", rest.Use(websocket.Handle, authenticate)).Methods("GET")
+	return router
 }

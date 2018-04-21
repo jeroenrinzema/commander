@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sysco-middleware/commander/service/commander"
+	"github.com/mitchellh/mapstructure"
+	"github.com/sysco-middleware/commander/commander"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -22,12 +23,19 @@ func main() {
 	commander.CommandHandle("new_user").Start(func(command commander.Command) {
 		id, _ := uuid.NewV4()
 
-		fmt.Printf("new_user %s\n", time.Now())
+		type user struct {
+			Username string `json:"username"`
+			Email    string `json:"email"`
+		}
+
+		data := user{}
+		mapstructure.Decode(command.Data, &data)
 
 		event := commander.Event{
 			Parent: command.ID,
 			ID:     id,
 			Action: "user_created",
+			Data:   data,
 		}
 
 		go com.NewEvent(event)

@@ -46,33 +46,42 @@ type Commander struct {
 	Consumer *kafka.Consumer
 }
 
-// AsyncCommand create a async command.
-// This method will deliver the command to the commands topic but will not wait for a response event.
-func (c *Commander) AsyncCommand(command Command) error {
+// Produce a new kafka message
+func (c *Commander) Produce(message *kafka.Message) error {
 	delivery := make(chan kafka.Event)
 	defer close(delivery)
 
-	value, _ := json.Marshal(command)
-
-	err := c.Producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &CommandsTopic, Partition: kafka.PartitionAny},
-		Value:          []byte(value),
-	}, delivery)
+	err := c.Producer.Produce(message, delivery)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	response := <-delivery
-	message := response.(*kafka.Message)
+	value := response.(*kafka.Message)
 
-	fmt.Println("delivered message,", command.Action, time.Now())
-
-	if message.TopicPartition.Error != nil {
-		return message.TopicPartition.Error
+	if value.TopicPartition.Error != nil {
+		return value.TopicPartition.Error
 	}
 
 	return nil
+}
+
+// AsyncCommand create a async command.
+// This method will deliver the command to the commands topic but will not wait for a response event.
+func (c *Commander) AsyncCommand(command Command) error {
+	value, err := json.Marshal(command)
+
+	if err != nil {
+		return err
+	}
+
+	message := &kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &CommandsTopic, Partition: kafka.PartitionAny},
+		Value:          []byte(value),
+	}
+
+	return c.Produce(message)
 }
 
 // SyncCommand send a synchronized command.

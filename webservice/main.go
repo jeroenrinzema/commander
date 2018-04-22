@@ -48,6 +48,6 @@ func routes() *mux.Router {
 	command := router.PathPrefix("/command/").Subrouter()
 	command.HandleFunc("/new_user", rest.Use(commands.NewUser, authenticate)).Methods("POST")
 
-	router.HandleFunc("/ws", rest.Use(websocket.Handle, authenticate)).Methods("GET")
+	router.HandleFunc("/updates", rest.Use(websocket.Handle, authenticate)).Methods("GET")
 	return router
 }

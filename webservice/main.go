@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/sysco-middleware/commander/webservice/websocket"
 
 	"github.com/gorilla/mux"
-	"github.com/sysco-middleware/commander/commander"
 	"github.com/sysco-middleware/commander/webservice/commands"
 	"github.com/sysco-middleware/commander/webservice/rest"
 )
@@ -20,18 +22,23 @@ func authenticate(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
-	hub := commander.NewHub(&commander.Config{
-		Brokers: "localhost",
-		Group:   "commands",
-	})
+	commander := commands.NewCommander()
 
 	websocket.NewHub() // Create a new websocket hub to store all active connections
-	hub.OpenProducer()
-	hub.OpenConsumer()
-
-	go hub.ConsumeEvents()
-
 	router := routes()
+
+	go websocket.Consume()
+	go commander.ReadMessages()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		commander.Close()
+		os.Exit(0)
+	}()
+
 	http.ListenAndServe(":8080", router)
 }
 

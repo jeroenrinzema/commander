@@ -1,8 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/sysco-middleware/commander/commander"
@@ -11,17 +12,12 @@ import (
 )
 
 func main() {
-	server := commander.Commander{
-		Brokers: "localhost",
-		Group:   "commands",
+	server := &commander.Commander{
+		Producer: commander.NewProducer("localhost"),
+		Consumer: commander.NewConsumer("localhost", "commands"),
 	}
 
-	fmt.Println("Consuming commands")
-
-	server.OpenProducer()
-	server.OpenConsumer()
-
-	commander.CommandHandle("new_user").Start(func(command commander.Command) {
+	server.Handle("new_user", func(command commander.Command) {
 		id, _ := uuid.NewV4()
 
 		type user struct {
@@ -39,22 +35,17 @@ func main() {
 			Data:   data,
 		}
 
-		go server.NewEvent(event)
+		go server.SyncEvent(event)
 	})
 
-	commander.CommandHandle("new_email").Start(func(command commander.Command) {
-		id, _ := uuid.NewV4()
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-		fmt.Printf("new_email %s\n", time.Now())
+	go func() {
+		<-sigs
+		server.Close()
+		os.Exit(0)
+	}()
 
-		event := commander.Event{
-			Parent: command.ID,
-			ID:     id,
-			Action: "email_changed",
-		}
-
-		go server.NewEvent(event)
-	})
-
-	server.ConsumeCommands()
+	server.ReadMessages()
 }

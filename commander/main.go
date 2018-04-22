@@ -123,27 +123,18 @@ syncEvent:
 
 // SyncEvent send a new event to the event kafka topic
 func (c *Commander) SyncEvent(event Event) error {
-	delivery := make(chan kafka.Event)
-	defer close(delivery)
-
-	value, _ := json.Marshal(event)
-	err := c.Producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &EventsTopic, Partition: kafka.PartitionAny},
-		Value:          []byte(value),
-	}, delivery)
+	value, err := json.Marshal(event)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	response := <-delivery
-	message := response.(*kafka.Message)
-
-	if message.TopicPartition.Error != nil {
-		return message.TopicPartition.Error
+	message := &kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &EventsTopic, Partition: kafka.PartitionAny},
+		Value:          []byte(value),
 	}
 
-	return nil
+	return c.Produce(message)
 }
 
 // Consume create a new kafka consumer if no consumer for the given topic exists

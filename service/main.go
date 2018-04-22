@@ -17,6 +17,18 @@ func main() {
 		Consumer: commander.NewConsumer("localhost", "commands"),
 	}
 
+	server.Handle("ping", func(command commander.Command) {
+		id, _ := uuid.NewV4()
+
+		event := commander.Event{
+			Parent: command.ID,
+			ID:     id,
+			Action: "pong",
+		}
+
+		go server.SyncEvent(event)
+	})
+
 	server.Handle("new_user", func(command commander.Command) {
 		id, _ := uuid.NewV4()
 

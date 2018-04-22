@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/sysco-middleware/commander/commander"
 	"github.com/sysco-middleware/commander/webservice/commands"
@@ -16,6 +15,12 @@ func Consume() {
 		event := commander.Event{}
 		json.Unmarshal(msg.Value, &event)
 
-		fmt.Println(event)
+		data, err := json.Marshal(event)
+
+		if err != nil {
+			continue
+		}
+
+		Broadcast(string(data))
 	}
 }

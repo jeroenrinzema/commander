@@ -11,38 +11,37 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+// CommandCallback the callback function that is called when a command message is received
+type CommandCallback func(command Command)
+
 const (
-	timeout = 10 * time.Second
+	timeout = 5 * time.Second
 )
 
 var (
-	commandsTopic = "commands"
-	eventsTopic   = "events"
+	// CommandsTopic the kafka commands topic
+	CommandsTopic = "commands"
+	// EventsTopic the kafka events topic
+	EventsTopic = "events"
 )
 
-// Hub a variable that stores the current commander hub
-var Hub *Commander
-
-// Config used to create a new commander hub
-type Config struct {
-	Brokers string
-	Group   string
+// Command ...
+type Command struct {
+	ID     uuid.UUID   `json:"id"`
+	Action string      `json:"action"`
+	Data   interface{} `json:"data"`
 }
 
-// NewHub create a new commander hub
-func NewHub(config *Config) *Commander {
-	Hub = &Commander{
-		Brokers: config.Brokers,
-		Group:   config.Group,
-	}
-
-	return Hub
+// Event ...
+type Event struct {
+	Parent uuid.UUID   `json:"parent"`
+	ID     uuid.UUID   `json:"id"`
+	Action string      `json:"action"`
+	Data   interface{} `json:"data"`
 }
 
 // Commander create a new commander instance
 type Commander struct {
-	Brokers  string
-	Group    string
 	Producer *kafka.Producer
 	Consumer *kafka.Consumer
 }
@@ -56,7 +55,7 @@ func (c *Commander) AsyncCommand(command Command) error {
 	value, _ := json.Marshal(command)
 
 	err := c.Producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &commandsTopic, Partition: kafka.PartitionAny},
+		TopicPartition: kafka.TopicPartition{Topic: &CommandsTopic, Partition: kafka.PartitionAny},
 		Value:          []byte(value),
 	}, delivery)
 
@@ -80,7 +79,10 @@ func (c *Commander) AsyncCommand(command Command) error {
 // This method will wait till a response event is given.
 func (c *Commander) SyncCommand(command Command) (Event, error) {
 	err := c.AsyncCommand(command)
+	consumer := c.Consume(EventsTopic)
 	event := Event{}
+
+	defer consumer.Close()
 
 	if err != nil {
 		return event, err
@@ -89,17 +91,19 @@ func (c *Commander) SyncCommand(command Command) (Event, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	handle := Handle{ID: command.ID}
-	handle.Listen()
-
 	// Wait for event to return
 	// A error is thrown if the event does not return within the given period
 syncEvent:
 	for {
 		select {
-		case e := <-handle.event:
-			handle.Close()
-			return e, nil
+		case msg := <-consumer.Messages:
+			json.Unmarshal(msg.Value, &event)
+
+			if event.Parent != command.ID {
+				continue
+			}
+
+			return event, nil
 		case <-ctx.Done():
 			break syncEvent
 		}
@@ -108,78 +112,14 @@ syncEvent:
 	return event, errors.New("timeout reached")
 }
 
-// OpenProducer open a new kafka producer and store it in the struct
-func (c *Commander) OpenProducer() {
-	c.Producer = NewProducer(c.Brokers)
-}
-
-// OpenConsumer open a new kafka consumer and store it in the struct
-func (c *Commander) OpenConsumer() {
-	c.Consumer = NewConsumer(c.Brokers, c.Group)
-}
-
-// ConsumeEvents creates a new consumer and starts listening on the events Topic
-// When a new event message is received is checked if the command exists on the handles slice.
-// If the command is found will a message be send over the source channel.
-func (c *Commander) ConsumeEvents() {
-	c.Consumer.SubscribeTopics([]string{eventsTopic}, nil)
-
-	for {
-		msg, err := c.Consumer.ReadMessage(-1)
-
-		if err != nil {
-			panic(err)
-		}
-
-		event := Event{}
-		json.Unmarshal(msg.Value, &event)
-
-		for _, handle := range handles {
-			if handle.ID != event.Parent {
-				continue
-			}
-
-			handle.event <- event
-		}
-	}
-}
-
-// ConsumeCommands creates a new consumer and starts listening on the commands Topic
-// When a new command message is received is checked if the command exists on the handles slice.
-// If the command is found will a message be send over the source channel.
-func (c *Commander) ConsumeCommands() {
-	c.Consumer.SubscribeTopics([]string{commandsTopic}, nil)
-
-	for {
-		msg, err := c.Consumer.ReadMessage(-1)
-
-		if err != nil {
-			panic(err)
-		}
-
-		command := Command{}
-		json.Unmarshal(msg.Value, &command)
-
-		fmt.Println("Received command,", command.Action)
-
-		for _, handle := range handles {
-			if handle.Action != command.Action {
-				continue
-			}
-
-			handle.command <- command
-		}
-	}
-}
-
-// NewEvent send a new event to the event kafka topic
-func (c *Commander) NewEvent(event Event) error {
+// SyncEvent send a new event to the event kafka topic
+func (c *Commander) SyncEvent(event Event) error {
 	delivery := make(chan kafka.Event)
 	defer close(delivery)
 
 	value, _ := json.Marshal(event)
 	err := c.Producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &eventsTopic, Partition: kafka.PartitionAny},
+		TopicPartition: kafka.TopicPartition{Topic: &EventsTopic, Partition: kafka.PartitionAny},
 		Value:          []byte(value),
 	}, delivery)
 
@@ -195,6 +135,66 @@ func (c *Commander) NewEvent(event Event) error {
 	}
 
 	return nil
+}
+
+// Consume create a new kafka consumer if no consumer for the given topic exists
+func (c *Commander) Consume(topic string) *Consumer {
+	messages := make(chan *kafka.Message)
+	consumer := &Consumer{
+		Commander: c,
+		Topic:     topic,
+		Messages:  messages,
+	}
+
+	consumer.Read()
+	return consumer
+}
+
+// Handle call the callback function if the given command is received
+func (c *Commander) Handle(action string, callback CommandCallback) {
+	consumer := c.Consume(CommandsTopic)
+
+	go func() {
+		defer consumer.Close()
+
+		for msg := range consumer.Messages {
+			command := Command{}
+			json.Unmarshal(msg.Value, &command)
+
+			if command.Action != action {
+				continue
+			}
+
+			callback(command)
+		}
+	}()
+}
+
+// ReadMessages start consuming all messages
+func (c *Commander) ReadMessages() {
+	fmt.Println("Reading messages")
+
+	for {
+		msg, err := c.Consumer.ReadMessage(-1)
+
+		if err != nil {
+			panic(err)
+		}
+
+		topic := *msg.TopicPartition.Topic
+
+		for _, consumer := range consumers {
+			if consumer.Topic == topic {
+				consumer.Messages <- msg
+			}
+		}
+	}
+}
+
+// Close the commander consumer and producer
+func (c *Commander) Close() {
+	c.Consumer.Close()
+	c.Producer.Close()
 }
 
 // NewCommand create a new command with the given action and data
@@ -225,7 +225,7 @@ func NewConsumer(brokers string, group string) *kafka.Consumer {
 	return consumer
 }
 
-// NewProducer create a new kafka producer that connects to the given brokers
+// NewProducer create a new kafka Producer that connects to the given brokers
 func NewProducer(brokers string) *kafka.Producer {
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": brokers,

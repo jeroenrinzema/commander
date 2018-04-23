@@ -6,15 +6,19 @@ import (
 	"syscall"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 	"github.com/sysco-middleware/commander/commander"
 
 	uuid "github.com/satori/go.uuid"
 )
 
 func main() {
+	host := viper.GetString("kafka.host")
+	group := viper.GetString("kafka.group")
+
 	server := &commander.Commander{
-		Producer: commander.NewProducer("localhost"),
-		Consumer: commander.NewConsumer("localhost", "service"),
+		Producer: commander.NewProducer(host),
+		Consumer: commander.NewConsumer(host, group),
 	}
 
 	server.Handle("ping", func(command commander.Command) {

@@ -3,9 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/sysco-middleware/commander/commander"
 	"github.com/sysco-middleware/commander/webservice/websocket"
@@ -32,15 +29,6 @@ func main() {
 
 	go websocket.Consume()
 	go server.ReadMessages()
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigs
-		server.Close()
-		os.Exit(0)
-	}()
 
 	http.ListenAndServe(":8080", router)
 }

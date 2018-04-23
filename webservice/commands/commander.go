@@ -1,6 +1,10 @@
 package commands
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/spf13/viper"
 	"github.com/sysco-middleware/commander/commander"
 )
@@ -17,6 +21,15 @@ func NewCommander() *commander.Commander {
 		Producer: commander.NewProducer(host),
 		Consumer: commander.NewConsumer(host, group),
 	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		Commander.Close()
+		os.Exit(0)
+	}()
 
 	return Commander
 }

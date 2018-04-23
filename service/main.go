@@ -14,7 +14,7 @@ import (
 func main() {
 	server := &commander.Commander{
 		Producer: commander.NewProducer("localhost"),
-		Consumer: commander.NewConsumer("localhost", "commands"),
+		Consumer: commander.NewConsumer("localhost", "service"),
 	}
 
 	server.Handle("ping", func(command commander.Command) {

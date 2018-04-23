@@ -9,7 +9,7 @@ var Commander *commander.Commander
 func NewCommander() *commander.Commander {
 	Commander = &commander.Commander{
 		Producer: commander.NewProducer("localhost"),
-		Consumer: commander.NewConsumer("localhost", "commands"),
+		Consumer: commander.NewConsumer("localhost", "webservice"),
 	}
 
 	return Commander

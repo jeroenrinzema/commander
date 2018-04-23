@@ -25,6 +25,12 @@ var (
 	EventsTopic = "events"
 )
 
+// Data ...
+type Data struct {
+	ID    uuid.UUID   `json:"id"`
+	Value interface{} `json:"value"`
+}
+
 // Command ...
 type Command struct {
 	ID     uuid.UUID   `json:"id"`
@@ -119,6 +125,23 @@ syncEvent:
 	}
 
 	return event, errors.New("timeout reached")
+}
+
+// SyncRow push a new row to the given topic.
+// This row should be a change to dataset.
+func (c *Commander) SyncRow(topic string, data Data) error {
+	value, err := json.Marshal(data)
+
+	if err != nil {
+		return err
+	}
+
+	message := &kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+		Value:          []byte(value),
+	}
+
+	return c.Produce(message)
 }
 
 // SyncEvent send a new event to the event kafka topic

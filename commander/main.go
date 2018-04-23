@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -25,9 +24,10 @@ var (
 	EventsTopic = "events"
 )
 
-// Data ...
-type Data struct {
+// Column ...
+type Column struct {
 	ID    uuid.UUID   `json:"id"`
+	Topic string      `json:"-"`
 	Value interface{} `json:"value"`
 }
 
@@ -127,25 +127,32 @@ syncEvent:
 	return event, errors.New("timeout reached")
 }
 
-// SyncRow push a new row to the given topic.
-// This row should be a change to dataset.
-func (c *Commander) SyncRow(topic string, data Data) error {
-	value, err := json.Marshal(data)
+// PushColumn push a new row to the given topic.
+// This row should be part of a dataset.
+func (c *Commander) PushColumn(column Column) error {
+	value, err := json.Marshal(column)
 
 	if err != nil {
 		return err
 	}
 
 	message := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+		TopicPartition: kafka.TopicPartition{Topic: &column.Topic, Partition: kafka.PartitionAny},
 		Value:          []byte(value),
 	}
 
 	return c.Produce(message)
 }
 
-// SyncEvent send a new event to the event kafka topic
-func (c *Commander) SyncEvent(event Event) error {
+// PushDataset push the given dataset to their representative topics
+func (c *Commander) PushDataset(dataset []Column) {
+	for _, column := range dataset {
+		go c.PushColumn(column)
+	}
+}
+
+// PushEvent send a new event to the event kafka topic
+func (c *Commander) PushEvent(event Event) error {
 	value, err := json.Marshal(event)
 
 	if err != nil {
@@ -195,8 +202,6 @@ func (c *Commander) Handle(action string, callback CommandCallback) {
 
 // ReadMessages start consuming all messages
 func (c *Commander) ReadMessages() {
-	fmt.Println("Reading messages")
-
 	for {
 		msg, err := c.Consumer.ReadMessage(-1)
 
@@ -259,4 +264,14 @@ func NewProducer(brokers string) *kafka.Producer {
 	}
 
 	return producer
+}
+
+// NewDataset create a new dataset with the given columns
+// The given id is set on all columns as column ID.
+func NewDataset(id uuid.UUID, dataset []Column) []Column {
+	for index := range dataset {
+		dataset[index].ID = id
+	}
+
+	return dataset
 }

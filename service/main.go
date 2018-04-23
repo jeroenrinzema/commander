@@ -26,7 +26,7 @@ func main() {
 			Action: "pong",
 		}
 
-		go server.SyncEvent(event)
+		go server.PushEvent(event)
 	})
 
 	server.Handle("new_user", func(command commander.Command) {
@@ -47,7 +47,20 @@ func main() {
 			Data:   data,
 		}
 
-		go server.SyncEvent(event)
+		userID, _ := uuid.NewV4()
+		dataset := commander.NewDataset(userID, []commander.Column{
+			commander.Column{
+				Topic: "user-email",
+				Value: data.Email,
+			},
+			commander.Column{
+				Topic: "user-username",
+				Value: data.Username,
+			},
+		})
+
+		go server.PushDataset(dataset)
+		go server.PushEvent(event)
 	})
 
 	sigs := make(chan os.Signal, 1)

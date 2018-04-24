@@ -13,6 +13,10 @@ import (
 )
 
 func main() {
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("./config")
+	viper.SetConfigName("default")
+
 	host := viper.GetString("kafka.host")
 	group := viper.GetString("kafka.group")
 

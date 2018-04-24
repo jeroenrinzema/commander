@@ -1,16 +1,25 @@
 package commands
 
 import (
+	"io/ioutil"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/sysco-middleware/commander/commander"
 	"github.com/sysco-middleware/commander/webservice/rest"
 )
 
-func handle(w http.ResponseWriter, r *http.Request, command commander.Command) {
+// Handle ...
+func Handle(w http.ResponseWriter, r *http.Request) {
 	res := rest.Response{ResponseWriter: w}
 	params := r.URL.Query()
+	vars := mux.Vars(r)
+
 	sync := len(params["sync"]) > 0
+	body, _ := ioutil.ReadAll(r.Body)
+
+	action := vars["command"]
+	command := commander.NewCommand(action, body)
 
 	if sync {
 		event, err := Commander.SyncCommand(command)

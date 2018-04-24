@@ -1,21 +1,27 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/mitchellh/mapstructure"
+	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"github.com/sysco-middleware/commander/commander"
-
-	uuid "github.com/satori/go.uuid"
 )
 
 func main() {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./config")
 	viper.SetConfigName("default")
+
+	err := viper.ReadInConfig()
+
+	if err != nil {
+		panic(err)
+	}
 
 	host := viper.GetString("kafka.host")
 	group := viper.GetString("kafka.group")
@@ -25,50 +31,25 @@ func main() {
 		Consumer: commander.NewConsumer(host, group),
 	}
 
-	server.Handle("ping", func(command commander.Command) {
-		id, _ := uuid.NewV4()
-
-		event := commander.Event{
-			Parent: command.ID,
-			ID:     id,
-			Action: "pong",
-		}
-
-		go server.PushEvent(event)
-	})
-
-	server.Handle("new_user", func(command commander.Command) {
-		id, _ := uuid.NewV4()
-
+	server.Handle(commander.CommandCreate, func(command *commander.Command) {
 		type user struct {
 			Username string `json:"username"`
 			Email    string `json:"email"`
 		}
 
-		data := user{}
-		mapstructure.Decode(command.Data, &data)
+		data := &user{}
+		err := json.Unmarshal(command.Data, data)
 
-		event := commander.Event{
-			Parent: command.ID,
-			ID:     id,
-			Action: "user_created",
-			Data:   data,
+		if err != nil {
+			fmt.Println(err)
+			return
 		}
 
-		userID, _ := uuid.NewV4()
-		dataset := commander.NewDataset(userID, []commander.Column{
-			commander.Column{
-				Topic: "user-email",
-				Value: data.Email,
-			},
-			commander.Column{
-				Topic: "user-username",
-				Value: data.Username,
-			},
-		})
+		res, _ := json.Marshal(data)
+		id, _ := uuid.NewV4()
 
-		go server.PushDataset(dataset)
-		go server.PushEvent(event)
+		event := command.NewEvent(commander.EventCreated, id, res)
+		server.ProduceEvent(event)
 	})
 
 	sigs := make(chan os.Signal, 1)

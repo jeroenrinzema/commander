@@ -11,10 +11,24 @@ import (
 )
 
 // CommandCallback the callback function that is called when a command message is received
-type CommandCallback func(command Command)
+type CommandCallback func(command *Command)
 
 const (
 	timeout = 5 * time.Second
+
+	// CommandCreate ...
+	CommandCreate = "create"
+	// CommandUpdate ...
+	CommandUpdate = "update"
+	// CommandDelete ...
+	CommandDelete = "delete"
+
+	// EventCreated ...
+	EventCreated = "created"
+	// EventUpdated ...
+	EventUpdated = "updated"
+	// EventDeleted ...
+	EventDeleted = "deleted"
 )
 
 var (
@@ -24,26 +38,33 @@ var (
 	EventsTopic = "events"
 )
 
-// Column ...
-type Column struct {
-	ID    uuid.UUID   `json:"id"`
-	Topic string      `json:"-"`
-	Value interface{} `json:"value"`
+// Event ...
+type Event struct {
+	Parent uuid.UUID       `json:"parent"`
+	ID     uuid.UUID       `json:"id"`
+	Action string          `json:"action"`
+	Data   json.RawMessage `json:"data"`
 }
 
 // Command ...
 type Command struct {
-	ID     uuid.UUID   `json:"id"`
-	Action string      `json:"action"`
-	Data   interface{} `json:"data"`
+	ID     uuid.UUID       `json:"id"`
+	Action string          `json:"action"`
+	Data   json.RawMessage `json:"data"`
 }
 
-// Event ...
-type Event struct {
-	Parent uuid.UUID   `json:"parent"`
-	ID     uuid.UUID   `json:"id"`
-	Action string      `json:"action"`
-	Data   interface{} `json:"data"`
+// NewEvent create a new command with the given action and data
+func (c *Command) NewEvent(action string, key uuid.UUID, data []byte) Event {
+	id, _ := uuid.NewV4()
+
+	event := Event{
+		Parent: c.ID,
+		ID:     id,
+		Action: action,
+		Data:   data,
+	}
+
+	return event
 }
 
 // Commander create a new commander instance
@@ -76,15 +97,16 @@ func (c *Commander) Produce(message *kafka.Message) error {
 // AsyncCommand create a async command.
 // This method will deliver the command to the commands topic but will not wait for a response event.
 func (c *Commander) AsyncCommand(command Command) error {
-	value, err := json.Marshal(command)
-
-	if err != nil {
-		return err
-	}
-
 	message := &kafka.Message{
+		Headers: []kafka.Header{
+			kafka.Header{
+				Key:   "action",
+				Value: []byte(command.Action),
+			},
+		},
+		Key:            command.ID.Bytes(),
 		TopicPartition: kafka.TopicPartition{Topic: &CommandsTopic, Partition: kafka.PartitionAny},
-		Value:          []byte(value),
+		Value:          command.Data,
 	}
 
 	return c.Produce(message)
@@ -112,11 +134,35 @@ syncEvent:
 	for {
 		select {
 		case msg := <-consumer.Messages:
-			json.Unmarshal(msg.Value, &event)
+			// Collect the header values
+			for _, header := range msg.Headers {
+				if header.Key == "action" {
+					event.Action = string(header.Value)
+				}
+
+				if header.Key == "parent" {
+					parent, err := uuid.FromBytes(header.Value)
+
+					if err != nil {
+						continue syncEvent
+					}
+
+					event.Parent = parent
+				}
+			}
 
 			if event.Parent != command.ID {
 				continue
 			}
+
+			id, err := uuid.FromBytes(msg.Key)
+
+			if err != nil {
+				continue
+			}
+
+			event.ID = id
+			event.Data = msg.Value
 
 			return event, nil
 		case <-ctx.Done():
@@ -127,41 +173,22 @@ syncEvent:
 	return event, errors.New("timeout reached")
 }
 
-// PushColumn push a new row to the given topic.
-// This row should be part of a dataset.
-func (c *Commander) PushColumn(column Column) error {
-	value, err := json.Marshal(column)
-
-	if err != nil {
-		return err
-	}
-
+// ProduceEvent produce a new event to the events topic
+func (c *Commander) ProduceEvent(event Event) error {
 	message := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &column.Topic, Partition: kafka.PartitionAny},
-		Value:          []byte(value),
-	}
-
-	return c.Produce(message)
-}
-
-// PushDataset push the given dataset to their representative topics
-func (c *Commander) PushDataset(dataset []Column) {
-	for _, column := range dataset {
-		go c.PushColumn(column)
-	}
-}
-
-// PushEvent send a new event to the event kafka topic
-func (c *Commander) PushEvent(event Event) error {
-	value, err := json.Marshal(event)
-
-	if err != nil {
-		return err
-	}
-
-	message := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &EventsTopic, Partition: kafka.PartitionAny},
-		Value:          []byte(value),
+		Headers: []kafka.Header{
+			kafka.Header{
+				Key:   "action",
+				Value: []byte(event.Action),
+			},
+			kafka.Header{
+				Key:   "parent",
+				Value: event.Parent.Bytes(),
+			},
+		},
+		Key:            event.ID.Bytes(),
+		TopicPartition: kafka.TopicPartition{Topic: &EventsTopic},
+		Value:          event.Data,
 	}
 
 	return c.Produce(message)
@@ -189,13 +216,27 @@ func (c *Commander) Handle(action string, callback CommandCallback) {
 
 		for msg := range consumer.Messages {
 			command := Command{}
-			json.Unmarshal(msg.Value, &command)
 
-			if command.Action != action {
+			// Collect the header values
+			for _, header := range msg.Headers {
+				if header.Key == "action" {
+					command.Action = string(header.Value)
+				}
+			}
+
+			if action != command.Action {
 				continue
 			}
 
-			callback(command)
+			id, err := uuid.FromBytes(msg.Key)
+
+			if err != nil {
+				continue
+			}
+
+			command.ID = id
+			command.Data = msg.Value
+			callback(&command)
 		}
 	}()
 }
@@ -226,7 +267,7 @@ func (c *Commander) Close() {
 }
 
 // NewCommand create a new command with the given action and data
-func NewCommand(action string, data interface{}) Command {
+func NewCommand(action string, data []byte) Command {
 	id, _ := uuid.NewV4()
 
 	command := Command{
@@ -264,14 +305,4 @@ func NewProducer(brokers string) *kafka.Producer {
 	}
 
 	return producer
-}
-
-// NewDataset create a new dataset with the given columns
-// The given id is set on all columns as column ID.
-func NewDataset(id uuid.UUID, dataset []Column) []Column {
-	for index := range dataset {
-		dataset[index].ID = id
-	}
-
-	return dataset
 }

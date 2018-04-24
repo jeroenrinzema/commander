@@ -27,6 +27,12 @@ func main() {
 	viper.AddConfigPath("./config")
 	viper.SetConfigName("default")
 
+	err := viper.ReadInConfig()
+
+	if err != nil {
+		panic(err)
+	}
+
 	server = commands.NewCommander()
 
 	websocket.NewHub() // Create a new websocket hub to store all active connections
@@ -38,27 +44,10 @@ func main() {
 	http.ListenAndServe(":8080", router)
 }
 
-func health(w http.ResponseWriter, r *http.Request) {
-	res := rest.Response{ResponseWriter: w}
-
-	command := commander.NewCommand("ping", nil)
-	event, err := server.SyncCommand(command)
-
-	if err != nil {
-		res.SendPanic(err.Error(), nil)
-		return
-	}
-
-	res.SendOK(event)
-}
-
 func routes() *mux.Router {
 	router := rest.Router()
 
-	command := router.PathPrefix("/command/").Subrouter()
-	command.HandleFunc("/new_user", rest.Use(commands.NewUser, authenticate)).Methods("POST")
-
+	router.HandleFunc("/command/{command}", rest.Use(commands.Handle, authenticate)).Methods("POST")
 	router.HandleFunc("/updates", rest.Use(websocket.Handle, authenticate)).Methods("GET")
-	router.HandleFunc("/health", health).Methods("GET")
 	return router
 }

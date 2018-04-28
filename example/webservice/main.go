@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	"github.com/spf13/viper"
-	"github.com/sysco-middleware/commander/commander"
-	"github.com/sysco-middleware/commander/webservice/websocket"
+	"github.com/sysco-middleware/commander"
+	"github.com/sysco-middleware/commander/example/webservice/websocket"
 
 	"github.com/gorilla/mux"
-	"github.com/sysco-middleware/commander/webservice/commands"
-	"github.com/sysco-middleware/commander/webservice/rest"
+	"github.com/sysco-middleware/commander/example/webservice/commands"
+	"github.com/sysco-middleware/commander/example/webservice/rest"
 )
 
 var server *commander.Commander

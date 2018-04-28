@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/sysco-middleware/commander/commander"
-	"github.com/sysco-middleware/commander/webservice/rest"
+	"github.com/sysco-middleware/commander"
+	"github.com/sysco-middleware/commander/example/webservice/rest"
 )
 
 // Handle ...

@@ -9,7 +9,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
-	"github.com/sysco-middleware/commander/commander"
+	"github.com/sysco-middleware/commander"
 )
 
 func main() {

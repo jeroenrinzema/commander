@@ -3,8 +3,8 @@ package websocket
 import (
 	"encoding/json"
 
-	"github.com/sysco-middleware/commander/commander"
-	"github.com/sysco-middleware/commander/webservice/commands"
+	"github.com/sysco-middleware/commander"
+	"github.com/sysco-middleware/commander/example/webservice/commands"
 )
 
 // Consume kafka event messages

@@ -6,7 +6,7 @@ import (
 	"syscall"
 
 	"github.com/spf13/viper"
-	"github.com/sysco-middleware/commander/commander"
+	"github.com/sysco-middleware/commander"
 )
 
 // Commander holds the currend command instance

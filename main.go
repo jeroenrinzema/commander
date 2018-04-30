@@ -15,20 +15,6 @@ type CommandCallback func(command *Command)
 
 const (
 	timeout = 5 * time.Second
-
-	// CommandCreate ...
-	CommandCreate = "create"
-	// CommandUpdate ...
-	CommandUpdate = "update"
-	// CommandDelete ...
-	CommandDelete = "delete"
-
-	// EventCreated ...
-	EventCreated = "created"
-	// EventUpdated ...
-	EventUpdated = "updated"
-	// EventDeleted ...
-	EventDeleted = "deleted"
 )
 
 var (

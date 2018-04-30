@@ -1,15 +1,13 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
-	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"github.com/sysco-middleware/commander"
+	"github.com/sysco-middleware/commander/example/service/commands"
 )
 
 func main() {
@@ -31,26 +29,7 @@ func main() {
 		Consumer: commander.NewConsumer(host, group),
 	}
 
-	server.Handle(commander.CommandCreate, func(command *commander.Command) {
-		type user struct {
-			Username string `json:"username"`
-			Email    string `json:"email"`
-		}
-
-		data := &user{}
-		err := json.Unmarshal(command.Data, data)
-
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		res, _ := json.Marshal(data)
-		id, _ := uuid.NewV4()
-
-		event := command.NewEvent(commander.EventCreated, id, res)
-		server.ProduceEvent(event)
-	})
+	server.Handle("create", commands.Create)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

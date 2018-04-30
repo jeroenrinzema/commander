@@ -40,17 +40,24 @@ var (
 
 // Event ...
 type Event struct {
-	Parent uuid.UUID       `json:"parent"`
-	ID     uuid.UUID       `json:"id"`
-	Action string          `json:"action"`
-	Data   json.RawMessage `json:"data"`
+	Parent    uuid.UUID       `json:"parent"`
+	ID        uuid.UUID       `json:"id"`
+	Action    string          `json:"action"`
+	Data      json.RawMessage `json:"data"`
+	commander *Commander
+}
+
+// Produce the created event
+func (e *Event) Produce() {
+	e.commander.ProduceEvent(e)
 }
 
 // Command ...
 type Command struct {
-	ID     uuid.UUID       `json:"id"`
-	Action string          `json:"action"`
-	Data   json.RawMessage `json:"data"`
+	ID        uuid.UUID       `json:"id"`
+	Action    string          `json:"action"`
+	Data      json.RawMessage `json:"data"`
+	commander *Commander
 }
 
 // NewEvent create a new command with the given action and data
@@ -58,10 +65,11 @@ func (c *Command) NewEvent(action string, key uuid.UUID, data []byte) Event {
 	id, _ := uuid.NewV4()
 
 	event := Event{
-		Parent: c.ID,
-		ID:     id,
-		Action: action,
-		Data:   data,
+		Parent:    c.ID,
+		ID:        id,
+		Action:    action,
+		Data:      data,
+		commander: c.commander,
 	}
 
 	return event
@@ -174,7 +182,7 @@ syncEvent:
 }
 
 // ProduceEvent produce a new event to the events topic
-func (c *Commander) ProduceEvent(event Event) error {
+func (c *Commander) ProduceEvent(event *Event) error {
 	message := &kafka.Message{
 		Headers: []kafka.Header{
 			kafka.Header{
@@ -215,7 +223,9 @@ func (c *Commander) Handle(action string, callback CommandCallback) {
 		defer consumer.Close()
 
 		for msg := range consumer.Messages {
-			command := Command{}
+			command := Command{
+				commander: c,
+			}
 
 			// Collect the header values
 			for _, header := range msg.Headers {

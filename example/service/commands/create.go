@@ -26,6 +26,6 @@ func Create(command *commander.Command) {
 	res, _ := json.Marshal(data)
 	id, _ := uuid.NewV4()
 
-	event := command.NewEvent(commander.EventCreated, id, res)
+	event := command.NewEvent(EventAccountCreated, id, res)
 	event.Produce()
 }

@@ -1,22 +1,62 @@
 package main
 
 import (
-	"github.com/spf13/viper"
-	"github.com/sysco-middleware/commander/example/service/commands"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/jeroenrinzema/commander"
+	uuid "github.com/satori/go.uuid"
 )
 
 func main() {
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./config")
-	viper.SetConfigName("default")
+	server := newCommander()
+	server.Handle("create", createAccount)
+	server.ReadMessages()
+}
 
-	err := viper.ReadInConfig()
+func createAccount(command *commander.Command) {
+	fmt.Println("Incomming command: create")
 
-	if err != nil {
-		panic(err)
+	type user struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
 	}
 
-	server := commands.NewCommander()
-	server.Handle("create", commands.Create)
-	server.ReadMessages()
+	data := &user{}
+	err := json.Unmarshal(command.Data, data)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	res, _ := json.Marshal(data)
+	id, _ := uuid.NewV4()
+
+	event := command.NewEvent("created", id, res)
+	event.Produce()
+}
+
+func newCommander() *commander.Commander {
+	host := os.Getenv("KAFKA_HOST")
+	group := os.Getenv("KAFKA_GROUP")
+
+	instance := &commander.Commander{
+		Producer: commander.NewProducer(host),
+		Consumer: commander.NewConsumer(host, group),
+	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		instance.Close()
+		os.Exit(0)
+	}()
+
+	return instance
 }

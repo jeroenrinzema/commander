@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/spf13/viper"
-	"github.com/sysco-middleware/commander"
-	"github.com/sysco-middleware/commander/example/webservice/websocket"
+	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/example/webservice/websocket"
 
 	"github.com/gorilla/mux"
-	"github.com/sysco-middleware/commander/example/webservice/commands"
-	"github.com/sysco-middleware/commander/example/webservice/rest"
+	"github.com/jeroenrinzema/commander/example/webservice/commands"
+	"github.com/jeroenrinzema/commander/example/webservice/rest"
 )
 
 var server *commander.Commander
@@ -23,16 +22,6 @@ func authenticate(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./config")
-	viper.SetConfigName("default")
-
-	err := viper.ReadInConfig()
-
-	if err != nil {
-		panic(err)
-	}
-
 	server = commands.NewCommander()
 
 	websocket.NewHub() // Create a new websocket hub to store all active connections

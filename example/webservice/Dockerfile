@@ -16,5 +16,5 @@ COPY . .
 RUN go get -d -v .
 RUN go build -o build .
 
-EXPOSE 80
+EXPOSE 8080
 CMD ["/go/src/webservice/build"]

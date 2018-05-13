@@ -1,0 +1,48 @@
+version: '3'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:4.1.0
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+    ports:
+      - 2181:2181
+  kafka:
+    depends_on:
+      - zookeeper
+    image: confluentinc/cp-kafka:4.1.0
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+    ports:
+      - 9092:9092
+  # postgres:
+  #   image: postgres:9.5.3
+  #   volumes:
+  #     - postgres:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - commander
+  service:
+    depends_on:
+      - kafka
+    build:
+      context: service
+    environment:
+      KAFKA_HOST: kafka:9092
+      KAFKA_GROUP: service
+  webservice:
+    depends_on:
+      - kafka
+    build:
+      context: webservice
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_HOST: kafka:9092
+      KAFKA_GROUP: webservice
+volumes:
+  zookeeper:
+  kafka:
+  postgres:

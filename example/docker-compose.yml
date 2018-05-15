@@ -30,7 +30,7 @@ services:
     depends_on:
       - kafka
     build:
-      context: services/users/service
+      context: service
     environment:
       KAFKA_HOST: kafka:9092
       KAFKA_GROUP: users
@@ -48,7 +48,7 @@ services:
     depends_on:
       - kafka
     build:
-      context: services/users/materializer
+      context: materializer
     environment:
       KAFKA_HOST: kafka:9092
       KAFKA_GROUP: materializer

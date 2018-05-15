@@ -17,9 +17,28 @@ func main() {
 	server.ReadMessages()
 }
 
-func createAccount(command *commander.Command) {
-	fmt.Println("Incomming command: create")
+func deleteAccount(command *commander.Command) {
+	type user struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	}
 
+	data := &user{}
+	err := json.Unmarshal(command.Data, data)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	res, _ := json.Marshal(data)
+	id, _ := uuid.NewV4()
+
+	event := command.NewEvent("deleted", id, res)
+	event.Produce()
+}
+
+func createAccount(command *commander.Command) {
 	type user struct {
 		Username string `json:"username"`
 		Email    string `json:"email"`

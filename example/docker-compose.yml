@@ -16,22 +16,24 @@ services:
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
     ports:
       - 9092:9092
-  # postgres:
-  #   image: postgres:9.5.3
-  #   volumes:
-  #     - postgres:/var/lib/postgresql/data
-  #   ports:
-  #     - "5432:5432"
-  #   networks:
-  #     - commander
-  service:
+  postgres:
+    image: postgres:9.5.3
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: commander
+      POSTGRES_PASSWORD: TFgvT3Pb3bWEhXKAfgMk63bo
+      POSTGRES_DB: commander
+  users:
     depends_on:
       - kafka
     build:
-      context: service
+      context: services/users
     environment:
       KAFKA_HOST: kafka:9092
-      KAFKA_GROUP: service
+      KAFKA_GROUP: users
   webservice:
     depends_on:
       - kafka
@@ -42,6 +44,19 @@ services:
     environment:
       KAFKA_HOST: kafka:9092
       KAFKA_GROUP: webservice
+  materializer:
+    depends_on:
+      - kafka
+    build:
+      context: materializer
+    environment:
+      KAFKA_HOST: kafka:9092
+      KAFKA_GROUP: materializer
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: commander
+      POSTGRES_PASSWORD: TFgvT3Pb3bWEhXKAfgMk63bo
+      POSTGRES_DB: commander
 volumes:
   zookeeper:
   kafka:

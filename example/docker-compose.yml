@@ -26,7 +26,7 @@ services:
       POSTGRES_USER: commander
       POSTGRES_PASSWORD: TFgvT3Pb3bWEhXKAfgMk63bo
       POSTGRES_DB: commander
-  users:
+  service:
     depends_on:
       - kafka
     build:

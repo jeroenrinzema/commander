@@ -1,7 +1,7 @@
 # Builder
 FROM golang:1.10-alpine AS builder
 
-ENV GO_PROJECT_PATH=webservice
+ENV GO_PROJECT_PATH=materializer
 ENV LIBRESSL_VERSION=2.7
 ENV LIBRDKAFKA_VERSION=0.11.4-r1
 
@@ -21,7 +21,7 @@ RUN go build -o build .
 # Final
 FROM alpine
 
-ENV GO_PROJECT_PATH=webservice
+ENV GO_PROJECT_PATH=materializer
 ENV LIBRESSL_VERSION=2.7
 ENV LIBRDKAFKA_VERSION=0.11.4-r1
 

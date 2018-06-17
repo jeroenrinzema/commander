@@ -44,7 +44,7 @@
   branch = "master"
   name = "github.com/jeroenrinzema/commander"
   packages = ["."]
-  revision = "6efa3bb95873b4de6f40f9722169a2924c761fa3"
+  revision = "9ed7e24acb143e66124180e13ff490c85d564c8a"
 
 [[projects]]
   name = "github.com/satori/go.uuid"

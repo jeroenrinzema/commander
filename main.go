@@ -22,6 +22,8 @@ const (
 	ParentHeader = "parent"
 	// ActionHeader ...
 	ActionHeader = "action"
+	// KeyHeader ...
+	KeyHeader = "key"
 )
 
 var (
@@ -168,11 +170,6 @@ syncEvent:
 
 // ProduceEvent produce a new event to the events topic
 func (c *Commander) ProduceEvent(event *Event) error {
-	key := event.ID.Bytes()
-	if event.Key.Version() > 0 {
-		key = event.Key.Bytes()
-	}
-
 	message := &kafka.Message{
 		Headers: []kafka.Header{
 			kafka.Header{
@@ -187,8 +184,12 @@ func (c *Commander) ProduceEvent(event *Event) error {
 				Key:   OperationHeader,
 				Value: []byte(event.Operation),
 			},
+			kafka.Header{
+				Key:   KeyHeader,
+				Value: event.Key.Bytes(),
+			},
 		},
-		Key:            key,
+		Key:            event.ID.Bytes(),
 		TopicPartition: kafka.TopicPartition{Topic: &EventsTopic},
 		Value:          event.Data,
 	}

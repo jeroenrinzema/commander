@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/jeroenrinzema/commander"
 	uuid "github.com/satori/go.uuid"
+	"github.com/sysco-middleware/commander"
 )
 
 func main() {

@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jeroenrinzema/commander"
+	"github.com/sysco-middleware/commander"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	uuid "github.com/satori/go.uuid"

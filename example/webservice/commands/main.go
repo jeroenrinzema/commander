@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/jeroenrinzema/commander"
+	"github.com/sysco-middleware/commander"
 )
 
 // Commander holds the currend command instance

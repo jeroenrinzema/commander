@@ -2,7 +2,6 @@ package commander
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -12,6 +11,9 @@ import (
 
 // CommandCallback the callback function that is called when a command message is received
 type CommandCallback func(command *Command)
+
+// EventCallback the callback function that is called when a event message is received
+type EventCallback func(event *Event)
 
 const (
 	timeout = 5 * time.Second
@@ -32,31 +34,6 @@ var (
 	// EventsTopic the kafka events topic
 	EventsTopic = "events"
 )
-
-// Command ...
-type Command struct {
-	ID        uuid.UUID       `json:"id"`
-	Action    string          `json:"action"`
-	Data      json.RawMessage `json:"data"`
-	commander *Commander
-}
-
-// NewEvent create a new command with the given action and data
-func (c *Command) NewEvent(action string, operation string, key uuid.UUID, data []byte) Event {
-	id := uuid.NewV4()
-
-	event := Event{
-		Parent:    c.ID,
-		ID:        id,
-		Action:    action,
-		Data:      data,
-		Operation: operation,
-		Key:       key,
-		commander: c.commander,
-	}
-
-	return event
-}
 
 // Commander create a new commander instance
 type Commander struct {
@@ -186,8 +163,8 @@ func (c *Commander) Consume(topic string) *Consumer {
 	return consumer
 }
 
-// Handle call the callback function if the given command is received
-func (c *Commander) Handle(action string, callback CommandCallback) {
+// HandleCommand call the callback function if the given command is received
+func (c *Commander) HandleCommand(action string, callback CommandCallback) {
 	consumer := c.Consume(CommandsTopic)
 
 	go func() {
@@ -198,26 +175,37 @@ func (c *Commander) Handle(action string, callback CommandCallback) {
 				commander: c,
 			}
 
-			// Collect the header values
-			for _, header := range msg.Headers {
-				if header.Key == "action" {
-					command.Action = string(header.Value)
-				}
+			err := command.Populate(msg)
+
+			if err != nil {
+				continue
 			}
 
 			if action != command.Action {
 				continue
 			}
 
-			id, err := uuid.FromBytes(msg.Key)
+			callback(&command)
+		}
+	}()
+}
+
+// HandleEvent call the callback function if a event is received
+func (c *Commander) HandleEvent(callback EventCallback) {
+	consumer := c.Consume(EventsTopic)
+
+	go func() {
+		defer consumer.Close()
+
+		for msg := range consumer.Messages {
+			event := Event{}
+			err := event.Populate(msg)
 
 			if err != nil {
 				continue
 			}
 
-			command.ID = id
-			command.Data = msg.Value
-			callback(&command)
+			callback(&event)
 		}
 	}()
 }

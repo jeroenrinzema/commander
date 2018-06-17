@@ -15,6 +15,13 @@ type CommandCallback func(command *Command)
 
 const (
 	timeout = 5 * time.Second
+
+	// OperationHeader ...
+	OperationHeader = "operation"
+	// ParentHeader ...
+	ParentHeader = "parent"
+	// ActionHeader ...
+	ActionHeader = "action"
 )
 
 var (
@@ -23,20 +30,6 @@ var (
 	// EventsTopic the kafka events topic
 	EventsTopic = "events"
 )
-
-// Event ...
-type Event struct {
-	Parent    uuid.UUID       `json:"parent"`
-	ID        uuid.UUID       `json:"id"`
-	Action    string          `json:"action"`
-	Data      json.RawMessage `json:"data"`
-	commander *Commander
-}
-
-// Produce the created event
-func (e *Event) Produce() {
-	e.commander.ProduceEvent(e)
-}
 
 // Command ...
 type Command struct {
@@ -47,14 +40,16 @@ type Command struct {
 }
 
 // NewEvent create a new command with the given action and data
-func (c *Command) NewEvent(action string, key uuid.UUID, data []byte) Event {
-	id, _ := uuid.NewV4()
+func (c *Command) NewEvent(action string, operation string, key uuid.UUID, data []byte) Event {
+	id := uuid.NewV4()
 
 	event := Event{
 		Parent:    c.ID,
 		ID:        id,
 		Action:    action,
 		Data:      data,
+		Operation: operation,
+		Key:       key,
 		commander: c.commander,
 	}
 
@@ -130,11 +125,11 @@ syncEvent:
 		case msg := <-consumer.Messages:
 			// Collect the header values
 			for _, header := range msg.Headers {
-				if header.Key == "action" {
+				if header.Key == ActionHeader {
 					event.Action = string(header.Value)
 				}
 
-				if header.Key == "parent" {
+				if header.Key == ParentHeader {
 					parent, err := uuid.FromBytes(header.Value)
 
 					if err != nil {
@@ -142,6 +137,10 @@ syncEvent:
 					}
 
 					event.Parent = parent
+				}
+
+				if header.Key == OperationHeader {
+					event.Operation = string(header.Value)
 				}
 			}
 
@@ -169,18 +168,27 @@ syncEvent:
 
 // ProduceEvent produce a new event to the events topic
 func (c *Commander) ProduceEvent(event *Event) error {
+	key := event.ID.Bytes()
+	if event.Key.Version() > 0 {
+		key = event.Key.Bytes()
+	}
+
 	message := &kafka.Message{
 		Headers: []kafka.Header{
 			kafka.Header{
-				Key:   "action",
+				Key:   ActionHeader,
 				Value: []byte(event.Action),
 			},
 			kafka.Header{
-				Key:   "parent",
+				Key:   ParentHeader,
 				Value: event.Parent.Bytes(),
 			},
+			kafka.Header{
+				Key:   OperationHeader,
+				Value: []byte(event.Operation),
+			},
 		},
-		Key:            event.ID.Bytes(),
+		Key:            key,
 		TopicPartition: kafka.TopicPartition{Topic: &EventsTopic},
 		Value:          event.Data,
 	}
@@ -264,7 +272,7 @@ func (c *Commander) Close() {
 
 // NewCommand create a new command with the given action and data
 func NewCommand(action string, data []byte) Command {
-	id, _ := uuid.NewV4()
+	id := uuid.NewV4()
 
 	command := Command{
 		ID:     id,

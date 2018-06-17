@@ -13,8 +13,8 @@ import (
 
 func main() {
 	server := newCommander()
-	server.Handle("create", createAccount)
-	server.Handle("delete", deleteAccount)
+	server.HandleCommand("create", createAccount)
+	server.HandleCommand("delete", deleteAccount)
 	server.ReadMessages()
 }
 

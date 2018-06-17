@@ -34,16 +34,16 @@ services:
     environment:
       KAFKA_HOST: kafka:9092
       KAFKA_GROUP: users
-  webservice:
+  command:
     depends_on:
       - kafka
     build:
-      context: webservice
+      context: command
     ports:
       - "8080:8080"
     environment:
       KAFKA_HOST: kafka:9092
-      KAFKA_GROUP: webservice
+      KAFKA_GROUP: command
   materializer:
     depends_on:
       - kafka

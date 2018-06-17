@@ -11,7 +11,7 @@
   branch = "master"
   name = "github.com/jeroenrinzema/commander"
   packages = ["."]
-  revision = "6efa3bb95873b4de6f40f9722169a2924c761fa3"
+  revision = "0ac76f8a0d47d3027c0bd3d2592a19edc4238249"
 
 [[projects]]
   name = "github.com/jinzhu/gorm"

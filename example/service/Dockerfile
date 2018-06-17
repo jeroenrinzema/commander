@@ -15,7 +15,8 @@ RUN apk update && \
     apk add librdkafka-dev=${LIBRDKAFKA_VERSION} --update-cache --repository http://nl.alpinelinux.org/alpine/edge/community && \
     apk add git openssh openssl yajl-dev zlib-dev cyrus-sasl-dev openssl-dev build-base coreutils
 
-RUN go get -d -v .
+RUN go get -u github.com/golang/dep/cmd/dep
+RUN dep ensure
 RUN go build -o build .
 
 # Final

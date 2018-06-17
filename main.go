@@ -144,6 +144,16 @@ syncEvent:
 				if header.Key == OperationHeader {
 					event.Operation = string(header.Value)
 				}
+
+				if header.Key == KeyHeader {
+					key, err := uuid.FromBytes(header.Value)
+
+					if err != nil {
+						continue syncEvent
+					}
+
+					event.Key = key
+				}
 			}
 
 			if event.Parent != command.ID {

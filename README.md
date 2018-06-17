@@ -2,6 +2,8 @@
 
 Commander is a pattern for writing distributed applications using ideas from CQRS and Event Sourcing using Kafka as transportation layer.
 
+> 🚧 This project is currently under active development
+
 ## Overview
 - **High performing** - Commander uses Kafka a distributed, fault-tolerant and wicket fast streaming platform as it's transportation layer
 - **Encryption** - All stored events can be easily encrypted and decrypted

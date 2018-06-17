@@ -125,49 +125,15 @@ syncEvent:
 	for {
 		select {
 		case msg := <-consumer.Messages:
-			// Collect the header values
-			for _, header := range msg.Headers {
-				if header.Key == ActionHeader {
-					event.Action = string(header.Value)
-				}
+			err := event.Populate(msg)
 
-				if header.Key == ParentHeader {
-					parent, err := uuid.FromBytes(header.Value)
-
-					if err != nil {
-						continue syncEvent
-					}
-
-					event.Parent = parent
-				}
-
-				if header.Key == OperationHeader {
-					event.Operation = string(header.Value)
-				}
-
-				if header.Key == KeyHeader {
-					key, err := uuid.FromBytes(header.Value)
-
-					if err != nil {
-						continue syncEvent
-					}
-
-					event.Key = key
-				}
+			if err != nil {
+				continue syncEvent
 			}
 
 			if event.Parent != command.ID {
 				continue
 			}
-
-			id, err := uuid.FromBytes(msg.Key)
-
-			if err != nil {
-				continue
-			}
-
-			event.ID = id
-			event.Data = msg.Value
 
 			return event, nil
 		case <-ctx.Done():

@@ -41,16 +41,16 @@
   version = "v1.2.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/jeroenrinzema/commander"
-  packages = ["."]
-  revision = "9ed7e24acb143e66124180e13ff490c85d564c8a"
-
-[[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
   revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
   version = "v1.2.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/sysco-middleware/commander"
+  packages = ["."]
+  revision = "9aee8d373d686e45b4e113fdfa3949e455cce888"
 
 [[projects]]
   name = "gopkg.in/go-playground/validator.v9"
@@ -61,6 +61,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9634e058058ca7390f42c29ec975512014e3f0051be48bbd25c9fc664683f517"
+  inputs-digest = "775c28011cfac3866300191bd003c1c22477800c8ff98ac71f537ecffb2b3741"
   solver-name = "gps-cdcl"
   solver-version = 1

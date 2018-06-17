@@ -8,20 +8,20 @@
   version = "v0.11.4"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/jeroenrinzema/commander"
-  packages = ["."]
-  revision = "5866dde8cafd51f6bf164b748f7f2b02ec663712"
-
-[[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
   revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
   version = "v1.2.0"
 
+[[projects]]
+  branch = "master"
+  name = "github.com/sysco-middleware/commander"
+  packages = ["."]
+  revision = "9aee8d373d686e45b4e113fdfa3949e455cce888"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e48ddcb8f3d61c3557675a1844ec06bceb9400a7440bec7f3f232667cdce5325"
+  inputs-digest = "588a03ac9fe48c5b32d96e41fdec9e85bc32fb014b09b6055c328a9dbe9c0973"
   solver-name = "gps-cdcl"
   solver-version = 1

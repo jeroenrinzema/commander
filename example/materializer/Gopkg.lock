@@ -8,12 +8,6 @@
   version = "v0.11.4"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/jeroenrinzema/commander"
-  packages = ["."]
-  revision = "0ac76f8a0d47d3027c0bd3d2592a19edc4238249"
-
-[[projects]]
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
@@ -44,9 +38,15 @@
   revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
   version = "v1.2.0"
 
+[[projects]]
+  branch = "master"
+  name = "github.com/sysco-middleware/commander"
+  packages = ["."]
+  revision = "9aee8d373d686e45b4e113fdfa3949e455cce888"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2ddad2bb6dda38bb916b38ad5a24c2d48c70c56112d385c17d136d6f1ebcb258"
+  inputs-digest = "aa5cf0305ab61f87c0f77033e24fce976315dc2ac75156450be1adf2b140c3d6"
   solver-name = "gps-cdcl"
   solver-version = 1

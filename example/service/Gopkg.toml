@@ -26,12 +26,12 @@
 
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/jeroenrinzema/commander"
-
-[[constraint]]
   name = "github.com/satori/go.uuid"
   version = "1.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/sysco-middleware/commander"
 
 [prune]
   go-tests = true

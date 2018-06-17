@@ -11,7 +11,7 @@ Commander is a pattern for writing distributed applications using ideas from CQR
 
 ## Getting started
 
-To get started quickly download/clone the [boilerplate project](https://github.com/sysco-middleware/commander-boilerplate/wiki).
+To get started quickly download/clone the [boilerplate project](https://github.com/sysco-middleware/commander-boilerplate).
 
 Every group has a command, query, materialise and logic service. The command and query services can easily be included in your project via docker images. But if required can you fork the services and modify them to your needs. Every group is responsible for a single dataset.
 

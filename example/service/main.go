@@ -1,22 +1,83 @@
 package main
 
 import (
-	"github.com/spf13/viper"
-	"github.com/sysco-middleware/commander/example/service/commands"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	uuid "github.com/satori/go.uuid"
+	"github.com/sysco-middleware/commander"
 )
 
 func main() {
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./config")
-	viper.SetConfigName("default")
+	server := newCommander()
+	server.HandleCommand("create", createAccount)
+	server.HandleCommand("delete", deleteAccount)
+	server.ReadMessages()
+}
 
-	err := viper.ReadInConfig()
-
-	if err != nil {
-		panic(err)
+func deleteAccount(command *commander.Command) {
+	type payload struct {
+		User string `json:"user"`
 	}
 
-	server := commands.NewCommander()
-	server.Handle("create", commands.Create)
-	server.ReadMessages()
+	data := &payload{}
+	ParseErr := json.Unmarshal(command.Data, data)
+
+	if ParseErr != nil {
+		panic(ParseErr)
+	}
+
+	id, UUUIDErr := uuid.FromString(data.User)
+
+	if UUUIDErr != nil {
+		panic(UUUIDErr)
+	}
+
+	event := command.NewEvent("deleted", commander.DeleteOperation, id, nil)
+	event.Produce()
+}
+
+func createAccount(command *commander.Command) {
+	type user struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	}
+
+	data := &user{}
+	err := json.Unmarshal(command.Data, data)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	res, _ := json.Marshal(data)
+	id := uuid.NewV4()
+
+	event := command.NewEvent("created", commander.CreateOperation, id, res)
+	event.Produce()
+}
+
+func newCommander() *commander.Commander {
+	host := os.Getenv("KAFKA_HOST")
+	group := os.Getenv("KAFKA_GROUP")
+
+	instance := &commander.Commander{
+		Producer: commander.NewProducer(host),
+		Consumer: commander.NewConsumer(host, group),
+	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		instance.Close()
+		os.Exit(0)
+	}()
+
+	return instance
 }

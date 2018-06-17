@@ -5,7 +5,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/spf13/viper"
 	"github.com/sysco-middleware/commander"
 )
 
@@ -14,8 +13,8 @@ var Commander *commander.Commander
 
 // NewCommander create a new commander and store it in the Commander variable
 func NewCommander() *commander.Commander {
-	host := viper.GetString("kafka.host")
-	group := viper.GetString("kafka.group")
+	host := os.Getenv("KAFKA_HOST")
+	group := os.Getenv("KAFKA_GROUP")
 
 	Commander = &commander.Commander{
 		Producer: commander.NewProducer(host),

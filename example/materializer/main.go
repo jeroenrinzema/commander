@@ -1,21 +1,28 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/jeroenrinzema/commander"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
+	uuid "github.com/satori/go.uuid"
 )
 
 // User gorm database table struct
 type User struct {
-	gorm.Model
-	Username string `json:"username"`
-	Email    string `json:"email"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
+	ID        uuid.UUID `json:"id",gorm:"primary_key"`
+	Username  *string   `json:"username"`
+	Email     *string   `json:"email"`
 }
 
 // TableName table name of User
@@ -42,16 +49,44 @@ func main() {
 	}()
 
 	for {
-		msg, err := consumer.ReadMessage(-1)
+		msg, ReadErr := consumer.ReadMessage(-1)
 
-		if err != nil {
-			panic(err)
+		if ReadErr != nil {
+			panic(ReadErr)
 		}
 
-		fmt.Println(msg)
-		fmt.Println(msg.Headers)
-		fmt.Println(string(msg.Key))
-		fmt.Println(string(msg.Value))
+		event := commander.Event{}
+		PopulateErr := event.Populate(msg)
+
+		if PopulateErr != nil {
+			panic(PopulateErr)
+		}
+
+		switch event.Operation {
+		case commander.CreateOperation:
+			data := User{}
+			ParseErr := json.Unmarshal(event.Data, &data)
+
+			if ParseErr != nil {
+				panic(ParseErr)
+			}
+
+			data.ID = event.Key
+			db.Create(&data)
+		case commander.UpdateOperation:
+			data := new(map[string]interface{})
+			ParseErr := json.Unmarshal(event.Data, &data)
+
+			if ParseErr != nil {
+				panic(ParseErr)
+			}
+
+			user := User{ID: event.Key}
+			db.Model(&user).Updates(data)
+		case commander.DeleteOperation:
+			user := User{ID: event.Key}
+			db.Delete(&user)
+		}
 	}
 }
 

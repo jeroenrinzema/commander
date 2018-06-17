@@ -14,27 +14,29 @@ import (
 func main() {
 	server := newCommander()
 	server.Handle("create", createAccount)
+	server.Handle("delete", deleteAccount)
 	server.ReadMessages()
 }
 
 func deleteAccount(command *commander.Command) {
-	type user struct {
-		Username string `json:"username"`
-		Email    string `json:"email"`
+	type payload struct {
+		User string `json:"user"`
 	}
 
-	data := &user{}
-	err := json.Unmarshal(command.Data, data)
+	data := &payload{}
+	ParseErr := json.Unmarshal(command.Data, data)
 
-	if err != nil {
-		fmt.Println(err)
-		return
+	if ParseErr != nil {
+		panic(ParseErr)
 	}
 
-	res, _ := json.Marshal(data)
-	id, _ := uuid.NewV4()
+	id, UUUIDErr := uuid.FromString(data.User)
 
-	event := command.NewEvent("deleted", id, res)
+	if UUUIDErr != nil {
+		panic(UUUIDErr)
+	}
+
+	event := command.NewEvent("deleted", commander.DeleteOperation, id, nil)
 	event.Produce()
 }
 
@@ -53,9 +55,9 @@ func createAccount(command *commander.Command) {
 	}
 
 	res, _ := json.Marshal(data)
-	id, _ := uuid.NewV4()
+	id := uuid.NewV4()
 
-	event := command.NewEvent("created", id, res)
+	event := command.NewEvent("created", commander.CreateOperation, id, res)
 	event.Produce()
 }
 

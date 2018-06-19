@@ -3,6 +3,9 @@ package commander
 import (
 	"context"
 	"errors"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -233,6 +236,16 @@ func (c *Commander) ReadMessages() {
 func (c *Commander) Close() {
 	c.Consumer.Close()
 	c.Producer.Close()
+}
+
+// CloseOnSIGTERM close this commander instance once a SIGTERM signal is send
+func (c *Commander) CloseOnSIGTERM() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sigs
+	c.Close()
+	os.Exit(0)
 }
 
 // NewCommand create a new command with the given action and data

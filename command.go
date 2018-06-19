@@ -7,7 +7,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-// Command ...
+// Command a event sourcing command stored in the command topic
+// a command contains order for a data change
 type Command struct {
 	ID        uuid.UUID       `json:"id"`
 	Action    string          `json:"action"`
@@ -32,7 +33,7 @@ func (c *Command) NewEvent(action string, operation string, key uuid.UUID, data 
 	return event
 }
 
-// Populate ...
+// Populate populate the command with the data from a kafka message
 func (c *Command) Populate(msg *kafka.Message) error {
 	for _, header := range msg.Headers {
 		if header.Key == "action" {

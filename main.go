@@ -21,13 +21,13 @@ type EventCallback func(event *Event)
 const (
 	timeout = 5 * time.Second
 
-	// OperationHeader ...
+	// OperationHeader kafka message operation header
 	OperationHeader = "operation"
-	// ParentHeader ...
+	// ParentHeader kafka message parent header
 	ParentHeader = "parent"
-	// ActionHeader ...
+	// ActionHeader kafka message action header
 	ActionHeader = "action"
-	// KeyHeader ...
+	// KeyHeader kafka message key header
 	KeyHeader = "key"
 )
 

@@ -15,14 +15,15 @@ func SubscribeTopics(commander *Commander) {
 	commander.Consumer.SubscribeTopics(topics, nil)
 }
 
-// Consumer ...
+// Consumer this consumer consumes messages from a
+// kafka topic. A channel is opened to receive kafka messages
 type Consumer struct {
 	Commander *Commander
 	Topic     string
 	Messages  chan *kafka.Message
 }
 
-// Read ...
+// Read start reading/awaiting messages from the assigned kafka topic
 func (c *Consumer) Read() {
 	consumers = append(consumers, c)
 
@@ -37,7 +38,7 @@ func (c *Consumer) Read() {
 	SubscribeTopics(c.Commander)
 }
 
-// Close ...
+// Close stop reading/awaiting messages and remove the consumer from the list
 func (c *Consumer) Close() {
 	close(c.Messages)
 

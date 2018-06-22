@@ -1,9 +1,8 @@
-package main
+package commander
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -265,34 +264,4 @@ func NewCommand(action string, data []byte) *Command {
 	}
 
 	return &command
-}
-
-func main() {
-	producer := NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": "kafka:9092",
-	})
-
-	consumer := NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers":        "kafka:9092",
-		"group.id":                 "commander",
-		"go.events.channel.enable": true,
-		"default.topic.config":     kafka.ConfigMap{"auto.offset.reset": "earliest"},
-	})
-
-	commander := Commander{
-		Consumer: consumer,
-		Producer: producer,
-	}
-
-	go func() {
-		commands, _ := commander.NewCommandConsumer()
-		command := <-commands
-
-		fmt.Println("consuming command:", command)
-	}()
-
-	command := NewCommand("example", []byte("message"))
-	_ = commander.AsyncCommand(command)
-
-	commander.CloseOnSIGTERM()
 }

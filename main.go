@@ -25,9 +25,9 @@ var (
 	// Timeout is the time that a sync command maximum can take
 	Timeout = 5 * time.Second
 	// CommandTopic this value is used to mark a topic for command consumption
-	CommandTopic = "command"
+	CommandTopic = "commanding"
 	// EventTopic this value is used to mark a topic for event consumption
-	EventTopic = "event"
+	EventTopic = "events"
 )
 
 // Commander is a struct that contains all required methods
@@ -244,6 +244,9 @@ func NewProducer(conf *kafka.ConfigMap) *kafka.Producer {
 
 // NewConsumer creates a kafka consumer but panics if something goes wrong
 func NewConsumer(conf *kafka.ConfigMap) *kafka.Consumer {
+	conf.SetKey("go.events.channel.enable", true)
+	conf.SetKey("go.application.rebalance.enable", true)
+
 	consumer, err := kafka.NewConsumer(conf)
 
 	if err != nil {

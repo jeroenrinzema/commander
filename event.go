@@ -7,37 +7,20 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-const (
-	// CreateOperation event create operation
-	CreateOperation = "create"
-	// UpdateOperation event update operation
-	UpdateOperation = "update"
-	// DeleteOperation event delete operation
-	DeleteOperation = "delete"
-)
-
-// Event a event sourcing event stored in the event topic
-// a event contains a data change
+// Event is produced as the result from a command
 type Event struct {
-	Parent    uuid.UUID       `json:"parent"`
-	ID        uuid.UUID       `json:"id"`
-	Action    string          `json:"action"`
-	Data      json.RawMessage `json:"data"`
-	Operation string          `json:"operation"`
-	Key       uuid.UUID       `json:"key"`
-	commander *Commander
+	Parent uuid.UUID       `json:"parent"`
+	ID     uuid.UUID       `json:"id"`
+	Action string          `json:"action"`
+	Data   json.RawMessage `json:"data"`
+	Key    uuid.UUID       `json:"key"`
 }
 
-// Produce the created event
-func (e *Event) Produce() {
-	e.commander.ProduceEvent(e)
-}
-
-// Populate populate the event with the data from a kafka message
-func (e *Event) Populate(msg *kafka.Message) error {
-	for _, header := range msg.Headers {
+// Populate the event with the data from the given kafka message
+func (event *Event) Populate(message *kafka.Message) error {
+	for _, header := range message.Headers {
 		if header.Key == ActionHeader {
-			e.Action = string(header.Value)
+			event.Action = string(header.Value)
 		}
 
 		if header.Key == ParentHeader {
@@ -47,11 +30,7 @@ func (e *Event) Populate(msg *kafka.Message) error {
 				return err
 			}
 
-			e.Parent = parent
-		}
-
-		if header.Key == OperationHeader {
-			e.Operation = string(header.Value)
+			event.Parent = parent
 		}
 
 		if header.Key == KeyHeader {
@@ -61,18 +40,18 @@ func (e *Event) Populate(msg *kafka.Message) error {
 				return err
 			}
 
-			e.Key = key
+			event.Key = key
 		}
 	}
 
-	id, err := uuid.FromBytes(msg.Key)
+	id, err := uuid.FromBytes(message.Key)
 
 	if err != nil {
 		return err
 	}
 
-	e.ID = id
-	e.Data = msg.Value
+	event.ID = id
+	event.Data = message.Value
 
 	return nil
 }

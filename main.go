@@ -90,10 +90,11 @@ func (commander *Commander) NewEventConsumer() (chan *Event, chan bool) {
 	events, close := commander.Subscribe(EventTopic)
 
 	go func() {
+	consumer:
 		for {
 			select {
 			case <-close:
-				break
+				break consumer
 			case e := <-events:
 				switch message := e.(type) {
 				case *kafka.Message:
@@ -116,10 +117,11 @@ func (commander *Commander) NewCommandConsumer() (chan *Command, chan bool) {
 	events, close := commander.Subscribe(CommandTopic)
 
 	go func() {
+	consumer:
 		for {
 			select {
 			case <-close:
-				break
+				break consumer
 			case e := <-events:
 				switch message := e.(type) {
 				case *kafka.Message:
@@ -142,10 +144,11 @@ func (commander *Commander) NewCommandHandle(action string) (chan *Command, chan
 	events, close := commander.Subscribe(CommandTopic)
 
 	go func() {
+	consumer:
 		for {
 			select {
 			case <-close:
-				break
+				break consumer
 			case e := <-events:
 				switch message := e.(type) {
 				case *kafka.Message:

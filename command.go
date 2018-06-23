@@ -31,7 +31,7 @@ func (command *Command) NewEvent(action string, key uuid.UUID, data []byte) Even
 // Populate populate the command with the data from a kafka message
 func (command *Command) Populate(msg *kafka.Message) error {
 	for _, header := range msg.Headers {
-		if header.Key == "action" {
+		if header.Key == ActionHeader {
 			command.Action = string(header.Value)
 		}
 	}

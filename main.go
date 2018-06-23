@@ -82,10 +82,10 @@ func (commander *Commander) Subscribe(topic string) (chan kafka.Event, chan bool
 	return messages, done
 }
 
-// NewEventConsumer starts consuming the events from the events topic.
+// NewEventsConsumer starts consuming the events from the events topic.
 // The default events topic is "events", the used topic can be configured during initialization.
 // All received messages are send over the "Event" channel.
-func (commander *Commander) NewEventConsumer() (chan *Event, chan bool) {
+func (commander *Commander) NewEventsConsumer() (chan *Event, chan bool) {
 	channel := make(chan *Event)
 	events, close := commander.Subscribe(EventTopic)
 
@@ -109,10 +109,10 @@ func (commander *Commander) NewEventConsumer() (chan *Event, chan bool) {
 	return channel, close
 }
 
-// NewCommandConsumer starts consuming commands from the commands topic.
+// NewCommandsConsumer starts consuming commands from the commands topic.
 // The default commands topic is "commands", the used topic can be configured during initialization.
 // All received messages are send over the "commands" channel.
-func (commander *Commander) NewCommandConsumer() (chan *Command, chan bool) {
+func (commander *Commander) NewCommandsConsumer() (chan *Command, chan bool) {
 	commands := make(chan *Command)
 	events, close := commander.Subscribe(CommandTopic)
 
@@ -136,10 +136,10 @@ func (commander *Commander) NewCommandConsumer() (chan *Command, chan bool) {
 	return commands, close
 }
 
-// NewCommandHandle starts consuming commands with the given action from the commands topic.
+// NewCommandConsumer starts consuming commands with the given action from the commands topic.
 // The default commands topic is "commands", the used topic can be configured during initialization.
 // All received messages are send over the "commands" channel.
-func (commander *Commander) NewCommandHandle(action string) (chan *Command, chan bool) {
+func (commander *Commander) NewCommandConsumer(action string) (chan *Command, chan bool) {
 	commands := make(chan *Command)
 	events, close := commander.Subscribe(CommandTopic)
 
@@ -207,6 +207,11 @@ func (commander *Commander) Produce(message *kafka.Message) error {
 // AsyncCommand produces a new command but does not wait on the resulting event.
 // A async command is usefull for when you are not interested in the result or the command takes too long to wait for.
 func (commander *Commander) AsyncCommand(command *Command) error {
+	return commander.ProduceCommand(command)
+}
+
+// ProduceCommand produces a new command message to the defined commands topic
+func (commander *Commander) ProduceCommand(command *Command) error {
 	message := kafka.Message{
 		Headers: []kafka.Header{
 			kafka.Header{
@@ -222,6 +227,31 @@ func (commander *Commander) AsyncCommand(command *Command) error {
 	return commander.Produce(&message)
 }
 
+// ProduceEvent produces a new event message to the defined events topic
+func (commander *Commander) ProduceEvent(event *Event) error {
+	message := &kafka.Message{
+		Headers: []kafka.Header{
+			kafka.Header{
+				Key:   ActionHeader,
+				Value: []byte(event.Action),
+			},
+			kafka.Header{
+				Key:   ParentHeader,
+				Value: event.Parent.Bytes(),
+			},
+			kafka.Header{
+				Key:   KeyHeader,
+				Value: event.Key.Bytes(),
+			},
+		},
+		Key:            event.ID.Bytes(),
+		TopicPartition: kafka.TopicPartition{Topic: &EventTopic},
+		Value:          event.Data,
+	}
+
+	return commander.Produce(message)
+}
+
 // SyncCommand produces a new command and waits for the resulting event.
 func (commander *Commander) SyncCommand(command *Command) (*Event, error) {
 	err := commander.AsyncCommand(command)
@@ -230,7 +260,7 @@ func (commander *Commander) SyncCommand(command *Command) (*Event, error) {
 		return nil, err
 	}
 
-	events, close := commander.NewEventConsumer()
+	events, close := commander.NewEventsConsumer()
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
 
 	defer func() { close <- true }()

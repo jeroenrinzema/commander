@@ -108,11 +108,11 @@ func (commander *Commander) NewEventConsumer() (chan *Event, chan bool) {
 	return channel, close
 }
 
-// NewCommandConsumer starts consuming the commands from the commands topic.
+// NewCommandConsumer starts consuming commands from the commands topic.
 // The default commands topic is "commands", the used topic can be configured during initialization.
-// All received messages are send over the "Command" channel.
+// All received messages are send over the "commands" channel.
 func (commander *Commander) NewCommandConsumer() (chan *Command, chan bool) {
-	channel := make(chan *Command)
+	commands := make(chan *Command)
 	events, close := commander.Subscribe(CommandTopic)
 
 	go func() {
@@ -125,13 +125,50 @@ func (commander *Commander) NewCommandConsumer() (chan *Command, chan bool) {
 				case *kafka.Message:
 					command := Command{}
 					command.Populate(message)
-					channel <- &command
+					commands <- &command
 				}
 			}
 		}
 	}()
 
-	return channel, close
+	return commands, close
+}
+
+// NewCommandHandle starts consuming commands with the given action from the commands topic.
+// The default commands topic is "commands", the used topic can be configured during initialization.
+// All received messages are send over the "commands" channel.
+func (commander *Commander) NewCommandHandle(action string) (chan *Command, chan bool) {
+	commands := make(chan *Command)
+	events, close := commander.Subscribe(CommandTopic)
+
+	go func() {
+		for {
+			select {
+			case <-close:
+				break
+			case e := <-events:
+				switch message := e.(type) {
+				case *kafka.Message:
+					match := false
+					for _, header := range message.Headers {
+						if header.Key == ActionHeader && string(header.Value) == action {
+							match = true
+						}
+					}
+
+					if !match {
+						continue
+					}
+
+					command := Command{}
+					command.Populate(message)
+					commands <- &command
+				}
+			}
+		}
+	}()
+
+	return commands, close
 }
 
 // Produce a new kafka message

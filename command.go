@@ -7,37 +7,32 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-// Command a event sourcing command stored in the command topic
-// a command contains order for a data change
+// Command a command contains a order for a data change
 type Command struct {
-	ID        uuid.UUID       `json:"id"`
-	Action    string          `json:"action"`
-	Data      json.RawMessage `json:"data"`
-	commander *Commander
+	ID     uuid.UUID       `json:"id"`
+	Action string          `json:"action"`
+	Data   json.RawMessage `json:"data"`
 }
 
-// NewEvent create a new command with the given action and data
-func (c *Command) NewEvent(action string, operation string, key uuid.UUID, data []byte) Event {
+// NewEvent create a new event as a respond to the command
+func (command *Command) NewEvent(action string, key uuid.UUID, data []byte) Event {
 	id := uuid.NewV4()
-
 	event := Event{
-		Parent:    c.ID,
-		ID:        id,
-		Action:    action,
-		Data:      data,
-		Operation: operation,
-		Key:       key,
-		commander: c.commander,
+		Parent: command.ID,
+		ID:     id,
+		Action: action,
+		Data:   data,
+		Key:    key,
 	}
 
 	return event
 }
 
 // Populate populate the command with the data from a kafka message
-func (c *Command) Populate(msg *kafka.Message) error {
+func (command *Command) Populate(msg *kafka.Message) error {
 	for _, header := range msg.Headers {
-		if header.Key == "action" {
-			c.Action = string(header.Value)
+		if header.Key == ActionHeader {
+			command.Action = string(header.Value)
 		}
 	}
 
@@ -47,8 +42,8 @@ func (c *Command) Populate(msg *kafka.Message) error {
 		return err
 	}
 
-	c.ID = id
-	c.Data = msg.Value
+	command.ID = id
+	command.Data = msg.Value
 
 	return nil
 }

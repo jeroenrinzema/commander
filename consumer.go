@@ -1,50 +1,35 @@
 package commander
 
-import (
-	"fmt"
-
-	"github.com/confluentinc/confluent-kafka-go/kafka"
-)
-
-var topics = []string{}
-var consumers = []*Consumer{}
-
-// SubscribeTopics subscribe to the stored topics
-func SubscribeTopics(commander *Commander) {
-	fmt.Println("Subscribing to topics:", topics)
-	commander.Consumer.SubscribeTopics(topics, nil)
-}
+import "github.com/confluentinc/confluent-kafka-go/kafka"
 
 // Consumer this consumer consumes messages from a
 // kafka topic. A channel is opened to receive kafka messages
 type Consumer struct {
-	Commander *Commander
-	Topic     string
-	Messages  chan *kafka.Message
+	Topic  string
+	Events chan kafka.Event
+
+	closing   chan bool
+	commander *Commander
 }
 
-// Read start reading/awaiting messages from the assigned kafka topic
-func (c *Consumer) Read() {
-	consumers = append(consumers, c)
-
-	// Add consumer topic to topic slice if not exists
-	for _, topic := range topics {
-		if topic == c.Topic {
-			return
-		}
+// Close closes and removes the consumer from the commander instance
+func (consumer *Consumer) Close() {
+	if consumer.closing != nil {
+		close(consumer.closing)
 	}
 
-	topics = append(topics, c.Topic)
-	SubscribeTopics(c.Commander)
+	for index, con := range consumer.commander.consumers {
+		if con == consumer {
+			consumer.commander.consumers = append(consumer.commander.consumers[:index], consumer.commander.consumers[index+1:]...)
+		}
+	}
 }
 
-// Close stop reading/awaiting messages and remove the consumer from the list
-func (c *Consumer) Close() {
-	close(c.Messages)
-
-	for index, consumer := range consumers {
-		if c == consumer {
-			consumers = append(consumers[:index], consumers[index+1:]...)
-		}
+// BeforeClosing creates a new channel that gets called before the consumer gets closed
+func (consumer *Consumer) BeforeClosing() chan bool {
+	if consumer.closing == nil {
+		consumer.closing = make(chan bool)
 	}
+
+	return consumer.closing
 }

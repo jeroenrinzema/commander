@@ -57,6 +57,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/juju/loggo"
+  packages = ["."]
+  revision = "584905176618da46b895b176c721b02c476b6993"
+
+[[projects]]
+  branch = "master"
   name = "github.com/lib/pq"
   packages = [
     ".",
@@ -72,6 +78,16 @@
   version = "v1.2.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/sysco-middleware/commander-boilerplate"
+  packages = [
+    "command/hub",
+    "command/hub/rest",
+    "command/hub/websocket"
+  ]
+  revision = "eb51a94d54225012471e29b2255daa7223df4745"
+
+[[projects]]
   name = "gopkg.in/go-playground/validator.v9"
   packages = ["."]
   revision = "f28cb45dc0f0f406ba2015cdb59a5203ad220bc2"
@@ -80,6 +96,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e1fa343f8e273f086899b77f90c4beda902678e45dc16f8fa0c3e254f24fa56c"
+  inputs-digest = "59e899aa042175deaa2b0fc2b7cc4ef6993c82793d73198a0db8c599189c34e6"
   solver-name = "gps-cdcl"
   solver-version = 1

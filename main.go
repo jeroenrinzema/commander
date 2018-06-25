@@ -112,65 +112,68 @@ func (commander *Commander) RegisterTopic(topic string) {
 // The default events topic is "events", the used topic can be configured during initialization.
 // All received messages are send over the "Event" channel.
 func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
-	channel := make(chan *Event)
+	sink := make(chan *Event)
 	consumer := commander.Consume(EventTopic)
 
 	go func() {
 		for {
 			select {
 			case <-consumer.BeforeClosing():
+				close(sink)
 				return
 			case event := <-consumer.Events:
 				switch message := event.(type) {
 				case *kafka.Message:
 					event := Event{}
 					event.Populate(message)
-					channel <- &event
+					sink <- &event
 				}
 			}
 		}
 	}()
 
-	return channel, consumer.Close
+	return sink, consumer.Close
 }
 
 // NewCommandsConsumer starts consuming commands from the commands topic.
 // The default commands topic is "commands", the used topic can be configured during initialization.
 // All received messages are send over the "commands" channel.
 func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
-	commands := make(chan *Command)
+	sink := make(chan *Command)
 	consumer := commander.Consume(CommandTopic)
 
 	go func() {
 		for {
 			select {
 			case <-consumer.BeforeClosing():
+				close(sink)
 				return
 			case event := <-consumer.Events:
 				switch message := event.(type) {
 				case *kafka.Message:
 					command := Command{}
 					command.Populate(message)
-					commands <- &command
+					sink <- &command
 				}
 			}
 		}
 	}()
 
-	return commands, consumer.Close
+	return sink, consumer.Close
 }
 
 // NewCommandConsumer starts consuming commands with the given action from the commands topic.
 // The default commands topic is "commands", the used topic can be configured during initialization.
 // All received messages are send over the "commands" channel.
 func (commander *Commander) NewCommandConsumer(action string) (chan *Command, func()) {
-	commands := make(chan *Command)
+	sink := make(chan *Command)
 	consumer := commander.Consume(CommandTopic)
 
 	go func() {
 		for {
 			select {
 			case <-consumer.BeforeClosing():
+				close(sink)
 				return
 			case event := <-consumer.Events:
 				switch message := event.(type) {
@@ -188,13 +191,13 @@ func (commander *Commander) NewCommandConsumer(action string) (chan *Command, fu
 
 					command := Command{}
 					command.Populate(message)
-					commands <- &command
+					sink <- &command
 				}
 			}
 		}
 	}()
 
-	return commands, consumer.Close
+	return sink, consumer.Close
 }
 
 // Produce a new kafka message
@@ -258,10 +261,10 @@ func (commander *Commander) SyncCommand(command *Command) (*Event, error) {
 		return nil, err
 	}
 
-	events, close := commander.NewEventsConsumer()
+	events, stop := commander.NewEventsConsumer()
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
 
-	defer close()
+	defer stop()
 	defer cancel()
 
 	// Wait for event to return

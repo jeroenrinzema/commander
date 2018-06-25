@@ -200,6 +200,24 @@ func (commander *Commander) NewCommandConsumer(action string) (chan *Command, fu
 	return sink, consumer.Close
 }
 
+// CommandHandle is a callback function that is called upon a action command
+type CommandHandle func(*Command)
+
+// NewCommandHandle is a small wrapper around NewCommandConsumer that awaits till the given action is received.
+// Once the action is received is the CommandHandle callback called.
+func (commander *Commander) NewCommandHandle(action string, callback CommandHandle) func() {
+	commands, close := commander.NewCommandConsumer(action)
+
+	go func() {
+		for {
+			command := <-commands
+			callback(command)
+		}
+	}()
+
+	return close
+}
+
 // Produce a new kafka message
 func (commander *Commander) Produce(message *kafka.Message) error {
 	done := make(chan error)

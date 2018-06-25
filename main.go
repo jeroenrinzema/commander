@@ -32,71 +32,96 @@ var (
 
 // Commander is a struct that contains all required methods
 type Commander struct {
-	Consumer      *kafka.Consumer
-	Producer      *kafka.Producer
-	Subscriptions []string
+	Consumer *kafka.Consumer
+	Producer *kafka.Producer
+
+	topics    []string
+	consumers []*Consumer
+	closing   chan bool
 }
 
-// Subscribe to the given topic. Two channels are returned when subscribing.
-// The first channel get's feeded with kafka events that are happening on the subscribed topic.
-// The second channel can be used to cancel the subscription.
-func (commander *Commander) Subscribe(topic string) (chan kafka.Event, chan bool) {
-	commander.Subscriptions = append(commander.Subscriptions, topic)
-	commander.Consumer.SubscribeTopics(commander.Subscriptions, nil)
-
-	messages := make(chan kafka.Event)
-	done := make(chan bool)
-
+// StartConsuming starts a new go routine that consumes all kafka events.
+// All kafka events are pushed into the events commander channel.
+func (commander *Commander) StartConsuming() chan bool {
+	closing := make(chan bool)
 	go func() {
-		defer close(messages)
-		defer close(done)
-
 		for {
 			select {
-			case <-done:
-				for index, subscription := range commander.Subscriptions {
-					if subscription == topic {
-						commander.Subscriptions = append(commander.Subscriptions[:index], commander.Subscriptions[index+1:]...)
-					}
-				}
-				break
-			case message := <-commander.Consumer.Events():
-				switch event := message.(type) {
+			case <-commander.BeforeClosing():
+				close(closing)
+				return
+			case <-closing:
+				// Optionally could we preform some actions before a consumer is closing
+				return
+			case event := <-commander.Consumer.Events():
+				switch message := event.(type) {
+				case kafka.AssignedPartitions:
+					commander.Consumer.Assign(message.Partitions)
+				case kafka.RevokedPartitions:
+					commander.Consumer.Unassign()
 				case *kafka.Message:
-					if *event.TopicPartition.Topic != topic {
-						continue
-					}
+					for _, consumer := range commander.consumers {
+						if *message.TopicPartition.Topic != consumer.Topic {
+							continue
+						}
 
-					messages <- message
+						consumer.Events <- event
+					}
 				case kafka.PartitionEOF:
-					if *event.Topic != topic {
-						continue
-					}
+					for _, consumer := range commander.consumers {
+						if *message.Topic != consumer.Topic {
+							continue
+						}
 
-					messages <- message
+						consumer.Events <- event
+					}
 				}
 			}
 		}
 	}()
 
-	return messages, done
+	return closing
+}
+
+// Consume create a new kafka event consumer
+func (commander *Commander) Consume(topic string) *Consumer {
+	consumer := &Consumer{
+		Topic:     topic,
+		Events:    make(chan kafka.Event),
+		commander: commander,
+	}
+
+	commander.RegisterTopic(topic)
+	commander.consumers = append(commander.consumers, consumer)
+	return consumer
+}
+
+// RegisterTopic registers a new topic for consumption
+func (commander *Commander) RegisterTopic(topic string) {
+	for _, top := range commander.topics {
+		if top == topic {
+			return
+		}
+	}
+
+	commander.topics = append(commander.topics, topic)
+	commander.Consumer.SubscribeTopics(commander.topics, nil)
 }
 
 // NewEventsConsumer starts consuming the events from the events topic.
 // The default events topic is "events", the used topic can be configured during initialization.
 // All received messages are send over the "Event" channel.
-func (commander *Commander) NewEventsConsumer() (chan *Event, chan bool) {
+func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 	channel := make(chan *Event)
-	events, close := commander.Subscribe(EventTopic)
+	consumer := commander.Consume(EventTopic)
 
 	go func() {
-	consumer:
 		for {
 			select {
-			case <-close:
-				break consumer
-			case e := <-events:
-				switch message := e.(type) {
+			case <-consumer.BeforeClosing():
+				return
+			case event := <-consumer.Events:
+				switch message := event.(type) {
 				case *kafka.Message:
 					event := Event{}
 					event.Populate(message)
@@ -106,24 +131,23 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, chan bool) {
 		}
 	}()
 
-	return channel, close
+	return channel, consumer.Close
 }
 
 // NewCommandsConsumer starts consuming commands from the commands topic.
 // The default commands topic is "commands", the used topic can be configured during initialization.
 // All received messages are send over the "commands" channel.
-func (commander *Commander) NewCommandsConsumer() (chan *Command, chan bool) {
+func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 	commands := make(chan *Command)
-	events, close := commander.Subscribe(CommandTopic)
+	consumer := commander.Consume(CommandTopic)
 
 	go func() {
-	consumer:
 		for {
 			select {
-			case <-close:
-				break consumer
-			case e := <-events:
-				switch message := e.(type) {
+			case <-consumer.BeforeClosing():
+				return
+			case event := <-consumer.Events:
+				switch message := event.(type) {
 				case *kafka.Message:
 					command := Command{}
 					command.Populate(message)
@@ -133,24 +157,23 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, chan bool) {
 		}
 	}()
 
-	return commands, close
+	return commands, consumer.Close
 }
 
 // NewCommandConsumer starts consuming commands with the given action from the commands topic.
 // The default commands topic is "commands", the used topic can be configured during initialization.
 // All received messages are send over the "commands" channel.
-func (commander *Commander) NewCommandConsumer(action string) (chan *Command, chan bool) {
+func (commander *Commander) NewCommandConsumer(action string) (chan *Command, func()) {
 	commands := make(chan *Command)
-	events, close := commander.Subscribe(CommandTopic)
+	consumer := commander.Consume(CommandTopic)
 
 	go func() {
-	consumer:
 		for {
 			select {
-			case <-close:
-				break consumer
-			case e := <-events:
-				switch message := e.(type) {
+			case <-consumer.BeforeClosing():
+				return
+			case event := <-consumer.Events:
+				switch message := event.(type) {
 				case *kafka.Message:
 					match := false
 					for _, header := range message.Headers {
@@ -171,7 +194,7 @@ func (commander *Commander) NewCommandConsumer(action string) (chan *Command, ch
 		}
 	}()
 
-	return commands, close
+	return commands, consumer.Close
 }
 
 // Produce a new kafka message
@@ -180,16 +203,16 @@ func (commander *Commander) Produce(message *kafka.Message) error {
 
 	go func() {
 		defer close(done)
-		for e := range commander.Producer.Events() {
-			switch event := e.(type) {
+		for event := range commander.Producer.Events() {
+			switch event := event.(type) {
 			case *kafka.Message:
 				if event.TopicPartition.Error != nil {
 					done <- event.TopicPartition.Error
-					break
+					return
 				}
 
 				done <- nil
-				break
+				return
 			}
 		}
 	}()
@@ -227,6 +250,39 @@ func (commander *Commander) ProduceCommand(command *Command) error {
 	return commander.Produce(&message)
 }
 
+// SyncCommand produces a new command and waits for the resulting event.
+func (commander *Commander) SyncCommand(command *Command) (*Event, error) {
+	err := commander.AsyncCommand(command)
+
+	if err != nil {
+		return nil, err
+	}
+
+	events, close := commander.NewEventsConsumer()
+	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
+
+	defer close()
+	defer cancel()
+
+	// Wait for event to return
+	// A error is thrown if the event does not return within the given period
+syncEvent:
+	for {
+		select {
+		case event := <-events:
+			if event.Parent != command.ID {
+				continue
+			}
+
+			return event, nil
+		case <-ctx.Done():
+			break syncEvent
+		}
+	}
+
+	return nil, errors.New("request timeout")
+}
+
 // ProduceEvent produces a new event message to the defined events topic
 func (commander *Commander) ProduceEvent(event *Event) error {
 	message := &kafka.Message{
@@ -252,53 +308,39 @@ func (commander *Commander) ProduceEvent(event *Event) error {
 	return commander.Produce(message)
 }
 
-// SyncCommand produces a new command and waits for the resulting event.
-func (commander *Commander) SyncCommand(command *Command) (*Event, error) {
-	err := commander.AsyncCommand(command)
-
-	if err != nil {
-		return nil, err
+// BeforeClosing returns a channel that gets called before commander gets closed
+func (commander *Commander) BeforeClosing() chan bool {
+	if commander.closing == nil {
+		commander.closing = make(chan bool)
 	}
 
-	events, close := commander.NewEventsConsumer()
-	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
-
-	defer func() { close <- true }()
-	defer cancel()
-
-	// Wait for event to return
-	// A error is thrown if the event does not return within the given period
-syncEvent:
-	for {
-		select {
-		case event := <-events:
-			if event.Parent != command.ID {
-				continue
-			}
-
-			return event, nil
-		case <-ctx.Done():
-			break syncEvent
-		}
-	}
-
-	return nil, errors.New("request timeout")
+	return commander.closing
 }
 
 // Close the commander consumer and producer
 func (commander *Commander) Close() {
+	if commander.closing != nil {
+		close(commander.closing)
+	}
+
+	for _, consumer := range commander.consumers {
+		consumer.Close()
+	}
+
 	commander.Producer.Close()
 	commander.Consumer.Close()
 }
 
-// CloseOnSIGTERM close this commander instance once a SIGTERM signal is send
+// CloseOnSIGTERM starts a go routine that closes this commander instance once a SIGTERM signal is send
 func (commander *Commander) CloseOnSIGTERM() {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	<-sigs
-	commander.Close()
-	os.Exit(0)
+		<-sigs
+		commander.Close()
+		os.Exit(0)
+	}()
 }
 
 // NewProducer creates a new kafka produces but panics if something goes wrong
@@ -315,8 +357,6 @@ func NewProducer(conf *kafka.ConfigMap) *kafka.Producer {
 // NewConsumer creates a kafka consumer but panics if something goes wrong
 func NewConsumer(conf *kafka.ConfigMap) *kafka.Consumer {
 	conf.SetKey("go.events.channel.enable", true)
-	conf.SetKey("go.application.rebalance.enable", true)
-
 	consumer, err := kafka.NewConsumer(conf)
 
 	if err != nil {

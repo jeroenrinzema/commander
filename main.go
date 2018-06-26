@@ -110,7 +110,7 @@ func (commander *Commander) RegisterTopic(topic string) {
 
 // NewEventsConsumer starts consuming the events from the events topic.
 // The default events topic is "events", the used topic can be configured during initialization.
-// All received messages are send over the "Event" channel.
+// All received messages are send over the returned channel.
 func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 	sink := make(chan *Event)
 	consumer := commander.Consume(EventTopic)
@@ -135,9 +135,47 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 	return sink, consumer.Close
 }
 
+// NewCommandConsumer starts consuming events with the given event from the commands topic.
+// The default events topic is "events", the used topic can be configured during initialization.
+// All received messages are send over the returned channel.
+func (commander *Commander) NewEventConsumer(action string) (chan *Event, func()) {
+	sink := make(chan *Event)
+	consumer := commander.Consume(EventTopic)
+
+	go func() {
+		for {
+			select {
+			case <-consumer.BeforeClosing():
+				close(sink)
+				return
+			case event := <-consumer.Events:
+				switch message := event.(type) {
+				case *kafka.Message:
+					match := false
+					for _, header := range message.Headers {
+						if header.Key == ActionHeader && string(header.Value) == action {
+							match = true
+						}
+					}
+
+					if !match {
+						continue
+					}
+
+					event := Event{}
+					event.Populate(message)
+					sink <- &event
+				}
+			}
+		}
+	}()
+
+	return sink, consumer.Close
+}
+
 // NewCommandsConsumer starts consuming commands from the commands topic.
 // The default commands topic is "commands", the used topic can be configured during initialization.
-// All received messages are send over the "commands" channel.
+// All received messages are send over the returned channel.
 func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 	sink := make(chan *Command)
 	consumer := commander.Consume(CommandTopic)
@@ -164,7 +202,7 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 
 // NewCommandConsumer starts consuming commands with the given action from the commands topic.
 // The default commands topic is "commands", the used topic can be configured during initialization.
-// All received messages are send over the "commands" channel.
+// All received messages are send over the returned channel.
 func (commander *Commander) NewCommandConsumer(action string) (chan *Command, func()) {
 	sink := make(chan *Command)
 	consumer := commander.Consume(CommandTopic)
@@ -200,13 +238,31 @@ func (commander *Commander) NewCommandConsumer(action string) (chan *Command, fu
 	return sink, consumer.Close
 }
 
-// CommandHandle is a callback function that is called upon a action command
+// CommandHandle is a callback function mainly used to handle commands
 type CommandHandle func(*Command)
 
 // NewCommandHandle is a small wrapper around NewCommandConsumer that awaits till the given action is received.
 // Once the action is received is the CommandHandle callback called.
 func (commander *Commander) NewCommandHandle(action string, callback CommandHandle) func() {
 	commands, close := commander.NewCommandConsumer(action)
+
+	go func() {
+		for {
+			command := <-commands
+			callback(command)
+		}
+	}()
+
+	return close
+}
+
+// EventHandle is a callback function mainly used to handle events
+type EventHandle func(*Event)
+
+// NewEventHandle is a small wrapper around NewEventConsumer that awaits till the given event is received.
+// Once the event is received is the EventHandle callback called.
+func (commander *Commander) NewEventHandle(action string, callback EventHandle) func() {
+	commands, close := commander.NewEventConsumer(action)
 
 	go func() {
 		for {

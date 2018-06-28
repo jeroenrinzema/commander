@@ -135,7 +135,7 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 	return sink, consumer.Close
 }
 
-// NewCommandConsumer starts consuming events with the given event from the commands topic.
+// NewEventConsumer starts consuming events with the given event from the commands topic.
 // The default events topic is "events", the used topic can be configured during initialization.
 // All received messages are send over the returned channel.
 func (commander *Commander) NewEventConsumer(action string) (chan *Event, func()) {

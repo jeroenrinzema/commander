@@ -42,13 +42,10 @@ type Commander struct {
 
 // StartConsuming starts a new go routine that consumes all kafka events.
 // All kafka events are pushed into the events commander channel.
-func (commander *Commander) StartConsuming() chan bool {
+func (commander *Commander) StartConsuming() {
 	for {
 		select {
 		case <-commander.BeforeClosing():
-			close(closing)
-			return
-		case <-closing:
 			// Optionally could we preform some actions before a consumer is closing
 			return
 		case event := <-commander.Consumer.Events():

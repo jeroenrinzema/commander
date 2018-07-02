@@ -13,3 +13,4 @@
 
 # Dep vendors
 vendor/
+_vendor-*/

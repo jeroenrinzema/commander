@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -20,6 +21,8 @@ const (
 	ActionHeader = "action"
 	// KeyHeader kafka message key header
 	KeyHeader = "key"
+	// KeyAcknowledged kafka message acknowledged header
+	KeyAcknowledged = "acknowledged"
 )
 
 var (
@@ -373,6 +376,10 @@ func (commander *Commander) ProduceEvent(event *Event) error {
 			kafka.Header{
 				Key:   KeyHeader,
 				Value: event.Key.Bytes(),
+			},
+			kafka.Header{
+				Key:   KeyAcknowledged,
+				Value: []byte(strconv.FormatBool(event.Acknowledged)),
 			},
 		},
 		Key:            event.ID.Bytes(),

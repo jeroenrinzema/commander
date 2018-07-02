@@ -2,6 +2,7 @@ package commander
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	uuid "github.com/satori/go.uuid"
@@ -42,6 +43,16 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Key = key
+		}
+
+		if header.Key == KeyAcknowledged {
+			acknowledged, err := strconv.ParseBool(string(header.Value))
+
+			if err != nil {
+				return err
+			}
+
+			event.Acknowledged = acknowledged
 		}
 	}
 

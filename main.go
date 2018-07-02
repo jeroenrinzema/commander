@@ -43,44 +43,39 @@ type Commander struct {
 // StartConsuming starts a new go routine that consumes all kafka events.
 // All kafka events are pushed into the events commander channel.
 func (commander *Commander) StartConsuming() chan bool {
-	closing := make(chan bool)
-	go func() {
-		for {
-			select {
-			case <-commander.BeforeClosing():
-				close(closing)
-				return
-			case <-closing:
-				// Optionally could we preform some actions before a consumer is closing
-				return
-			case event := <-commander.Consumer.Events():
-				switch message := event.(type) {
-				case kafka.AssignedPartitions:
-					commander.Consumer.Assign(message.Partitions)
-				case kafka.RevokedPartitions:
-					commander.Consumer.Unassign()
-				case *kafka.Message:
-					for _, consumer := range commander.consumers {
-						if *message.TopicPartition.Topic != consumer.Topic {
-							continue
-						}
-
-						consumer.Events <- event
+	for {
+		select {
+		case <-commander.BeforeClosing():
+			close(closing)
+			return
+		case <-closing:
+			// Optionally could we preform some actions before a consumer is closing
+			return
+		case event := <-commander.Consumer.Events():
+			switch message := event.(type) {
+			case kafka.AssignedPartitions:
+				commander.Consumer.Assign(message.Partitions)
+			case kafka.RevokedPartitions:
+				commander.Consumer.Unassign()
+			case *kafka.Message:
+				for _, consumer := range commander.consumers {
+					if *message.TopicPartition.Topic != consumer.Topic {
+						continue
 					}
-				case kafka.PartitionEOF:
-					for _, consumer := range commander.consumers {
-						if *message.Topic != consumer.Topic {
-							continue
-						}
 
-						consumer.Events <- event
+					consumer.Events <- event
+				}
+			case kafka.PartitionEOF:
+				for _, consumer := range commander.consumers {
+					if *message.Topic != consumer.Topic {
+						continue
 					}
+
+					consumer.Events <- event
 				}
 			}
 		}
-	}()
-
-	return closing
+	}
 }
 
 // Consume create a new kafka event consumer

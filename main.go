@@ -80,7 +80,7 @@ func (commander *Commander) StartConsuming() {
 
 // Consume create a new kafka event consumer
 func (commander *Commander) Consume(topic string) *Consumer {
-	log.Println("new consumer")
+	log.Println("new consumer", topic)
 	consumer := &Consumer{
 		Topic:     topic,
 		Events:    make(chan kafka.Event),

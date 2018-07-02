@@ -3,6 +3,7 @@ package commander
 import (
 	"context"
 	"errors"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -60,6 +61,7 @@ func (commander *Commander) StartConsuming() {
 						continue
 					}
 
+					log.Println("sending event to consumer", *message.TopicPartition.Topic)
 					consumer.Events <- event
 				}
 			case kafka.PartitionEOF:
@@ -68,6 +70,7 @@ func (commander *Commander) StartConsuming() {
 						continue
 					}
 
+					log.Println("reached end of partition for consumer", *message.Topic)
 					consumer.Events <- event
 				}
 			}
@@ -77,6 +80,7 @@ func (commander *Commander) StartConsuming() {
 
 // Consume create a new kafka event consumer
 func (commander *Commander) Consume(topic string) *Consumer {
+	log.Println("new consumer")
 	consumer := &Consumer{
 		Topic:     topic,
 		Events:    make(chan kafka.Event),
@@ -286,6 +290,7 @@ func (commander *Commander) Produce(message *kafka.Message) error {
 		}
 	}()
 
+	log.Println("producing kafka message")
 	commander.Producer.ProduceChannel() <- message
 	err := <-done
 
@@ -316,6 +321,7 @@ func (commander *Commander) ProduceCommand(command *Command) error {
 		Value:          command.Data,
 	}
 
+	log.Println("producing command with action:", command.Action)
 	return commander.Produce(&message)
 }
 
@@ -374,6 +380,7 @@ func (commander *Commander) ProduceEvent(event *Event) error {
 		Value:          event.Data,
 	}
 
+	log.Println("producing event with action:", event.Action)
 	return commander.Produce(message)
 }
 

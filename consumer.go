@@ -1,6 +1,10 @@
 package commander
 
-import "github.com/confluentinc/confluent-kafka-go/kafka"
+import (
+	"log"
+
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+)
 
 // Consumer this consumer consumes messages from a
 // kafka topic. A channel is opened to receive kafka messages
@@ -14,6 +18,8 @@ type Consumer struct {
 
 // Close closes and removes the consumer from the commander instance
 func (consumer *Consumer) Close() {
+	log.Println("closing consumer")
+
 	if consumer.closing != nil {
 		close(consumer.closing)
 	}

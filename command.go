@@ -9,6 +9,7 @@ import (
 
 // Command a command contains a order for a data change
 type Command struct {
+	Key    uuid.UUID       `json:"key"`
 	ID     uuid.UUID       `json:"id"`
 	Action string          `json:"action"`
 	Data   json.RawMessage `json:"data"`

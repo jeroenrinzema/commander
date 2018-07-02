@@ -9,11 +9,12 @@ import (
 
 // Event is produced as the result from a command
 type Event struct {
-	Parent uuid.UUID       `json:"parent"`
-	ID     uuid.UUID       `json:"id"`
-	Action string          `json:"action"`
-	Data   json.RawMessage `json:"data"`
-	Key    uuid.UUID       `json:"key"`
+	Parent       uuid.UUID       `json:"parent"`
+	ID           uuid.UUID       `json:"id"`
+	Action       string          `json:"action"`
+	Data         json.RawMessage `json:"data"`
+	Key          uuid.UUID       `json:"key"`
+	Acknowledged bool            `json:"acknowledged"`
 }
 
 // Populate the event with the data from the given kafka message

@@ -15,14 +15,31 @@ type Command struct {
 }
 
 // NewEvent create a new event as a respond to the command
-func (command *Command) NewEvent(action string, key uuid.UUID, data []byte) Event {
+func (command *Command) NewEvent(action string, key uuid.UUID, data []byte) *Event {
 	id := uuid.NewV4()
-	event := Event{
-		Parent: command.ID,
-		ID:     id,
-		Action: action,
-		Data:   data,
-		Key:    key,
+	event := &Event{
+		Parent:       command.ID,
+		ID:           id,
+		Action:       action,
+		Data:         data,
+		Key:          key,
+		Acknowledged: true,
+	}
+
+	return event
+}
+
+// NewError creates a new error event as a respond to the command
+func (command *Command) NewError(action string, data []byte) *Event {
+	id := uuid.NewV4()
+	key := uuid.NewV4()
+	event := &Event{
+		Parent:       command.ID,
+		ID:           id,
+		Action:       action,
+		Data:         data,
+		Key:          key,
+		Acknowledged: false,
 	}
 
 	return event

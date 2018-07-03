@@ -59,21 +59,21 @@ func (commander *Commander) StartConsuming() {
 			case kafka.RevokedPartitions:
 				commander.Consumer.Unassign()
 			case *kafka.Message:
+				log.Println("received message from topic", *message.TopicPartition.Topic)
 				for _, consumer := range commander.consumers {
 					if *message.TopicPartition.Topic != consumer.Topic {
 						continue
 					}
 
-					log.Println("sending event to consumer", *message.TopicPartition.Topic)
 					consumer.Events <- event
 				}
 			case kafka.PartitionEOF:
+				log.Println("reached end of partition", *message.Topic)
 				for _, consumer := range commander.consumers {
 					if *message.Topic != consumer.Topic {
 						continue
 					}
 
-					log.Println("reached end of partition for consumer", *message.Topic)
 					consumer.Events <- event
 				}
 			}
@@ -83,7 +83,6 @@ func (commander *Commander) StartConsuming() {
 
 // Consume create a new kafka event consumer
 func (commander *Commander) Consume(topic string) *Consumer {
-	log.Println("new consumer", topic)
 	consumer := &Consumer{
 		Topic:     topic,
 		Events:    make(chan kafka.Event),
@@ -102,6 +101,8 @@ func (commander *Commander) RegisterTopic(topic string) {
 			return
 		}
 	}
+
+	log.Println("subscribing to topic", topic)
 
 	commander.topics = append(commander.topics, topic)
 	commander.Consumer.SubscribeTopics(commander.topics, nil)
@@ -293,7 +294,7 @@ func (commander *Commander) Produce(message *kafka.Message) error {
 		}
 	}()
 
-	log.Println("producing kafka message")
+	log.Println("producing message into topic", message.TopicPartition.Topic)
 	commander.Producer.ProduceChannel() <- message
 	err := <-done
 

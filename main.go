@@ -54,10 +54,6 @@ func (commander *Commander) StartConsuming() {
 			return
 		case event := <-commander.Consumer.Events():
 			switch message := event.(type) {
-			case kafka.AssignedPartitions:
-				commander.Consumer.Assign(message.Partitions)
-			case kafka.RevokedPartitions:
-				commander.Consumer.Unassign()
 			case *kafka.Message:
 				log.Println("received message from topic", *message.TopicPartition.Topic)
 				for _, consumer := range commander.consumers {

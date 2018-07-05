@@ -39,10 +39,10 @@ type Commander struct {
 	Consumer *kafka.Consumer
 	Producer *kafka.Producer
 
-	events    []chan kafka.Event
 	topics    []string
 	consumers []*Consumer
 	closing   chan bool
+	sink      chan kafka.Event
 }
 
 // StartConsuming starts a new go routine that consumes all kafka events.
@@ -75,18 +75,14 @@ func (commander *Commander) StartConsuming() {
 				}
 			}
 
-			for _, sink := range commander.events {
-				sink <- event
-			}
+			commander.sink <- event
 		}
 	}
 }
 
 // Events creates a channel that gets called once a kafka event is received
 func (commander *Commander) Events() chan kafka.Event {
-	sink := make(chan kafka.Event)
-	commander.events = append(commander.events, sink)
-	return sink
+	return commander.sink
 }
 
 // Consume create a new kafka event consumer

@@ -75,13 +75,19 @@ func (commander *Commander) StartConsuming() {
 				}
 			}
 
-			commander.sink <- event
+			if commander.sink != nil {
+				commander.sink <- event
+			}
 		}
 	}
 }
 
 // Events creates a channel that gets called once a kafka event is received
 func (commander *Commander) Events() chan kafka.Event {
+	if commander.sink == nil {
+		commander.sink = make(chan kafka.Event)
+	}
+
 	return commander.sink
 }
 

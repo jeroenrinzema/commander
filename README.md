@@ -1,6 +1,6 @@
 # Commander
 
-Commander gives you a toolset for writing distributed applications using ideas from CQRS and Event Sourcing using Kafka as transportation layer.
+Commander gives you a toolset for writing distributed applications using ideas from CQRS and Event Sourcing using Kafka as the event log.
 
 ![Pattern](https://github.com/sysco-middleware/commander/wiki/commander-pattern.jpg)
 

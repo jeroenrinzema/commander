@@ -258,8 +258,12 @@ func (commander *Commander) NewCommandHandle(action string, callback CommandHand
 
 	go func() {
 		for {
-			command := <-commands
-			callback(command)
+			select {
+			case <-consumer.closing:
+				break
+			case command := <-commands:
+				callback(command)
+			}
 		}
 	}()
 
@@ -276,8 +280,12 @@ func (commander *Commander) NewEventHandle(action string, callback EventHandle) 
 
 	go func() {
 		for {
-			command := <-commands
-			callback(command)
+			select {
+			case <-consumer.closing:
+				break
+			case command := <-commands:
+				callback(command)
+			}
 		}
 	}()
 

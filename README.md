@@ -2,6 +2,8 @@
 
 Commander gives you a toolset for writing distributed applications using ideas from CQRS and Event Sourcing using Kafka as transportation layer.
 
+![Pattern](https://github.com/sysco-middleware/commander/wiki/commander-pattern.jpg)
+
 > 🚧 This project is currently under active development
 
 ## The layers

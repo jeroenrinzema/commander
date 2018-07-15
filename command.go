@@ -33,7 +33,7 @@ func (command *Command) NewEvent(action string, key uuid.UUID, data []byte) *Eve
 // NewError creates a new error event as a respond to the command
 func (command *Command) NewError(action string, data []byte) *Event {
 	id := uuid.NewV4()
-	key := uuid.NewV4()
+	key := uuid.Nil
 	event := &Event{
 		Parent:       command.ID,
 		ID:           id,

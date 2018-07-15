@@ -10,6 +10,10 @@ Package commander gives you a toolset for writing distributed applications using
 
 To get started quickly download/fork the [boilerplate project](https://github.com/sysco-middleware/commander-boilerplate).
 
+## Usage and documentation
+
+Please see https://godoc.org/github.com/sysco-middleware/commander for detailed usage docs.
+
 ## The pattern
 All services inside the commander pattern are triggered by events and commands and are immutable. The commander pattern exists out of 4 layers. Every layer has it's own responsibilities and contain different parts of your application.
 

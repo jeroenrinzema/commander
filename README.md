@@ -2,8 +2,6 @@
 
 Commander gives you a toolset for writing distributed applications following the CQRS and Event Sourcing architecture using Kafka as a event log. The commander is inspired by the [talk](https://www.youtube.com/watch?v=B1-gS0oEtYc&t) and [architecture](https://github.com/capitalone/cqrs-manager-for-distributed-reactive-services/blob/master/doc/architecture.png) given by Bobby Calderwood.
 
-> 🚧 This project is currently under active development
-
 ![The pattern](https://github.com/sysco-middleware/commander/wiki/commander-pattern.jpg)
 
 ## Getting started
@@ -12,7 +10,7 @@ To get started quickly download/fork the [boilerplate](https://github.com/sysco-
 
 ## Usage and documentation
 
-Please see https://godoc.org/github.com/sysco-middleware/commander for detailed usage docs.
+Please see [godoc](https://godoc.org/github.com/sysco-middleware/commander) for detailed usage docs.
 
 ## The architecture
 All services inside commander are triggered by events and commands which are immutable. The commander pattern exists out of 4 layers. Every layer has it's own responsibilities and contain different parts of your application.

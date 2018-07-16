@@ -1,6 +1,6 @@
 # Commander
 
-Package commander gives you a toolset for writing distributed applications using ideas from CQRS and Event Sourcing using Kafka as a event log. The commander pattern is inspired of [talk](https://www.youtube.com/watch?v=B1-gS0oEtYc&t) and [architecture](https://github.com/capitalone/cqrs-manager-for-distributed-reactive-services/blob/master/doc/architecture.png) given by Bobby Calderwood.
+Commander gives you a toolset for writing distributed applications following the CQRS and Event Sourcing architecture using Kafka as a event log. The commander is inspired by the [talk](https://www.youtube.com/watch?v=B1-gS0oEtYc&t) and [architecture](https://github.com/capitalone/cqrs-manager-for-distributed-reactive-services/blob/master/doc/architecture.png) given by Bobby Calderwood.
 
 > 🚧 This project is currently under active development
 

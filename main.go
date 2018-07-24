@@ -21,8 +21,8 @@ const (
 	ActionHeader = "action"
 	// KeyHeader kafka message key header
 	KeyHeader = "key"
-	// KeyAcknowledged kafka message acknowledged header
-	KeyAcknowledged = "acknowledged"
+	// AcknowledgedHeader kafka message acknowledged header
+	AcknowledgedHeader = "acknowledged"
 )
 
 var (
@@ -397,7 +397,7 @@ func (commander *Commander) ProduceEvent(event *Event) error {
 				Value: event.Key.Bytes(),
 			},
 			kafka.Header{
-				Key:   KeyAcknowledged,
+				Key:   AcknowledgedHeader,
 				Value: []byte(strconv.FormatBool(event.Acknowledged)),
 			},
 		},

@@ -40,7 +40,7 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Key = key
-		case KeyAcknowledged:
+		case AcknowledgedHeader:
 			acknowledged, err := strconv.ParseBool(string(header.Value))
 
 			if err != nil {

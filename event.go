@@ -24,7 +24,6 @@ func (event *Event) Populate(message *kafka.Message) error {
 		switch header.Key {
 		case ActionHeader:
 			event.Action = string(header.Value)
-			break
 		case ParentHeader:
 			parent, err := uuid.FromBytes(header.Value)
 
@@ -33,7 +32,6 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Parent = parent
-			break
 		case KeyHeader:
 			key, err := uuid.FromBytes(header.Value)
 
@@ -42,7 +40,6 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Key = key
-			break
 		case KeyAcknowledged:
 			acknowledged, err := strconv.ParseBool(string(header.Value))
 
@@ -51,7 +48,6 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Acknowledged = acknowledged
-			break
 		}
 	}
 

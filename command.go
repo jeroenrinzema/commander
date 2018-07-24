@@ -52,7 +52,6 @@ func (command *Command) Populate(msg *kafka.Message) error {
     switch header.Key {
     case ActionHeader:
       command.Action = string(header.Value)
-      break
     }
 	}
 

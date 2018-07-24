@@ -28,3 +28,13 @@ All services inside commander are triggered by events and commands which are imm
 ## GDPR (work in progress)
 
 Commander offers various APIs to handle GDPR complaints. To keep the immutable ledger, immutable do we offer the plausibility to encrypt all events. Once a "right to erasure" request needs to be preformed can all data be erased by simply throwing away the key.
+
+## Tests
+
+To run the commander tests make sure that you have set the following environment variables.
+
+```
+export TEST_KAFKA_COMMAND_GROUP=TestCommand
+export TEST_KAFKA_CONSUME_GROUP=TestConsume
+export TEST_KAFKA_SERVERS=kafka:9092
+```

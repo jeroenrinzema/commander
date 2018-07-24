@@ -49,9 +49,11 @@ func (command *Command) NewError(action string, data []byte) *Event {
 // Populate populate the command with the data from a kafka message
 func (command *Command) Populate(msg *kafka.Message) error {
 	for _, header := range msg.Headers {
-		if header.Key == ActionHeader {
-			command.Action = string(header.Value)
-		}
+    switch header.Key {
+    case ActionHeader:
+      command.Action = string(header.Value)
+      break
+    }
 	}
 
 	id, err := uuid.FromBytes(msg.Key)

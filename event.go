@@ -21,11 +21,11 @@ type Event struct {
 // Populate the event with the data from the given kafka message
 func (event *Event) Populate(message *kafka.Message) error {
 	for _, header := range message.Headers {
-		if header.Key == ActionHeader {
+		switch header.Key {
+		case ActionHeader:
 			event.Action = string(header.Value)
-		}
-
-		if header.Key == ParentHeader {
+			break
+		case ParentHeader:
 			parent, err := uuid.FromBytes(header.Value)
 
 			if err != nil {
@@ -33,9 +33,8 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Parent = parent
-		}
-
-		if header.Key == KeyHeader {
+			break
+		case KeyHeader:
 			key, err := uuid.FromBytes(header.Value)
 
 			if err != nil {
@@ -43,9 +42,8 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Key = key
-		}
-
-		if header.Key == KeyAcknowledged {
+			break
+		case KeyAcknowledged:
 			acknowledged, err := strconv.ParseBool(string(header.Value))
 
 			if err != nil {
@@ -53,6 +51,7 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Acknowledged = acknowledged
+			break
 		}
 	}
 

@@ -17,13 +17,19 @@ All services inside commander are triggered by events and commands which are imm
 
 - **Web service** - This layer is accessible from the outside. The main responsibility is to preform queries on projections or to write commands to the event log. Optionally could this layer authenticate incoming requests.
 - **Event log (Kafka)** - The event log is the communication layer in between the web service layer and the business logic layer. Kafka is used in Commander as the event log. All messages passed through the event log are immutable.
-- **Business logic** - The business logics layer consumes commands/events to process them. There are two types of consumers that could exists in the business logic layer. The command processor processes commands received from the "commands" topic and generates a resulting event. This event could be a error or the resulting generated data. The projector processes events received from the "events" topic. A projector creates a projection of the consumed events. This projection could be consumed by the web service layer. Command processes and projector processes should never share their states between one another. If a command process requires to preform a validation/query on the latest state should he do it on it's own.
+- **Business logic** - The business logics layer consumes commands/events to process them. There are two types of consumers that could exists in the business logic layer. The command processor processes commands received from the "commands" topic and generates a resulting event. This event could be a error or the resulting generated data. The projector processes events received from the "events" topic. A projector creates a projection of the consumed events. This projection could be consumed by the web service layer. Command processes and projector processes should never share their states between one another. If a command process requires to preform a validation/query on the latest state should he do it on it's own state.
 - **Datastore and projections** - This layer contains sets of states that could be used to query upon. Every service could have it's own projection created of the consumed commands/events.
 
 ## API Overview
 - **High performing** - Commander uses Kafka a distributed, fault-tolerant and wicket fast streaming platform as it's transportation layer
 - **Encryption (work in progress)** - All stored events can be easily encrypted and decrypted
 - **Developer friendly** - We aim to create developer friendly APIs that get you started quickly
+
+## State
+
+Every service can hold it's own state/view of the source (events). A state is required to preform queries on the current state of the produced/consumed events. The state could for example be used to validate uniqueness or fetch the current state of a dataset.
+
+Command processes and projector processes should never share their states between one another. If a command process requires to preform a validation/query on the latest state should he do it on it's own state.
 
 ## GDPR (work in progress)
 

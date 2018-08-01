@@ -79,9 +79,16 @@
     "command/controllers",
     "command/rest",
     "command/websocket",
-    "service/controllers"
+    "logic/common",
+    "logic/controllers",
+    "projector/common",
+    "projector/controllers",
+    "projector/models",
+    "query/common",
+    "query/controllers",
+    "query/rest"
   ]
-  revision = "e790be695011a985beb463eb04319313a15ea143"
+  revision = "e891a2406a687fdb8905aabaca0d548a9fef1248"
 
 [[projects]]
   name = "gopkg.in/go-playground/validator.v9"
@@ -92,6 +99,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7cb41e3e242da81f88b46b4adb493bb8e85a4ba77e9b4ec8cf28082c9ca66d77"
+  inputs-digest = "403d7f9982c39f1bced01c12eb29799efb02e725127634ccf68d32282e936c82"
   solver-name = "gps-cdcl"
   solver-version = 1

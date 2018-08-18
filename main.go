@@ -25,19 +25,13 @@ const (
 	AcknowledgedHeader = "acknowledged"
 )
 
-var (
-	// Timeout is the time that a sync command maximum can take
-	Timeout = 5 * time.Second
-	// CommandTopic this value is used to mark a topic for command consumption
-	CommandTopic = "commanding"
-	// EventTopic this value is used to mark a topic for event consumption
-	EventTopic = "events"
-)
-
 // Commander is a struct that contains all required methods
 type Commander struct {
-	Consumer *kafka.Consumer
-	Producer *kafka.Producer
+	Consumer     *kafka.Consumer
+	Producer     *kafka.Producer
+	Timeout      time.Duration
+	CommandTopic string
+	EventTopic   string
 
 	topics    []string
 	consumers []*Consumer
@@ -53,6 +47,7 @@ func (commander *Commander) StartConsuming() {
 		case <-commander.BeforeClosing():
 			// Optionally could we preform some actions before a consumer is closing
 			return
+		// TODO: add methods to make events consumption plausible
 		case event := <-commander.Consumer.Events():
 			switch message := event.(type) {
 			case *kafka.Message:
@@ -123,7 +118,7 @@ func (commander *Commander) RegisterTopic(topic string) {
 // All received messages are send over the returned channel.
 func (commander *Commander) NewEventsConsumer() (chan *Event, *Consumer) {
 	sink := make(chan *Event)
-	consumer := commander.Consume(EventTopic)
+	consumer := commander.Consume(commander.EventTopic)
 
 	go func() {
 		for {
@@ -145,12 +140,12 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, *Consumer) {
 	return sink, consumer
 }
 
-// NewEventConsumer starts consuming events with the given event from the commands topic.
+// NewEventConsumer starts consuming events with of the given action from the commands topic.
 // The default events topic is "events", the used topic can be configured during initialization.
-// All received messages are send over the returned channel.
+// All received events are send over the returned go channel.
 func (commander *Commander) NewEventConsumer(action string) (chan *Event, *Consumer) {
 	sink := make(chan *Event)
-	consumer := commander.Consume(EventTopic)
+	consumer := commander.Consume(commander.EventTopic)
 
 	go func() {
 		for {
@@ -188,7 +183,7 @@ func (commander *Commander) NewEventConsumer(action string) (chan *Event, *Consu
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandsConsumer() (chan *Command, *Consumer) {
 	sink := make(chan *Command)
-	consumer := commander.Consume(CommandTopic)
+	consumer := commander.Consume(commander.CommandTopic)
 
 	go func() {
 		for {
@@ -215,7 +210,7 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, *Consumer) {
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandConsumer(action string) (chan *Command, *Consumer) {
 	sink := make(chan *Command)
-	consumer := commander.Consume(CommandTopic)
+	consumer := commander.Consume(commander.CommandTopic)
 
 	go func() {
 		for {
@@ -339,7 +334,7 @@ func (commander *Commander) ProduceCommand(command *Command) error {
 			},
 		},
 		Key:            command.ID.Bytes(),
-		TopicPartition: kafka.TopicPartition{Topic: &CommandTopic, Partition: kafka.PartitionAny},
+		TopicPartition: kafka.TopicPartition{Topic: &commander.CommandTopic, Partition: kafka.PartitionAny},
 		Value:          command.Data,
 	}
 
@@ -356,7 +351,7 @@ func (commander *Commander) SyncCommand(command *Command) (*Event, error) {
 	}
 
 	events, consumer := commander.NewEventsConsumer()
-	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), commander.Timeout)
 
 	defer consumer.Close()
 	defer cancel()
@@ -402,7 +397,7 @@ func (commander *Commander) ProduceEvent(event *Event) error {
 			},
 		},
 		Key:            event.ID.Bytes(),
-		TopicPartition: kafka.TopicPartition{Topic: &EventTopic},
+		TopicPartition: kafka.TopicPartition{Topic: &commander.EventTopic},
 		Value:          event.Data,
 	}
 

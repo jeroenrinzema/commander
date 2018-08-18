@@ -47,43 +47,25 @@ func (commander *Commander) StartConsuming() {
 		case <-commander.BeforeClosing():
 			// Optionally could we preform some actions before a consumer is closing
 			return
-		// TODO: add methods to make events consumption plausible
 		case event := <-commander.Consumer.Events():
+			var topic *string
+
 			switch message := event.(type) {
 			case *kafka.Message:
-				log.Println("received message from topic", *message.TopicPartition.Topic)
-				for _, consumer := range commander.consumers {
-					if *message.TopicPartition.Topic != consumer.Topic {
-						continue
-					}
-
-					consumer.Events <- event
-				}
+				topic = message.TopicPartition.Topic
 			case kafka.PartitionEOF:
-				log.Println("reached end of partition", *message.Topic)
-				for _, consumer := range commander.consumers {
-					if *message.Topic != consumer.Topic {
-						continue
-					}
-
-					consumer.Events <- event
-				}
+				topic = message.Topic
 			}
 
-			if commander.sink != nil {
-				commander.sink <- event
+			for _, consumer := range commander.consumers {
+				if *topic != consumer.Topic || len(consumer.Topic) == 0 {
+					continue
+				}
+
+				consumer.Events <- event
 			}
 		}
 	}
-}
-
-// Events creates a channel that gets called once a kafka event is received
-func (commander *Commander) Events() chan kafka.Event {
-	if commander.sink == nil {
-		commander.sink = make(chan kafka.Event)
-	}
-
-	return commander.sink
 }
 
 // Consume create a new kafka event consumer

@@ -42,13 +42,14 @@ type Commander struct {
 	sink      chan kafka.Event
 }
 
-// StartConsuming starts a new go routine that consumes all kafka events.
-// All kafka events are pushed into the events commander channel.
+// StartConsuming starts consuming kafka events, this method is blocking.
+// Once a kafka event is consumed will it be passed on to the listening consumers "Events" channel.
+// The consumer is closed once a close signal is given to commander.
 func (commander *Commander) StartConsuming() {
 	for {
 		select {
 		case <-commander.BeforeClosing():
-			// Optionally could we preform some actions before a consumer is closing
+			// Optionally could preform some actions before a consumer is closing
 			return
 		case event := <-commander.Consumer.Events():
 			var topic *string
@@ -71,7 +72,10 @@ func (commander *Commander) StartConsuming() {
 	}
 }
 
-// Consume create a new kafka event consumer
+// Consume create and return a new kafka event consumer.
+// All received events on the given kafka topic are passed on to the "Events" channel.
+// When a empty string as "topic" is given is it seen as a wildcard and will
+// all consumed events from all topics be published to the "Events" channel.
 func (commander *Commander) Consume(topic string) *Consumer {
 	consumer := &Consumer{
 		Topic:     topic,
@@ -79,12 +83,16 @@ func (commander *Commander) Consume(topic string) *Consumer {
 		commander: commander,
 	}
 
-	commander.RegisterTopic(topic)
+	if len(topic) > 0 {
+		commander.RegisterTopic(topic)
+	}
+
 	commander.consumers = append(commander.consumers, consumer)
 	return consumer
 }
 
-// RegisterTopic registers a new topic for consumption
+// RegisterTopic registers a new topic for consumption.
+// If the topic is already marked as registered will it be ignored.
 func (commander *Commander) RegisterTopic(topic string) {
 	for _, top := range commander.topics {
 		if top == topic {
@@ -98,9 +106,10 @@ func (commander *Commander) RegisterTopic(topic string) {
 	commander.Consumer.SubscribeTopics(commander.topics, nil)
 }
 
-// NewEventsConsumer starts consuming the events from the events topic.
-// The default events topic is "events", the used topic can be configured during initialization.
-// All received messages are send over the returned channel.
+// NewEventsConsumer starts consuming the events from the set events topic.
+// The returned consumer consumes all events of all actions.
+// The topic that gets consumed is set during initialization (commander.EventTopic) of the commander struct.
+// All received messages are published over the returned channel.
 func (commander *Commander) NewEventsConsumer() (chan *Event, *Consumer) {
 	sink := make(chan *Event)
 	consumer := commander.Consume(commander.EventTopic)
@@ -125,9 +134,10 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, *Consumer) {
 	return sink, consumer
 }
 
-// NewEventConsumer starts consuming events with of the given action from the commands topic.
-// The default events topic is "events", the used topic can be configured during initialization.
-// All received events are send over the returned go channel.
+// NewEventConsumer starts consuming events of the given action from the set commands topic.
+// The topic that gets consumed is set during initialization (commander.EventTopic) of the commander struct.
+// All received events are published over the returned go channel.
+// The consumer gets closed once a close signal is given to commander.
 func (commander *Commander) NewEventConsumer(action string) (chan *Event, *Consumer) {
 	sink := make(chan *Event)
 	consumer := commander.Consume(commander.EventTopic)
@@ -145,6 +155,7 @@ func (commander *Commander) NewEventConsumer(action string) (chan *Event, *Consu
 					for _, header := range message.Headers {
 						if header.Key == ActionHeader && string(header.Value) == action {
 							match = true
+							break
 						}
 					}
 
@@ -163,8 +174,9 @@ func (commander *Commander) NewEventConsumer(action string) (chan *Event, *Consu
 	return sink, consumer
 }
 
-// NewCommandsConsumer starts consuming commands from the commands topic.
-// The default commands topic is "commands", the used topic can be configured during initialization.
+// NewCommandsConsumer starts consuming commands from the set commands topic.
+// The returned consumer consumes all commands of all actions.
+// The topic that gets consumed is set during initialization (commander.CommandTopic) of the commander struct.
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandsConsumer() (chan *Command, *Consumer) {
 	sink := make(chan *Command)
@@ -190,8 +202,8 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, *Consumer) {
 	return sink, consumer
 }
 
-// NewCommandConsumer starts consuming commands with the given action from the commands topic.
-// The default commands topic is "commands", the used topic can be configured during initialization.
+// NewCommandConsumer starts consuming commands of the given action from the set commands topic.
+// The topic that gets consumed is set during initialization (commander.CommandTopic) of the commander struct.
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandConsumer(action string) (chan *Command, *Consumer) {
 	sink := make(chan *Command)
@@ -228,11 +240,12 @@ func (commander *Commander) NewCommandConsumer(action string) (chan *Command, *C
 	return sink, consumer
 }
 
-// CommandHandle is a callback function mainly used to handle commands
+// CommandHandle is a callback function used to handle/process commands
 type CommandHandle func(*Command)
 
 // NewCommandHandle is a small wrapper around NewCommandConsumer that awaits till the given action is received.
-// Once the action is received is the CommandHandle callback called.
+// Once a command of the given action is received is the CommandHandle callback function called.
+// The handle is closed once the consumer receives a close signal.
 func (commander *Commander) NewCommandHandle(action string, callback CommandHandle) func() {
 	commands, consumer := commander.NewCommandConsumer(action)
 
@@ -250,11 +263,12 @@ func (commander *Commander) NewCommandHandle(action string, callback CommandHand
 	return consumer.Close
 }
 
-// EventHandle is a callback function mainly used to handle events
+// EventHandle is a callback function used to handle/process events
 type EventHandle func(*Event)
 
 // NewEventHandle is a small wrapper around NewEventConsumer that awaits till the given event is received.
-// Once the event is received is the EventHandle callback called.
+// Once a event of the given action is received is the EventHandle callback called.
+// The handle is closed once the consumer receives a close signal.
 func (commander *Commander) NewEventHandle(action string, callback EventHandle) func() {
 	commands, consumer := commander.NewEventConsumer(action)
 
@@ -272,7 +286,8 @@ func (commander *Commander) NewEventHandle(action string, callback EventHandle) 
 	return consumer.Close
 }
 
-// Produce a new kafka message
+// Produce a new message to kafka.
+// A error is returned if anything went wrong in the process.
 func (commander *Commander) Produce(message *kafka.Message) error {
 	done := make(chan error)
 
@@ -309,7 +324,7 @@ func (commander *Commander) AsyncCommand(command *Command) error {
 	return commander.ProduceCommand(command)
 }
 
-// ProduceCommand produces a new command message to the defined commands topic
+// ProduceCommand produces a new command message to the set commands topic
 func (commander *Commander) ProduceCommand(command *Command) error {
 	message := kafka.Message{
 		Headers: []kafka.Header{
@@ -328,6 +343,7 @@ func (commander *Commander) ProduceCommand(command *Command) error {
 }
 
 // SyncCommand produces a new command and waits for the resulting event.
+// If the resulting event is not created within the set timeout period will a timeout error be returned.
 func (commander *Commander) SyncCommand(command *Command) (*Event, error) {
 	err := commander.AsyncCommand(command)
 
@@ -360,7 +376,7 @@ syncEvent:
 	return nil, errors.New("request timeout")
 }
 
-// ProduceEvent produces a new event message to the defined events topic
+// ProduceEvent produces a new event message to the set events topic.
 func (commander *Commander) ProduceEvent(event *Event) error {
 	message := &kafka.Message{
 		Headers: []kafka.Header{
@@ -390,7 +406,7 @@ func (commander *Commander) ProduceEvent(event *Event) error {
 	return commander.Produce(message)
 }
 
-// BeforeClosing returns a channel that gets called before commander gets closed
+// BeforeClosing returns a channel that gets published a boolean to before commander gets closed.
 func (commander *Commander) BeforeClosing() chan bool {
 	if commander.closing == nil {
 		commander.closing = make(chan bool)
@@ -399,7 +415,7 @@ func (commander *Commander) BeforeClosing() chan bool {
 	return commander.closing
 }
 
-// Close the commander consumer and producer
+// Close the commander consumers, producers and other processes.
 func (commander *Commander) Close() {
 	if commander.closing != nil {
 		close(commander.closing)
@@ -413,7 +429,7 @@ func (commander *Commander) Close() {
 	commander.Consumer.Close()
 }
 
-// CloseOnSIGTERM starts a go routine that closes this commander instance once a SIGTERM signal is send
+// CloseOnSIGTERM starts a go routine that closes this commander instance once a SIGTERM signal is send to the process.
 func (commander *Commander) CloseOnSIGTERM() {
 	go func() {
 		sigs := make(chan os.Signal, 1)
@@ -425,7 +441,8 @@ func (commander *Commander) CloseOnSIGTERM() {
 	}()
 }
 
-// NewProducer creates a new kafka produces but panics if something goes wrong
+// NewProducer creates a new kafka produces but panics if something went wrong.
+// A kafka config map could be given with additional settings.
 func NewProducer(conf *kafka.ConfigMap) *kafka.Producer {
 	producer, err := kafka.NewProducer(conf)
 
@@ -436,7 +453,9 @@ func NewProducer(conf *kafka.ConfigMap) *kafka.Producer {
 	return producer
 }
 
-// NewConsumer creates a kafka consumer but panics if something goes wrong
+// NewConsumer creates a kafka consumer but panics if something went wrong.
+// A kafka config map could be given with additional settings.
+// The option "go.events.channel.enable" is set to true for commander to function optimally.
 func NewConsumer(conf *kafka.ConfigMap) *kafka.Consumer {
 	conf.SetKey("go.events.channel.enable", true)
 	consumer, err := kafka.NewConsumer(conf)
@@ -448,7 +467,8 @@ func NewConsumer(conf *kafka.ConfigMap) *kafka.Consumer {
 	return consumer
 }
 
-// NewCommand create a new command with the given action and data
+// NewCommand create a new command with the given action and data.
+// A unique ID is generated and set in order to trace the command.
 func NewCommand(action string, data []byte) *Command {
 	id := uuid.NewV4()
 

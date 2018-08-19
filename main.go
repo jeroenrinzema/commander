@@ -135,11 +135,11 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, *Consumer) {
 	return sink, consumer
 }
 
-// NewEventConsumer starts consuming events of the given action with the given version from the set commands topic.
+// NewEventConsumer starts consuming events of the given action with one of the given version from the set commands topic.
 // The topic that gets consumed is set during initialization (commander.EventTopic) of the commander struct.
 // All received events are published over the returned go channel.
 // The consumer gets closed once a close signal is given to commander.
-func (commander *Commander) NewEventConsumer(action string, version int) (chan *Event, *Consumer) {
+func (commander *Commander) NewEventConsumer(action string, versions []int) (chan *Event, *Consumer) {
 	sink := make(chan *Event)
 	consumer := commander.Consume(commander.EventTopic)
 
@@ -152,23 +152,32 @@ func (commander *Commander) NewEventConsumer(action string, version int) (chan *
 			case event := <-consumer.Events:
 				switch message := event.(type) {
 				case *kafka.Message:
-					match := false
+					var messageAction string
+					versionMatch := false
+
 					for _, header := range message.Headers {
-						if header.Key == ActionHeader && string(header.Value) == action {
-							match = true
+						if header.Key == ActionHeader {
+							messageAction = string(header.Value)
 							break
 						}
 					}
 
-					if !match {
-						continue
+					if messageAction != action {
+						break
 					}
 
 					event := Event{}
 					event.Populate(message)
 
-					if event.Version != version {
-						continue
+					for _, version := range versions {
+						if version == event.Version {
+							versionMatch = true
+							break
+						}
+					}
+
+					if !versionMatch {
+						break
 					}
 
 					sink <- &event
@@ -275,8 +284,8 @@ type EventHandle func(*Event)
 // NewEventHandle is a small wrapper around NewEventConsumer that awaits till the given event is received.
 // Once a event of the given action is received is the EventHandle callback called.
 // The handle is closed once the consumer receives a close signal.
-func (commander *Commander) NewEventHandle(action string, version int, callback EventHandle) func() {
-	commands, consumer := commander.NewEventConsumer(action, version)
+func (commander *Commander) NewEventHandle(action string, versions []int, callback EventHandle) func() {
+	commands, consumer := commander.NewEventConsumer(action, versions)
 
 	go func() {
 		for {

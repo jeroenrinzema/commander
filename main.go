@@ -63,7 +63,7 @@ func (commander *Commander) StartConsuming() {
 			}
 
 			for _, consumer := range commander.consumers {
-				if *topic != consumer.Topic || len(consumer.Topic) == 0 {
+				if (topic != nil && *topic != consumer.Topic) || len(consumer.Topic) > 0 {
 					continue
 				}
 

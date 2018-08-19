@@ -66,7 +66,7 @@ func (event *Event) Populate(message *kafka.Message) error {
 		return err
 	}
 
-	event.ID = id
+	event.Key = id
 	event.Data = message.Value
 
 	return nil

@@ -53,17 +53,17 @@ func (commander *Commander) StartConsuming() {
 			// Optionally could preform some actions before a consumer is closing
 			return
 		case event := <-commander.Consumer.Events():
-			var topic *string
+			var topic string
 
 			switch message := event.(type) {
 			case *kafka.Message:
-				topic = message.TopicPartition.Topic
+				topic = *message.TopicPartition.Topic
 			case kafka.PartitionEOF:
-				topic = message.Topic
+				topic = *message.Topic
 			}
 
 			for _, consumer := range commander.consumers {
-				if (topic != nil && *topic != consumer.Topic) || len(consumer.Topic) > 0 {
+				if topic != consumer.Topic && len(consumer.Topic) != 0 {
 					continue
 				}
 

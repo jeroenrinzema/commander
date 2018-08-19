@@ -22,7 +22,7 @@ func TestAcknowledgedEventCreation(t *testing.T) {
 	}
 
 	command := NewCommand("test_action", payload)
-	event := command.NewEvent("test_event", key, payload)
+	event := command.NewEvent("test_event", 1, key, payload)
 
 	if !event.Acknowledged {
 		t.Error("event should be acknowledged")

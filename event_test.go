@@ -39,15 +39,15 @@ func TestEventPopulate(t *testing.T) {
 				Value: parent.Bytes(),
 			},
 			kafka.Header{
-				Key:   KeyHeader,
-				Value: key.Bytes(),
+				Key:   IDHeader,
+				Value: id.Bytes(),
 			},
 			kafka.Header{
 				Key:   AcknowledgedHeader,
 				Value: []byte(strconv.FormatBool(acknowledged)),
 			},
 		},
-		Key:   id.Bytes(),
+		Key:   key.Bytes(),
 		Value: payload,
 	}
 
@@ -69,15 +69,15 @@ func TestEventPopulate(t *testing.T) {
 				Value: []byte("faulty"),
 			},
 			kafka.Header{
-				Key:   KeyHeader,
-				Value: key.Bytes(),
+				Key:   IDHeader,
+				Value: id.Bytes(),
 			},
 			kafka.Header{
 				Key:   AcknowledgedHeader,
 				Value: []byte(strconv.FormatBool(acknowledged)),
 			},
 		},
-		Key:   id.Bytes(),
+		Key:   key.Bytes(),
 		Value: payload,
 	}
 
@@ -97,7 +97,7 @@ func TestEventPopulate(t *testing.T) {
 				Value: parent.Bytes(),
 			},
 			kafka.Header{
-				Key:   KeyHeader,
+				Key:   IDHeader,
 				Value: []byte("faulty"),
 			},
 			kafka.Header{
@@ -105,7 +105,7 @@ func TestEventPopulate(t *testing.T) {
 				Value: []byte(strconv.FormatBool(acknowledged)),
 			},
 		},
-		Key:   id.Bytes(),
+		Key:   key.Bytes(),
 		Value: payload,
 	}
 
@@ -125,15 +125,15 @@ func TestEventPopulate(t *testing.T) {
 				Value: parent.Bytes(),
 			},
 			kafka.Header{
-				Key:   KeyHeader,
-				Value: key.Bytes(),
+				Key:   IDHeader,
+				Value: id.Bytes(),
 			},
 			kafka.Header{
 				Key:   AcknowledgedHeader,
 				Value: []byte("no boolean"),
 			},
 		},
-		Key:   id.Bytes(),
+		Key:   key.Bytes(),
 		Value: payload,
 	}
 
@@ -153,15 +153,15 @@ func TestEventPopulate(t *testing.T) {
 				Value: parent.Bytes(),
 			},
 			kafka.Header{
-				Key:   KeyHeader,
-				Value: key.Bytes(),
+				Key:   IDHeader,
+				Value: id.Bytes(),
 			},
 			kafka.Header{
 				Key:   AcknowledgedHeader,
 				Value: []byte(strconv.FormatBool(acknowledged)),
 			},
 		},
-		// Key:   id.Bytes(),
+		// Key:   key.Bytes(),
 		Value: payload,
 	}
 

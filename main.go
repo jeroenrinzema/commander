@@ -19,11 +19,12 @@ const (
 	ParentHeader = "parent"
 	// ActionHeader kafka message action header
 	ActionHeader = "action"
-	// KeyHeader kafka message key header
-	KeyHeader = "key"
+	// IDHeader kafka message id header
+	IDHeader = "key"
 	// AcknowledgedHeader kafka message acknowledged header
 	AcknowledgedHeader = "acknowledged"
-
+	// VersionHeader kafka message version header
+	VersionHeader = "version"
 	// AnyTopic is a const given to the Consume method when wanting to consume "any" topic
 	AnyTopic = ""
 )
@@ -134,11 +135,11 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, *Consumer) {
 	return sink, consumer
 }
 
-// NewEventConsumer starts consuming events of the given action from the set commands topic.
+// NewEventConsumer starts consuming events of the given action with the given version from the set commands topic.
 // The topic that gets consumed is set during initialization (commander.EventTopic) of the commander struct.
 // All received events are published over the returned go channel.
 // The consumer gets closed once a close signal is given to commander.
-func (commander *Commander) NewEventConsumer(action string) (chan *Event, *Consumer) {
+func (commander *Commander) NewEventConsumer(action string, version int) (chan *Event, *Consumer) {
 	sink := make(chan *Event)
 	consumer := commander.Consume(commander.EventTopic)
 
@@ -165,6 +166,11 @@ func (commander *Commander) NewEventConsumer(action string) (chan *Event, *Consu
 
 					event := Event{}
 					event.Populate(message)
+
+					if event.Version != version {
+						continue
+					}
+
 					sink <- &event
 				}
 			}
@@ -269,8 +275,8 @@ type EventHandle func(*Event)
 // NewEventHandle is a small wrapper around NewEventConsumer that awaits till the given event is received.
 // Once a event of the given action is received is the EventHandle callback called.
 // The handle is closed once the consumer receives a close signal.
-func (commander *Commander) NewEventHandle(action string, callback EventHandle) func() {
-	commands, consumer := commander.NewEventConsumer(action)
+func (commander *Commander) NewEventHandle(action string, version int, callback EventHandle) func() {
+	commands, consumer := commander.NewEventConsumer(action, version)
 
 	go func() {
 		for {
@@ -389,15 +395,19 @@ func (commander *Commander) ProduceEvent(event *Event) error {
 				Value: event.Parent.Bytes(),
 			},
 			kafka.Header{
-				Key:   KeyHeader,
-				Value: event.Key.Bytes(),
+				Key:   IDHeader,
+				Value: event.ID.Bytes(),
 			},
 			kafka.Header{
 				Key:   AcknowledgedHeader,
 				Value: []byte(strconv.FormatBool(event.Acknowledged)),
 			},
+			kafka.Header{
+				Key:   VersionHeader,
+				Value: []byte(strconv.Itoa(event.Version)),
+			},
 		},
-		Key:            event.ID.Bytes(),
+		Key:            event.Key.Bytes(),
 		TopicPartition: kafka.TopicPartition{Topic: &commander.EventTopic},
 		Value:          event.Data,
 	}

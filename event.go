@@ -16,6 +16,7 @@ type Event struct {
 	Data         json.RawMessage `json:"data"`
 	Key          uuid.UUID       `json:"key"`
 	Acknowledged bool            `json:"acknowledged"`
+	Version      int             `json:"version"`
 }
 
 // Populate the event with the data from the given kafka message
@@ -32,14 +33,14 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Parent = parent
-		case KeyHeader:
-			key, err := uuid.FromBytes(header.Value)
+		case IDHeader:
+			id, err := uuid.FromBytes(header.Value)
 
 			if err != nil {
 				return err
 			}
 
-			event.Key = key
+			event.ID = id
 		case AcknowledgedHeader:
 			acknowledged, err := strconv.ParseBool(string(header.Value))
 
@@ -48,6 +49,14 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Acknowledged = acknowledged
+		case VersionHeader:
+			version, err := strconv.ParseInt(string(header.Value), 10, 0)
+
+			if err != nil {
+				return err
+			}
+
+			event.Version = int(version)
 		}
 	}
 

@@ -322,7 +322,7 @@ func (commander *Commander) Produce(message *kafka.Message) error {
 		}
 	}()
 
-	log.Println("producing message into topic", message.TopicPartition.Topic)
+	log.Println("producing message into topic", *message.TopicPartition.Topic)
 	commander.Producer.ProduceChannel() <- message
 	err := <-done
 

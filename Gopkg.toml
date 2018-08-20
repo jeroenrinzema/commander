@@ -30,6 +30,10 @@
   version = "1.17.0"
 
 [[constraint]]
+  name = "github.com/bsm/sarama-cluster"
+  version = "2.1.15"
+
+[[constraint]]
   name = "github.com/satori/go.uuid"
   version = "1.2.0"
 

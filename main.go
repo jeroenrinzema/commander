@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	cluster "github.com/bsm/sarama-cluster"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -31,32 +32,26 @@ const (
 
 // Commander is a struct that contains all required methods
 type Commander struct {
-	Consumer     sarama.Consumer
-	Producer     sarama.SyncProducer
-	Timeout      time.Duration
-	CommandTopic string
-	EventTopic   string
+	ConsumerClient *cluster.Client
+	Consumer       *Consumer
+	Producer       sarama.SyncProducer
+	Timeout        time.Duration
+	CommandTopic   string
+	EventTopic     string
+	ConsumerGroup  string
 
-	topics    []string
-	consumers []*Consumer
-	closing   chan bool
+	closing chan bool
 }
 
 // Consume create and return a new kafka message consumer.
-func (commander *Commander) Consume(topic string) *Consumer {
-	for _, consumer := range commander.consumers {
-		if consumer.Topic == topic {
-			return consumer
-		}
-	}
-
+func (commander *Commander) Consume(topics []string) *Consumer {
 	consumer := &Consumer{
-		Topic:  topic,
-		Offset: sarama.OffsetNewest,
+		Group:  commander.ConsumerGroup,
+		Topics: append([]string{commander.CommandTopic, commander.EventTopic}, topics...),
 	}
-	go consumer.Consume(commander.Consumer)
+	consumer.Consume(commander.ConsumerClient)
 
-	commander.consumers = append(commander.consumers, consumer)
+	commander.Consumer = consumer
 	return consumer
 }
 
@@ -66,14 +61,12 @@ func (commander *Commander) Consume(topic string) *Consumer {
 // All received messages are published over the returned channel.
 func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 	sink := make(chan *Event)
-	consumer := commander.Consume(commander.EventTopic)
-	subscription := consumer.Subscribe()
+	subscription := commander.Consumer.Subscribe(commander.EventTopic)
 
 	go func() {
 		for {
 			select {
-			case <-consumer.BeforeClosing():
-				close(consumer.closing)
+			case <-subscription.closing:
 				close(sink)
 				return
 			case message := <-subscription.messages:
@@ -84,9 +77,8 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 		}
 	}()
 
-	// TODO: do me different
 	return sink, func() {
-		consumer.UnSubscribe(subscription)
+		commander.Consumer.UnSubscribe(subscription)
 	}
 }
 
@@ -96,14 +88,12 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 // The consumer gets closed once a close signal is given to commander.
 func (commander *Commander) NewEventConsumer(action string, versions []int) (chan *Event, func()) {
 	sink := make(chan *Event)
-	consumer := commander.Consume(commander.EventTopic)
-	subscription := consumer.Subscribe()
+	subscription := commander.Consumer.Subscribe(commander.EventTopic)
 
 	go func() {
 		for {
 			select {
-			case <-consumer.BeforeClosing():
-				consumer.UnSubscribe(subscription)
+			case <-subscription.closing:
 				close(sink)
 				return
 			case message := <-subscription.messages:
@@ -140,27 +130,22 @@ func (commander *Commander) NewEventConsumer(action string, versions []int) (cha
 		}
 	}()
 
-	// TODO: do me different
 	return sink, func() {
-		consumer.UnSubscribe(subscription)
-		close(sink)
+		commander.Consumer.UnSubscribe(subscription)
 	}
 }
 
 // NewCommandsConsumer starts consuming commands from the set commands topic.
-// The returned consumer consumes all commands of all actions.
 // The topic that gets consumed is set during initialization (commander.CommandTopic) of the commander struct.
 // All received messages are send over the returned channel.
-func (commander *Commander) NewCommandsConsumer() (chan *Command, *Consumer) {
+func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 	sink := make(chan *Command)
-	consumer := commander.Consume(commander.CommandTopic)
-	subscription := consumer.Subscribe()
+	subscription := commander.Consumer.Subscribe(commander.CommandTopic)
 
 	go func() {
 		for {
 			select {
-			case <-consumer.BeforeClosing():
-				consumer.UnSubscribe(subscription)
+			case <-subscription.closing:
 				close(sink)
 				return
 			case message := <-subscription.messages:
@@ -171,7 +156,9 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, *Consumer) {
 		}
 	}()
 
-	return sink, consumer
+	return sink, func() {
+		commander.Consumer.UnSubscribe(subscription)
+	}
 }
 
 // NewCommandConsumer starts consuming commands of the given action from the set commands topic.
@@ -179,14 +166,12 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, *Consumer) {
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandConsumer(action string) (chan *Command, func()) {
 	sink := make(chan *Command)
-	consumer := commander.Consume(commander.CommandTopic)
-	subscription := consumer.Subscribe()
+	subscription := commander.Consumer.Subscribe(commander.CommandTopic)
 
 	go func() {
 		for {
 			select {
-			case <-consumer.BeforeClosing():
-				consumer.UnSubscribe(subscription)
+			case <-subscription.closing:
 				close(sink)
 				return
 			case message := <-subscription.messages:
@@ -212,8 +197,7 @@ func (commander *Commander) NewCommandConsumer(action string) (chan *Command, fu
 	}()
 
 	return sink, func() {
-		consumer.UnSubscribe(subscription)
-		close(sink)
+		commander.Consumer.UnSubscribe(subscription)
 	}
 }
 
@@ -372,10 +356,6 @@ func (commander *Commander) Close() {
 		close(commander.closing)
 	}
 
-	for _, consumer := range commander.consumers {
-		consumer.Close()
-	}
-
 	commander.Producer.Close()
 	commander.Consumer.Close()
 }
@@ -400,18 +380,6 @@ func NewProducer(brokers []string, conf *sarama.Config) sarama.SyncProducer {
 	}
 
 	return producer
-}
-
-// NewConsumer creates a kafka consumer but panics if something went wrong.
-// A kafka config map could be given with additional settings.
-func NewConsumer(brokers []string, conf *sarama.Config) sarama.Consumer {
-	consumer, err := sarama.NewConsumer(brokers, conf)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return consumer
 }
 
 // NewCommand create a new command with the given action and data.

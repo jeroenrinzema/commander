@@ -380,16 +380,14 @@ func (commander *Commander) Close() {
 	commander.Consumer.Close()
 }
 
-// CloseOnSIGTERM starts a go routine that closes this commander instance once a SIGTERM signal is send to the process.
+// CloseOnSIGTERM closes the commander instance once a SIGTERM signal is send to the process.
 func (commander *Commander) CloseOnSIGTERM() {
-	go func() {
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-		<-sigs
-		commander.Close()
-		os.Exit(0)
-	}()
+	<-sigs
+	commander.Close()
+	os.Exit(0)
 }
 
 // NewProducer creates a new kafka produces but panics if something went wrong.

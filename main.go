@@ -167,17 +167,15 @@ func (commander *Commander) NewCommandConsumer(action string) (chan *Command, fu
 				close(sink)
 				return
 			case message := <-subscription.messages:
-				match := false
+				var headerAction string
 				for _, header := range message.Headers {
 					switch string(header.Key) {
 					case ActionHeader:
-						if string(header.Value) == action {
-							match = true
-						}
+						headerAction = string(header.Value)
 					}
 				}
 
-				if !match {
+				if headerAction != action {
 					continue
 				}
 
@@ -364,9 +362,13 @@ func (commander *Commander) CloseOnSIGTERM() {
 
 // NewProducer creates a new kafka produces but panics if something went wrong.
 // A kafka config map could be given with additional settings.
-func (commander *Commander) NewProducer(brokers []string, conf *sarama.Config) sarama.SyncProducer {
-	conf.Producer.Return.Successes = true
-	producer, err := sarama.NewSyncProducer(brokers, conf)
+func (commander *Commander) NewProducer(brokers []string, config *sarama.Config) sarama.SyncProducer {
+	config.Producer.Return.Successes = true
+	if !config.Version.IsAtLeast(sarama.V1_0_0_0) {
+		panic("no kafka version is set or is not at least v1.0")
+	}
+
+	producer, err := sarama.NewSyncProducer(brokers, config)
 
 	if err != nil {
 		panic(err)
@@ -379,6 +381,10 @@ func (commander *Commander) NewProducer(brokers []string, conf *sarama.Config) s
 // NewConsumer creates a kafka consumer but panics if something went wrong.
 // A kafka config map could be given with additional settings.
 func (commander *Commander) NewConsumer(brokers []string, config *cluster.Config) *Consumer {
+	if !config.Version.IsAtLeast(sarama.V1_0_0_0) {
+		panic("no kafka version is set or is not at least v1.0")
+	}
+
 	client, clientErr := cluster.NewClient(brokers, config)
 
 	if clientErr != nil {

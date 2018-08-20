@@ -49,7 +49,7 @@ func (commander *Commander) Consume(topics []string) *Consumer {
 		Group:  commander.ConsumerGroup,
 		Topics: append([]string{commander.CommandTopic, commander.EventTopic}, topics...),
 	}
-	consumer.Consume(commander.Consumer)
+	go consumer.Consume(commander.Consumer)
 
 	commander.consumer = consumer
 	return consumer

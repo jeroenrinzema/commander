@@ -54,7 +54,7 @@ func (commander *Commander) Consume(topic string) *Consumer {
 		Topic:  topic,
 		Offset: sarama.OffsetNewest,
 	}
-	consumer.Consume(commander.Consumer)
+	go consumer.Consume(commander.Consumer)
 
 	commander.consumers = append(commander.consumers, consumer)
 	return consumer

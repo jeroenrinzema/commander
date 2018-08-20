@@ -42,6 +42,11 @@ type Commander struct {
 	closing chan bool
 }
 
+// Consume starts consuming messages with the set consumer
+func (commander *Commander) Consume() {
+	consumer.Consume(commander.Consumer)
+}
+
 // NewEventsConsumer starts consuming the events from the set events topic.
 // The returned consumer consumes all events of all actions.
 // The topic that gets consumed is set during initialization (commander.EventTopic) of the commander struct.

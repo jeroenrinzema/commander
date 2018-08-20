@@ -44,7 +44,7 @@ type Commander struct {
 
 // Consume starts consuming messages with the set consumer
 func (commander *Commander) Consume() {
-	consumer.Consume(commander.Consumer)
+	commander.Consumer.Consume(commander.client)
 }
 
 // NewEventsConsumer starts consuming the events from the set events topic.

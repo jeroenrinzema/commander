@@ -3,7 +3,7 @@ package commander
 import (
 	"encoding/json"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -48,22 +48,22 @@ func (command *Command) NewError(action string, data []byte) *Event {
 }
 
 // Populate populate the command with the data from a kafka message
-func (command *Command) Populate(msg *kafka.Message) error {
-	for _, header := range msg.Headers {
-		switch header.Key {
+func (command *Command) Populate(message *sarama.ConsumerMessage) error {
+	for _, header := range message.Headers {
+		switch string(header.Key) {
 		case ActionHeader:
 			command.Action = string(header.Value)
 		}
 	}
 
-	id, err := uuid.FromBytes(msg.Key)
+	id, err := uuid.FromString(string(message.Key))
 
 	if err != nil {
 		return err
 	}
 
 	command.ID = id
-	command.Data = msg.Value
+	command.Data = message.Value
 
 	return nil
 }

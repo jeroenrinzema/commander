@@ -1,32 +1,73 @@
 package commander
 
 import (
-	"log"
-
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 )
 
 // Consumer this consumer consumes messages from a
 // kafka topic. A channel is opened to receive kafka messages
 type Consumer struct {
-	Topic  string
-	Events chan kafka.Event
+	Topic      string
+	Partitions []int32
+	Offset     int64
 
-	closing   chan bool
-	commander *Commander
+	messages      chan *sarama.ConsumerMessage
+	closing       chan bool
+	consumers     []sarama.PartitionConsumer
+	consumer      sarama.Consumer
+	subscriptions []*ConsumerSubscription
 }
 
-// Close closes and removes the consumer from the commander instance
-func (consumer *Consumer) Close() {
-	log.Println("closing consumer")
+type ConsumerSubscription struct {
+	messages chan *sarama.ConsumerMessage
+}
 
-	if consumer.closing != nil {
-		close(consumer.closing)
+func (consumer *Consumer) Consume(saramaConsumer sarama.Consumer) {
+	consumer.consumer = saramaConsumer
+	consumer.messages = make(chan *sarama.ConsumerMessage)
+
+	for _, partition := range consumer.Partitions {
+		pc, err := consumer.consumer.ConsumePartition(consumer.Topic, partition, consumer.Offset)
+
+		if err != nil {
+			continue
+		}
+
+		go func(pc sarama.PartitionConsumer) {
+			for message := range pc.Messages() {
+				consumer.messages <- message
+			}
+		}(pc)
+
+		consumer.consumers = append(consumer.consumers, pc)
 	}
 
-	for index, con := range consumer.commander.consumers {
-		if con == consumer {
-			consumer.commander.consumers = append(consumer.commander.consumers[:index], consumer.commander.consumers[index+1:]...)
+	for message := range consumer.messages {
+		for _, subscriber := range consumer.subscriptions {
+			subscriber.messages <- message
+		}
+	}
+}
+
+func (consumer *Consumer) Close() {
+	for _, subscription := range consumer.subscriptions {
+		consumer.UnSubscribe(subscription)
+	}
+}
+
+func (consumer *Consumer) Subscribe() *ConsumerSubscription {
+	subscription := &ConsumerSubscription{
+		messages: make(chan *sarama.ConsumerMessage),
+	}
+
+	consumer.subscriptions = append(consumer.subscriptions, subscription)
+	return subscription
+}
+
+func (consumer *Consumer) UnSubscribe(sub *ConsumerSubscription) {
+	for index, subscription := range consumer.subscriptions {
+		if subscription == sub {
+			consumer.subscriptions = append(consumer.subscriptions[:index], consumer.subscriptions[index+1:]...)
 		}
 	}
 }

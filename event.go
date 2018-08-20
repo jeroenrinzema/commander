@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -20,13 +20,13 @@ type Event struct {
 }
 
 // Populate the event with the data from the given kafka message
-func (event *Event) Populate(message *kafka.Message) error {
+func (event *Event) Populate(message *sarama.ConsumerMessage) error {
 	for _, header := range message.Headers {
-		switch header.Key {
+		switch string(header.Key) {
 		case ActionHeader:
 			event.Action = string(header.Value)
 		case ParentHeader:
-			parent, err := uuid.FromBytes(header.Value)
+			parent, err := uuid.FromString(string(header.Value))
 
 			if err != nil {
 				return err
@@ -34,7 +34,7 @@ func (event *Event) Populate(message *kafka.Message) error {
 
 			event.Parent = parent
 		case IDHeader:
-			id, err := uuid.FromBytes(header.Value)
+			id, err := uuid.FromString(string(header.Value))
 
 			if err != nil {
 				return err
@@ -60,7 +60,7 @@ func (event *Event) Populate(message *kafka.Message) error {
 		}
 	}
 
-	id, err := uuid.FromBytes(message.Key)
+	id, err := uuid.FromString(string(message.Key))
 
 	if err != nil {
 		return err

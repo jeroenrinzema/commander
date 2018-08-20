@@ -26,8 +26,8 @@
 
 
 [[constraint]]
-  name = "github.com/confluentinc/confluent-kafka-go"
-  version = "0.11.4"
+  name = "github.com/Shopify/sarama"
+  version = "1.17.0"
 
 [[constraint]]
   name = "github.com/satori/go.uuid"

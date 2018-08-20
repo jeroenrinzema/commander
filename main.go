@@ -32,15 +32,15 @@ const (
 
 // Commander is a struct that contains all required methods
 type Commander struct {
-	ConsumerClient *cluster.Client
-	Consumer       *Consumer
-	Producer       sarama.SyncProducer
-	Timeout        time.Duration
-	CommandTopic   string
-	EventTopic     string
-	ConsumerGroup  string
+	Consumer      *cluster.Client
+	Producer      sarama.SyncProducer
+	Timeout       time.Duration
+	CommandTopic  string
+	EventTopic    string
+	ConsumerGroup string
 
-	closing chan bool
+	consumer *Consumer
+	closing  chan bool
 }
 
 // Consume create and return a new kafka message consumer.
@@ -49,9 +49,9 @@ func (commander *Commander) Consume(topics []string) *Consumer {
 		Group:  commander.ConsumerGroup,
 		Topics: append([]string{commander.CommandTopic, commander.EventTopic}, topics...),
 	}
-	consumer.Consume(commander.ConsumerClient)
+	consumer.Consume(commander.Consumer)
 
-	commander.Consumer = consumer
+	commander.consumer = consumer
 	return consumer
 }
 
@@ -61,7 +61,7 @@ func (commander *Commander) Consume(topics []string) *Consumer {
 // All received messages are published over the returned channel.
 func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 	sink := make(chan *Event)
-	subscription := commander.Consumer.Subscribe(commander.EventTopic)
+	subscription := commander.consumer.Subscribe(commander.EventTopic)
 
 	go func() {
 		for {
@@ -78,7 +78,7 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 	}()
 
 	return sink, func() {
-		commander.Consumer.UnSubscribe(subscription)
+		commander.consumer.UnSubscribe(subscription)
 	}
 }
 
@@ -88,7 +88,7 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 // The consumer gets closed once a close signal is given to commander.
 func (commander *Commander) NewEventConsumer(action string, versions []int) (chan *Event, func()) {
 	sink := make(chan *Event)
-	subscription := commander.Consumer.Subscribe(commander.EventTopic)
+	subscription := commander.consumer.Subscribe(commander.EventTopic)
 
 	go func() {
 		for {
@@ -131,7 +131,7 @@ func (commander *Commander) NewEventConsumer(action string, versions []int) (cha
 	}()
 
 	return sink, func() {
-		commander.Consumer.UnSubscribe(subscription)
+		commander.consumer.UnSubscribe(subscription)
 	}
 }
 
@@ -140,7 +140,7 @@ func (commander *Commander) NewEventConsumer(action string, versions []int) (cha
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 	sink := make(chan *Command)
-	subscription := commander.Consumer.Subscribe(commander.CommandTopic)
+	subscription := commander.consumer.Subscribe(commander.CommandTopic)
 
 	go func() {
 		for {
@@ -157,7 +157,7 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 	}()
 
 	return sink, func() {
-		commander.Consumer.UnSubscribe(subscription)
+		commander.consumer.UnSubscribe(subscription)
 	}
 }
 
@@ -166,7 +166,7 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandConsumer(action string) (chan *Command, func()) {
 	sink := make(chan *Command)
-	subscription := commander.Consumer.Subscribe(commander.CommandTopic)
+	subscription := commander.consumer.Subscribe(commander.CommandTopic)
 
 	go func() {
 		for {
@@ -197,7 +197,7 @@ func (commander *Commander) NewCommandConsumer(action string) (chan *Command, fu
 	}()
 
 	return sink, func() {
-		commander.Consumer.UnSubscribe(subscription)
+		commander.consumer.UnSubscribe(subscription)
 	}
 }
 

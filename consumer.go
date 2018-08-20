@@ -7,7 +7,7 @@ import (
 
 // NewConsumer creates a kafka consumer but panics if something went wrong.
 // A kafka config map could be given with additional settings.
-func NewConsumerClient(brokers []string, config *cluster.Config) *cluster.Client {
+func NewConsumer(brokers []string, config *cluster.Config) *cluster.Client {
 	consumer, err := cluster.NewClient(brokers, config)
 	if err != nil {
 		panic(err)

@@ -373,6 +373,7 @@ func (commander *Commander) CloseOnSIGTERM() {
 // NewProducer creates a new kafka produces but panics if something went wrong.
 // A kafka config map could be given with additional settings.
 func NewProducer(brokers []string, conf *sarama.Config) sarama.SyncProducer {
+	conf.Producer.Return.Successes = true
 	producer, err := sarama.NewSyncProducer(brokers, conf)
 
 	if err != nil {

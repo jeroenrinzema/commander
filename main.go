@@ -12,7 +12,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	cluster "github.com/bsm/sarama-cluster"
-	uuid "github.com/satori/go.uuid"
 )
 
 const (
@@ -32,27 +31,15 @@ const (
 
 // Commander is a struct that contains all required methods
 type Commander struct {
-	Consumer      *cluster.Client
+	Consumer      *Consumer
 	Producer      sarama.SyncProducer
 	Timeout       time.Duration
 	CommandTopic  string
 	EventTopic    string
 	ConsumerGroup string
 
-	consumer *Consumer
-	closing  chan bool
-}
-
-// Consume create and return a new kafka message consumer.
-func (commander *Commander) Consume(topics []string) *Consumer {
-	consumer := &Consumer{
-		Group:  commander.ConsumerGroup,
-		Topics: append([]string{commander.CommandTopic, commander.EventTopic}, topics...),
-	}
-	go consumer.Consume(commander.Consumer)
-
-	commander.consumer = consumer
-	return consumer
+	client  *cluster.Client
+	closing chan bool
 }
 
 // NewEventsConsumer starts consuming the events from the set events topic.
@@ -61,7 +48,7 @@ func (commander *Commander) Consume(topics []string) *Consumer {
 // All received messages are published over the returned channel.
 func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 	sink := make(chan *Event)
-	subscription := commander.consumer.Subscribe(commander.EventTopic)
+	subscription := commander.Consumer.Subscribe(commander.EventTopic)
 
 	go func() {
 		for {
@@ -78,7 +65,7 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 	}()
 
 	return sink, func() {
-		commander.consumer.UnSubscribe(subscription)
+		commander.Consumer.UnSubscribe(subscription)
 	}
 }
 
@@ -88,7 +75,7 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 // The consumer gets closed once a close signal is given to commander.
 func (commander *Commander) NewEventConsumer(action string, versions []int) (chan *Event, func()) {
 	sink := make(chan *Event)
-	subscription := commander.consumer.Subscribe(commander.EventTopic)
+	subscription := commander.Consumer.Subscribe(commander.EventTopic)
 
 	go func() {
 		for {
@@ -131,7 +118,7 @@ func (commander *Commander) NewEventConsumer(action string, versions []int) (cha
 	}()
 
 	return sink, func() {
-		commander.consumer.UnSubscribe(subscription)
+		commander.Consumer.UnSubscribe(subscription)
 	}
 }
 
@@ -140,7 +127,7 @@ func (commander *Commander) NewEventConsumer(action string, versions []int) (cha
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 	sink := make(chan *Command)
-	subscription := commander.consumer.Subscribe(commander.CommandTopic)
+	subscription := commander.Consumer.Subscribe(commander.CommandTopic)
 
 	go func() {
 		for {
@@ -157,7 +144,7 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 	}()
 
 	return sink, func() {
-		commander.consumer.UnSubscribe(subscription)
+		commander.Consumer.UnSubscribe(subscription)
 	}
 }
 
@@ -166,7 +153,7 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandConsumer(action string) (chan *Command, func()) {
 	sink := make(chan *Command)
-	subscription := commander.consumer.Subscribe(commander.CommandTopic)
+	subscription := commander.Consumer.Subscribe(commander.CommandTopic)
 
 	go func() {
 		for {
@@ -197,7 +184,7 @@ func (commander *Commander) NewCommandConsumer(action string) (chan *Command, fu
 	}()
 
 	return sink, func() {
-		commander.consumer.UnSubscribe(subscription)
+		commander.Consumer.UnSubscribe(subscription)
 	}
 }
 
@@ -372,7 +359,7 @@ func (commander *Commander) CloseOnSIGTERM() {
 
 // NewProducer creates a new kafka produces but panics if something went wrong.
 // A kafka config map could be given with additional settings.
-func NewProducer(brokers []string, conf *sarama.Config) sarama.SyncProducer {
+func (commander *Commander) NewProducer(brokers []string, conf *sarama.Config) sarama.SyncProducer {
 	conf.Producer.Return.Successes = true
 	producer, err := sarama.NewSyncProducer(brokers, conf)
 
@@ -380,19 +367,26 @@ func NewProducer(brokers []string, conf *sarama.Config) sarama.SyncProducer {
 		panic(err)
 	}
 
+	commander.Producer = producer
 	return producer
 }
 
-// NewCommand create a new command with the given action and data.
-// A unique ID is generated and set in order to trace the command.
-func NewCommand(action string, data []byte) *Command {
-	id := uuid.NewV4()
+// NewConsumer creates a kafka consumer but panics if something went wrong.
+// A kafka config map could be given with additional settings.
+func (commander *Commander) NewConsumer(brokers []string, config *cluster.Config) *Consumer {
+	client, clientErr := cluster.NewClient(brokers, config)
 
-	command := Command{
-		ID:     id,
-		Action: action,
-		Data:   data,
+	if clientErr != nil {
+		panic(clientErr)
 	}
 
-	return &command
+	consumer := &Consumer{
+		Group:  commander.ConsumerGroup,
+		Topics: []string{commander.CommandTopic, commander.EventTopic},
+	}
+
+	commander.client = client
+	commander.Consumer = consumer
+
+	return consumer
 }

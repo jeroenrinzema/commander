@@ -5,17 +5,6 @@ import (
 	cluster "github.com/bsm/sarama-cluster"
 )
 
-// NewConsumer creates a kafka consumer but panics if something went wrong.
-// A kafka config map could be given with additional settings.
-func NewConsumer(brokers []string, config *cluster.Config) *cluster.Client {
-	consumer, err := cluster.NewClient(brokers, config)
-	if err != nil {
-		panic(err)
-	}
-
-	return consumer
-}
-
 // Consumer this consumer consumes messages from a
 // kafka topic. A channel is opened to receive kafka messages
 type Consumer struct {

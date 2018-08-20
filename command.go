@@ -7,6 +7,20 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+// NewCommand create a new command with the given action and data.
+// A unique ID is generated and set in order to trace the command.
+func NewCommand(action string, data []byte) *Command {
+	id := uuid.NewV4()
+
+	command := Command{
+		ID:     id,
+		Action: action,
+		Data:   data,
+	}
+
+	return &command
+}
+
 // Command a command contains a order for a data change
 type Command struct {
 	Key    uuid.UUID       `json:"key,omitempty"`

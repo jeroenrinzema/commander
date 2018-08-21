@@ -367,13 +367,13 @@ func (commander *Commander) CloseOnSIGTERM() {
 
 // NewProducer creates a new kafka produces but panics if something went wrong.
 // A kafka config map could be given with additional settings.
-func (commander *Commander) NewProducer(brokers []string, config *sarama.Config) sarama.SyncProducer {
+func (commander *Commander) NewProducer(brokers []string, config *cluster.Config) sarama.SyncProducer {
 	config.Producer.Return.Successes = true
 	if !config.Version.IsAtLeast(sarama.V1_0_0_0) {
 		panic("no kafka version is set or is not at least v1.0")
 	}
 
-	producer, err := sarama.NewSyncProducer(brokers, config)
+	producer, err := sarama.NewSyncProducer(brokers, &config.Config)
 
 	if err != nil {
 		panic(err)
@@ -405,4 +405,9 @@ func (commander *Commander) NewConsumer(brokers []string, config *cluster.Config
 	commander.Consumer = consumer
 
 	return consumer
+}
+
+// NewConfig returns a new cluster config
+func (commander *Commander) NewConfig() *cluster.Config {
+	return cluster.NewConfig()
 }

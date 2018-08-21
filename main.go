@@ -408,6 +408,6 @@ func (commander *Commander) NewConsumer(brokers []string, config *cluster.Config
 }
 
 // NewConfig returns a new cluster config
-func (commander *Commander) NewConfig() *cluster.Config {
+func NewConfig() *cluster.Config {
 	return cluster.NewConfig()
 }

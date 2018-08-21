@@ -11,10 +11,10 @@ type Consumer struct {
 	Topics []string
 	Group  string
 
-	closing         chan bool
-	consumers       []sarama.PartitionConsumer
-	subscriptions   []*ConsumerSubscription
-	clusterConsumer *cluster.Consumer
+	closing       chan bool
+	consumers     []sarama.PartitionConsumer
+	subscriptions []*ConsumerSubscription
+	cluster       *cluster.Consumer
 }
 
 // ConsumerSubscription is a struct that contains all info of a consumer subscription.
@@ -27,15 +27,15 @@ type ConsumerSubscription struct {
 
 // Consume starts consuming the given topics with the given consumer group.
 func (consumer *Consumer) Consume(client *cluster.Client) error {
-	clusterConsumer, err := cluster.NewConsumerFromClient(client, consumer.Group, consumer.Topics)
+	cluster, err := cluster.NewConsumerFromClient(client, consumer.Group, consumer.Topics)
 
 	if err != nil {
 		return err
 	}
 
-	consumer.clusterConsumer = clusterConsumer
+	consumer.cluster = cluster
 
-	for message := range consumer.clusterConsumer.Messages() {
+	for message := range consumer.cluster.Messages() {
 		for _, subscriber := range consumer.subscriptions {
 			if message.Topic != subscriber.Topic {
 				continue
@@ -43,6 +43,8 @@ func (consumer *Consumer) Consume(client *cluster.Client) error {
 
 			subscriber.messages <- message
 		}
+
+		cluster.MarkOffset(message, "")
 	}
 
 	return nil

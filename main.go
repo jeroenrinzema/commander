@@ -346,8 +346,13 @@ func (commander *Commander) Close() {
 		close(commander.closing)
 	}
 
-	commander.Producer.Close()
-	commander.Consumer.Close()
+	if commander.Producer != nil {
+		commander.Producer.Close()
+	}
+
+	if commander.Consumer != nil {
+		commander.Consumer.Close()
+	}
 }
 
 // CloseOnSIGTERM closes the commander instance once a SIGTERM signal is send to the process.

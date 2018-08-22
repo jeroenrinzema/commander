@@ -192,7 +192,7 @@ func (commander *Commander) NewCommandConsumer(action string) (chan *Command, fu
 }
 
 // CommandHandle is a callback function used to handle/process commands
-type CommandHandle func(*Command)
+type CommandHandle func(*Command) *Event
 
 // NewCommandHandle is a small wrapper around NewCommandConsumer that awaits till the given action is received.
 // Once a command of the given action is received is the CommandHandle callback function called.
@@ -202,7 +202,8 @@ func (commander *Commander) NewCommandHandle(action string, callback CommandHand
 
 	go func() {
 		for command := range commands {
-			callback(command)
+			event := callback(command)
+			commander.ProduceEvent(event)
 		}
 	}()
 

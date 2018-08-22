@@ -46,7 +46,7 @@ func (command *Command) NewEvent(action string, version int, key uuid.UUID, data
 }
 
 // NewError creates a new error event as a respond to the command
-func (command *Command) NewError(action string, data []byte) *Event {
+func (command *Command) NewErrorEvent(action string, data []byte) *Event {
 	id := uuid.NewV4()
 	key := uuid.Nil
 	event := &Event{

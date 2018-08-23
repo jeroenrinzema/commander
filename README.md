@@ -8,6 +8,10 @@ Commander gives you a toolset for writing distributed applications following the
 
 To get started quickly download/fork the [boilerplate](https://github.com/sysco-middleware/commander-boilerplate).
 
+## Examples
+
+- [Web shop](https://github.com/jeroenrinzema/commander-sock-store-example)
+
 ## Usage and documentation
 
 Please see [godoc](https://godoc.org/github.com/sysco-middleware/commander) for detailed usage docs.

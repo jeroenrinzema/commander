@@ -62,8 +62,8 @@ func (consumer *Consumer) Close() {
 func (consumer *Consumer) Subscribe(topic string) *ConsumerSubscription {
 	subscription := &ConsumerSubscription{
 		Topic:    topic,
-		closing:  make(chan bool),
-		messages: make(chan *sarama.ConsumerMessage),
+		closing:  make(chan bool, 1),
+		messages: make(chan *sarama.ConsumerMessage, 1),
 	}
 
 	consumer.subscriptions = append(consumer.subscriptions, subscription)

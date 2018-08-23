@@ -50,7 +50,7 @@ func (commander *Commander) Consume() {
 // The topic that gets consumed is set during initialization (commander.EventTopic) of the commander struct.
 // All received messages are published over the returned channel.
 func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
-	sink := make(chan *Event)
+	sink := make(chan *Event, 1)
 	subscription := commander.Consumer.Subscribe(commander.EventTopic)
 
 	go func() {
@@ -77,7 +77,7 @@ func (commander *Commander) NewEventsConsumer() (chan *Event, func()) {
 // All received events are published over the returned go channel.
 // The consumer gets closed once a close signal is given to commander.
 func (commander *Commander) NewEventConsumer(action string, versions []int) (chan *Event, func()) {
-	sink := make(chan *Event)
+	sink := make(chan *Event, 1)
 	subscription := commander.Consumer.Subscribe(commander.EventTopic)
 
 	go func() {
@@ -129,7 +129,7 @@ func (commander *Commander) NewEventConsumer(action string, versions []int) (cha
 // The topic that gets consumed is set during initialization (commander.CommandTopic) of the commander struct.
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
-	sink := make(chan *Command)
+	sink := make(chan *Command, 1)
 	subscription := commander.Consumer.Subscribe(commander.CommandTopic)
 
 	go func() {
@@ -155,7 +155,7 @@ func (commander *Commander) NewCommandsConsumer() (chan *Command, func()) {
 // The topic that gets consumed is set during initialization (commander.CommandTopic) of the commander struct.
 // All received messages are send over the returned channel.
 func (commander *Commander) NewCommandConsumer(action string) (chan *Command, func()) {
-	sink := make(chan *Command)
+	sink := make(chan *Command, 1)
 	subscription := commander.Consumer.Subscribe(commander.CommandTopic)
 
 	go func() {

@@ -25,8 +25,6 @@ const (
 	AcknowledgedHeader = "acknowledged"
 	// VersionHeader kafka message version header
 	VersionHeader = "version"
-	// AnyTopic is a const given to the Consume method when wanting to consume "any" topic
-	AnyTopic = ""
 )
 
 // Commander is a struct that contains all required methods

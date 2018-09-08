@@ -249,11 +249,15 @@ func (commander *Commander) ProduceCommand(command *Command) error {
 	message := sarama.ProducerMessage{
 		Headers: []sarama.RecordHeader{
 			sarama.RecordHeader{
-				Key:   []byte("action"),
+				Key:   []byte(ActionHeader),
 				Value: []byte(command.Action),
 			},
+			sarama.RecordHeader{
+				Key:   []byte(IDHeader),
+				Value: []byte(command.ID.String()),
+			},
 		},
-		Key:   sarama.StringEncoder(command.ID.String()),
+		Key:   sarama.StringEncoder(command.Key.String()),
 		Value: sarama.ByteEncoder(command.Data),
 		Topic: commander.CommandTopic,
 	}

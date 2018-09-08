@@ -12,6 +12,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	cluster "github.com/bsm/sarama-cluster"
+	uuid "github.com/satori/go.uuid"
 )
 
 const (
@@ -246,6 +247,10 @@ func (commander *Commander) AsyncCommand(command *Command) error {
 
 // ProduceCommand produces a new command message to the set commands topic
 func (commander *Commander) ProduceCommand(command *Command) error {
+	if command.Key == uuid.Nil {
+		command.Key = command.ID
+	}
+
 	message := sarama.ProducerMessage{
 		Headers: []sarama.RecordHeader{
 			sarama.RecordHeader{

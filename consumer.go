@@ -76,9 +76,6 @@ func (consumer *Consumer) Consume(client *cluster.Client) error {
 
 // Close closes the consumer and all it's subscriptions
 func (consumer *Consumer) Close() {
-	consumer.mutex.Lock()
-	defer consumer.mutex.Unlock()
-
 	for _, subscription := range consumer.subscriptions {
 		consumer.UnSubscribe(subscription)
 	}

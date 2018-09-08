@@ -307,6 +307,10 @@ syncEvent:
 
 // ProduceEvent produces a new event message to the set events topic.
 func (commander *Commander) ProduceEvent(event *Event) error {
+	if event.Key == uuid.Nil {
+		event.Key = event.ID
+	}
+
 	message := &sarama.ProducerMessage{
 		Headers: []sarama.RecordHeader{
 			sarama.RecordHeader{

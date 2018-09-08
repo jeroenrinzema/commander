@@ -67,6 +67,14 @@ func (command *Command) Populate(message *sarama.ConsumerMessage) error {
 		switch string(header.Key) {
 		case ActionHeader:
 			command.Action = string(header.Value)
+		case IDHeader:
+			id, err := uuid.FromBytes(header.Value)
+
+			if err != nil {
+				return err
+			}
+
+			command.ID = id
 		}
 	}
 
@@ -76,7 +84,7 @@ func (command *Command) Populate(message *sarama.ConsumerMessage) error {
 		return err
 	}
 
-	command.ID = id
+	command.Key = id
 	command.Data = message.Value
 
 	return nil

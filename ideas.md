@@ -14,23 +14,34 @@ on handle pass ctx (group) to the callback function
 use a config struct to construct groups consumers and producers
 
 ```
+cart := commander.Group{
+  Name: "cart",
+  EventsTopic: commander.Topic{
+    Name: "cart-events",
+  },
+  CommandsTopic: commander.Topic{
+    Name: "cart-commands",
+  }
+}
+
+warehouse := commander.Group{
+  Name: "warehouse",
+  EventsTopic: commander.Topic{
+    Name: "warehouse-events",
+  },
+  CommandsTopic: commander.Topic{
+    Name: "warehouse-commands",
+  }
+}
+
 config := commander.NewConfig()
 config.Brokers = []string{"..."}
 
 config.NewCluster(sarama.V1_0_0_0)
-config.NewProducer()
-config.NewConsumer()
+config.AddGroups(&cart, &warehouse)
 
 cmdr := commander.New(&config)
-
-cart := commander.Group{
-  Name: "cart",
-  Events: "cart-events",
-  Commands: "cart-commands"
-}
-
-cmdr.RegisterGroup(cart)
-go cmdr.StartConsuming()
+go cmdr.Consume()
 
 cart.OnCommandHandle("AddItem", func(command) *commander.Event {
   command := ...
@@ -42,6 +53,4 @@ cart.OnCommandHandle("AddItem", func(command) *commander.Event {
 
   return event
 })
-
-... event
 ```

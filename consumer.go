@@ -7,6 +7,15 @@ import (
 	cluster "github.com/bsm/sarama-cluster"
 )
 
+// NewConsumer initalizes a new consumer struct with the given cluster client.
+func NewConsumer(client *cluster.Client) *Consumer {
+	consumer := &Consumer{
+		client: client,
+	}
+
+	return consumer
+}
+
 // Consumer this consumer consumes messages from a
 // kafka topic. A channel is opened to receive kafka messages
 type Consumer struct {
@@ -15,9 +24,16 @@ type Consumer struct {
 
 	closing   chan bool
 	consumers []sarama.PartitionConsumer
+	client    *cluster.Client
 	cluster   *cluster.Consumer
 	mutex     sync.Mutex
 	events    map[string][]chan *sarama.ConsumerMessage
+}
+
+// AddTopic adds the given topic to the subscribed topics map.
+// Topics can only be added before consuming.
+func (consumer *Consumer) AddTopic(topic string) {
+	consumer.Topics[topic] = []chan *sarama.ConsumerMessage{}
 }
 
 // Consume subscribes to all given topics and creates a new consumer.
@@ -25,13 +41,13 @@ type Consumer struct {
 // A topic subscription could be made with the consumer.Subscribe method.
 // Before a message is passed on to any topic subscription is the BeforeEvent event emitted.
 // And once a event has been consumed and processed is the AfterEvent event emitted.
-func (consumer *Consumer) Consume(client *cluster.Client) error {
+func (consumer *Consumer) Consume() error {
 	topics := []string{}
 	for topic := range consumer.Topics {
 		topics = append(topics, topic)
 	}
 
-	cluster, err := cluster.NewConsumerFromClient(client, consumer.Group, topics)
+	cluster, err := cluster.NewConsumerFromClient(consumer.client, consumer.Group, topics)
 	if err != nil {
 		return err
 	}

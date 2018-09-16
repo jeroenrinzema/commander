@@ -8,8 +8,9 @@ import (
 )
 
 // NewConsumer initalizes a new consumer struct with the given cluster client.
-func NewConsumer(client *cluster.Client) *Consumer {
+func NewConsumer(client *cluster.Client, group string) *Consumer {
 	consumer := &Consumer{
+		Group:  group,
 		client: client,
 	}
 
@@ -96,7 +97,7 @@ func (consumer *Consumer) EmitEvent(event string, message *sarama.ConsumerMessag
 // consumer emits the given event. The returned channel gets called in a sync
 // manner to allowe consumer messages to be manipulated. When the close function gets
 // called will the subscription be removed from the subscribed events list.
-func (consumer *Consumer) OnEvent(event string) (chan *sarama.ConsumerMessage, func()) {
+func (consumer *Consumer) OnEvent(event string) (<-chan *sarama.ConsumerMessage, func()) {
 	subscription := make(chan *sarama.ConsumerMessage, 1)
 
 	consumer.mutex.Lock()
@@ -129,7 +130,7 @@ func (consumer *Consumer) UnsubscribeEvent(event string, subscription chan *sara
 // Subscribe creates a new topic subscription channel that will start to receive
 // messages consumed by the consumer of the given topic. A channel and a closing method
 // will be returned once the channel has been subscribed to the given topic.
-func (consumer *Consumer) Subscribe(topic string) (chan *sarama.ConsumerMessage, func()) {
+func (consumer *Consumer) Subscribe(topic string) (<-chan *sarama.ConsumerMessage, func()) {
 	subscription := make(chan *sarama.ConsumerMessage, 1)
 
 	consumer.mutex.Lock()

@@ -8,13 +8,19 @@ import (
 )
 
 // NewConsumer initalizes a new consumer struct with the given cluster client.
-func NewConsumer(client *cluster.Client, group string) *Consumer {
-	consumer := &Consumer{
-		Group:  group,
-		client: client,
+func NewConsumer(client *cluster.Client, group string, topics []string) (*Consumer, error) {
+	cluster, err := cluster.NewConsumerFromClient(client, group, topics)
+	if err != nil {
+		return nil, err
 	}
 
-	return consumer
+	consumer := &Consumer{
+		Group:   group,
+		client:  client,
+		cluster: cluster,
+	}
+
+	return consumer, nil
 }
 
 // Consumer this consumer consumes messages from a
@@ -31,12 +37,6 @@ type Consumer struct {
 	events    map[string][]chan *sarama.ConsumerMessage
 }
 
-// AddTopic adds the given topic to the subscribed topics map.
-// Topics can only be added before consuming.
-func (consumer *Consumer) AddTopic(topic string) {
-	consumer.Topics[topic] = []chan *sarama.ConsumerMessage{}
-}
-
 // Consume subscribes to all given topics and creates a new consumer.
 // The consumed messages get send to subscribed topic subscriptions.
 // A topic subscription could be made with the consumer.Subscribe method.
@@ -48,12 +48,6 @@ func (consumer *Consumer) Consume() error {
 		topics = append(topics, topic)
 	}
 
-	cluster, err := cluster.NewConsumerFromClient(consumer.client, consumer.Group, topics)
-	if err != nil {
-		return err
-	}
-
-	consumer.cluster = cluster
 	for message := range consumer.cluster.Messages() {
 		consumer.EmitEvent(BeforeEvent, message)
 

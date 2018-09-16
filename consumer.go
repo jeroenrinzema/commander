@@ -27,7 +27,7 @@ type Consumer struct {
 // And once a event has been consumed and processed is the AfterEvent event emitted.
 func (consumer *Consumer) Consume(client *cluster.Client) error {
 	topics := []string{}
-	for topic, _ := range consumer.Topics {
+	for topic := range consumer.Topics {
 		topics = append(topics, topic)
 	}
 
@@ -55,7 +55,13 @@ func (consumer *Consumer) Consume(client *cluster.Client) error {
 func (consumer *Consumer) Close() {
 	for topic, subscriptions := range consumer.Topics {
 		for _, subscription := range subscriptions {
-			// Close subscription
+			consumer.UnSubscribe(topic, subscription)
+		}
+	}
+
+	for event, subscriptions := range consumer.events {
+		for _, subscription := range subscriptions {
+			consumer.UnsubscribeEvent(event, subscription)
 		}
 	}
 }

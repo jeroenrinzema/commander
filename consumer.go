@@ -3,38 +3,50 @@ package commander
 import (
 	"sync"
 
-	"github.com/Shopify/sarama"
-	cluster "github.com/bsm/sarama-cluster"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
+// KafkaConsumer is a consumer interface
+type KafkaConsumer interface {
+	SubscribeTopics([]string, kafka.RebalanceCb) error
+	Events() chan kafka.Event
+
+	Assign([]kafka.TopicPartition) error
+	Unassign() error
+	Close() error
+}
+
 // NewConsumer initalizes a new consumer struct with the given cluster client.
-func NewConsumer(client *cluster.Client, group string, topics []string) (*Consumer, error) {
-	cluster, err := cluster.NewConsumerFromClient(client, group, topics)
+func NewConsumer(config *kafka.ConfigMap) (*Consumer, error) {
+	config.SetKey("go.events.channel.enable", true)
+	config.SetKey("go.application.rebalance.enable", true)
+
+	consumer, err := kafka.NewConsumer(config)
 	if err != nil {
 		return nil, err
 	}
 
-	consumer := &Consumer{
-		Group:   group,
-		client:  client,
-		cluster: cluster,
-	}
-
-	return consumer, nil
+	return &Consumer{
+		config:  config,
+		Topics:  make(map[string][]chan *kafka.Message),
+		events:  make(map[string][]chan *kafka.Event),
+		kafka:   consumer,
+		closing: make(chan bool),
+	}, nil
 }
 
 // Consumer this consumer consumes messages from a
 // kafka topic. A channel is opened to receive kafka messages
 type Consumer struct {
-	Topics map[string][]chan *sarama.ConsumerMessage
+	Topics map[string][]chan *kafka.Message
 	Group  string
 
-	closing   chan bool
-	consumers []sarama.PartitionConsumer
-	client    *cluster.Client
-	cluster   *cluster.Consumer
-	mutex     sync.Mutex
-	events    map[string][]chan *sarama.ConsumerMessage
+	config *kafka.ConfigMap
+	kafka  KafkaConsumer
+
+	closing chan bool
+	mutex   sync.Mutex
+	events  map[string][]chan *kafka.Event
 }
 
 // Consume subscribes to all given topics and creates a new consumer.
@@ -42,47 +54,73 @@ type Consumer struct {
 // A topic subscription could be made with the consumer.Subscribe method.
 // Before a message is passed on to any topic subscription is the BeforeEvent event emitted.
 // And once a event has been consumed and processed is the AfterEvent event emitted.
-func (consumer *Consumer) Consume() error {
-	topics := []string{}
-	for topic := range consumer.Topics {
-		topics = append(topics, topic)
-	}
+func (consumer *Consumer) Consume() {
+	for {
+		select {
+		case <-consumer.closing:
+			break
+		case event := <-consumer.kafka.Events():
+			consumer.EmitEvent(BeforeEvent, &event)
 
-	for message := range consumer.cluster.Messages() {
-		consumer.EmitEvent(BeforeEvent, message)
+			switch message := event.(type) {
+			case kafka.AssignedPartitions:
+				consumer.kafka.Assign(message.Partitions)
+			case kafka.RevokedPartitions:
+				consumer.kafka.Unassign()
+			case *kafka.Message:
+				consumer.mutex.Lock()
+				for _, subscription := range consumer.Topics[*message.TopicPartition.Topic] {
+					subscription <- message
+				}
+				consumer.mutex.Unlock()
+			}
 
-		for _, subscription := range consumer.Topics[message.Topic] {
-			subscription <- message
+			// The AfterEvent does not have to be called synchronously
+			go consumer.EmitEvent(AfterEvent, &event)
 		}
-
-		// The AfterEvent does not have to be called synchronously
-		go consumer.EmitEvent(AfterEvent, message)
 	}
+}
 
-	return nil
+// BeforeClosing returns a channel that gets called before closing
+func (consumer *Consumer) BeforeClosing() <-chan bool {
+	return consumer.closing
 }
 
 // Close closes all topic subscriptions and event channels.
 func (consumer *Consumer) Close() {
+	close(consumer.closing)
+
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
+
 	for topic, subscriptions := range consumer.Topics {
 		for _, subscription := range subscriptions {
-			consumer.UnSubscribe(topic, subscription)
+			close(subscription)
 		}
+
+		consumer.Topics[topic] = nil
 	}
 
 	for event, subscriptions := range consumer.events {
 		for _, subscription := range subscriptions {
-			consumer.UnsubscribeEvent(event, subscription)
+			close(subscription)
 		}
+
+		consumer.events[event] = nil
 	}
+
+	consumer.kafka.Close()
 }
 
 // EmitEvent calls all subscriptions of the given event.
 // All subscriptions get called in a sync manner to allow consumer message
 // to be manipulated.
-func (consumer *Consumer) EmitEvent(event string, message *sarama.ConsumerMessage) {
-	for _, subscription := range consumer.events[event] {
-		subscription <- message
+func (consumer *Consumer) EmitEvent(name string, event *kafka.Event) {
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
+
+	for _, subscription := range consumer.events[name] {
+		subscription <- event
 	}
 }
 
@@ -91,8 +129,8 @@ func (consumer *Consumer) EmitEvent(event string, message *sarama.ConsumerMessag
 // consumer emits the given event. The returned channel gets called in a sync
 // manner to allowe consumer messages to be manipulated. When the close function gets
 // called will the subscription be removed from the subscribed events list.
-func (consumer *Consumer) OnEvent(event string) (<-chan *sarama.ConsumerMessage, func()) {
-	subscription := make(chan *sarama.ConsumerMessage, 1)
+func (consumer *Consumer) OnEvent(event string) (<-chan *kafka.Event, func()) {
+	subscription := make(chan *kafka.Event, 1)
 
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
@@ -100,17 +138,17 @@ func (consumer *Consumer) OnEvent(event string) (<-chan *sarama.ConsumerMessage,
 	consumer.events[event] = append(consumer.events[event], subscription)
 
 	return subscription, func() {
-		consumer.UnsubscribeEvent(event, subscription)
+		consumer.OffEvent(event, subscription)
 	}
 }
 
-// UnsubscribeEvent unsubscribes and closes the given channel from the given event.
+// OffEvent unsubscribes and closes the given channel from the given event.
 // A boolean is returned that represents if the method found the channel or not.
-func (consumer *Consumer) UnsubscribeEvent(event string, subscription chan *sarama.ConsumerMessage) bool {
+func (consumer *Consumer) OffEvent(event string, channel <-chan *kafka.Event) bool {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
-	for index, channel := range consumer.events[event] {
+	for index, subscription := range consumer.events[event] {
 		if channel == subscription {
 			close(subscription)
 			consumer.events[event] = append(consumer.events[event][:index], consumer.events[event][index+1:]...)
@@ -124,8 +162,8 @@ func (consumer *Consumer) UnsubscribeEvent(event string, subscription chan *sara
 // Subscribe creates a new topic subscription channel that will start to receive
 // messages consumed by the consumer of the given topic. A channel and a closing method
 // will be returned once the channel has been subscribed to the given topic.
-func (consumer *Consumer) Subscribe(topic string) (<-chan *sarama.ConsumerMessage, func()) {
-	subscription := make(chan *sarama.ConsumerMessage, 1)
+func (consumer *Consumer) Subscribe(topic string) (<-chan *kafka.Message, func()) {
+	subscription := make(chan *kafka.Message, 1)
 
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
@@ -133,13 +171,13 @@ func (consumer *Consumer) Subscribe(topic string) (<-chan *sarama.ConsumerMessag
 	consumer.Topics[topic] = append(consumer.Topics[topic], subscription)
 
 	return subscription, func() {
-		consumer.UnSubscribe(topic, subscription)
+		consumer.Unsubscribe(topic, subscription)
 	}
 }
 
-// UnSubscribe unsubscribes the given channel from the given topic.
+// Unsubscribe unsubscribes the given channel from the given topic.
 // A boolean is returned that represents if the method found the channel or not.
-func (consumer *Consumer) UnSubscribe(topic string, channel chan *sarama.ConsumerMessage) bool {
+func (consumer *Consumer) Unsubscribe(topic string, channel <-chan *kafka.Message) bool {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 

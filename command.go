@@ -50,6 +50,8 @@ func (command *Command) NewErrorEvent(action string, data []byte) *Event {
 
 // Populate populates the command struct with the given kafka message
 func (command *Command) Populate(message *kafka.Message) error {
+	command.Headers = make(map[string]string)
+
 	for _, header := range message.Headers {
 		key := string(header.Key)
 		value := string(header.Value)

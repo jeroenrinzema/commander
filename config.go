@@ -22,11 +22,11 @@ type Config struct {
 	mutex   sync.Mutex
 }
 
-// RegisterGroup registeres a commander group and initializes it with
+// AddGroups registeres a commander group and initializes it with
 // the set consumer and producer.
-func (config *Config) RegisterGroup(group *Group) {
+func (config *Config) AddGroups(groups ...*Group) {
 	config.mutex.Lock()
 	defer config.mutex.Unlock()
 
-	config.Groups = append(config.Groups, group)
+	config.Groups = append(config.Groups, groups...)
 }

@@ -29,7 +29,7 @@ func NewConsumer(config *kafka.ConfigMap) (*Consumer, error) {
 	return &Consumer{
 		config:  config,
 		Topics:  make(map[string][]chan *kafka.Message),
-		events:  make(map[string][]chan *kafka.Event),
+		events:  make(map[string][]chan kafka.Event),
 		kafka:   consumer,
 		closing: make(chan bool),
 	}, nil
@@ -46,7 +46,7 @@ type Consumer struct {
 
 	closing chan bool
 	mutex   sync.Mutex
-	events  map[string][]chan *kafka.Event
+	events  map[string][]chan kafka.Event
 }
 
 // Consume subscribes to all given topics and creates a new consumer.
@@ -60,7 +60,7 @@ func (consumer *Consumer) Consume() {
 		case <-consumer.closing:
 			break
 		case event := <-consumer.kafka.Events():
-			consumer.EmitEvent(BeforeEvent, &event)
+			consumer.EmitEvent(BeforeEvent, event)
 
 			switch message := event.(type) {
 			case kafka.AssignedPartitions:
@@ -76,7 +76,7 @@ func (consumer *Consumer) Consume() {
 			}
 
 			// The AfterEvent does not have to be called synchronously
-			go consumer.EmitEvent(AfterEvent, &event)
+			go consumer.EmitEvent(AfterEvent, event)
 		}
 	}
 }
@@ -115,7 +115,7 @@ func (consumer *Consumer) Close() {
 // EmitEvent calls all subscriptions of the given event.
 // All subscriptions get called in a sync manner to allow consumer message
 // to be manipulated.
-func (consumer *Consumer) EmitEvent(name string, event *kafka.Event) {
+func (consumer *Consumer) EmitEvent(name string, event kafka.Event) {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
@@ -129,8 +129,8 @@ func (consumer *Consumer) EmitEvent(name string, event *kafka.Event) {
 // consumer emits the given event. The returned channel gets called in a sync
 // manner to allowe consumer messages to be manipulated. When the close function gets
 // called will the subscription be removed from the subscribed events list.
-func (consumer *Consumer) OnEvent(event string) (<-chan *kafka.Event, func()) {
-	subscription := make(chan *kafka.Event, 1)
+func (consumer *Consumer) OnEvent(event string) (<-chan kafka.Event, func()) {
+	subscription := make(chan kafka.Event, 1)
 
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
@@ -144,7 +144,7 @@ func (consumer *Consumer) OnEvent(event string) (<-chan *kafka.Event, func()) {
 
 // OffEvent unsubscribes and closes the given channel from the given event.
 // A boolean is returned that represents if the method found the channel or not.
-func (consumer *Consumer) OffEvent(event string, channel <-chan *kafka.Event) bool {
+func (consumer *Consumer) OffEvent(event string, channel <-chan kafka.Event) bool {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 

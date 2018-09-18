@@ -118,7 +118,8 @@ func TestConsuming(t *testing.T) {
 	wg.Wait()
 }
 
-// TestEvents test if message events are emitted
+// TestEvents test if message events are emitted and
+// if plausible to manipulate consumed messages.
 func TestEvents(t *testing.T) {
 	config := &kafka.ConfigMap{
 		"group.id": TestGroup,
@@ -142,6 +143,7 @@ func TestEvents(t *testing.T) {
 
 	// Start a new go routine to test events consumption.
 	// If no events are received within the context deadline is a error thrown.
+	// Message manipulation is also tested in this method.
 	go func() {
 		deadline := time.Now().Add(500 * time.Millisecond)
 		ctx, cancel := context.WithDeadline(context.Background(), deadline)
@@ -149,14 +151,38 @@ func TestEvents(t *testing.T) {
 		defer cancel()
 		defer wg.Done()
 
+		manipulatedKey := "manipulated"
+		manipulatedValue := []byte("true")
+
 		select {
-		case <-before:
+		case event := <-before:
+			switch message := event.(type) {
+			case *kafka.Message:
+				message.Headers = append(message.Headers, kafka.Header{
+					Key:   manipulatedKey,
+					Value: manipulatedValue,
+				})
+			}
 		case <-ctx.Done():
 			t.Errorf("no before event was emitted on message consumption")
 		}
 
 		select {
-		case <-after:
+		case event := <-after:
+			switch message := event.(type) {
+			case *kafka.Message:
+				manipulated := false
+
+				for _, header := range message.Headers {
+					if header.Key == manipulatedKey && string(header.Value) == string(manipulatedValue) {
+						manipulated = true
+					}
+				}
+
+				if !manipulated {
+					t.Errorf("event message has not been manipulated")
+				}
+			}
 		case <-ctx.Done():
 			t.Errorf("no after event was emitted on message consumption")
 		}

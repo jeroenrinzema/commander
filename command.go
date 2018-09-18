@@ -51,6 +51,7 @@ func (command *Command) NewErrorEvent(action string, data []byte) *Event {
 // Populate populates the command struct with the given kafka message
 func (command *Command) Populate(message *kafka.Message) error {
 	command.Headers = make(map[string]string)
+	var throw error
 
 	for _, header := range message.Headers {
 		key := string(header.Key)
@@ -63,7 +64,8 @@ func (command *Command) Populate(message *kafka.Message) error {
 			id, err := uuid.FromString(value)
 
 			if err != nil {
-				return err
+				throw = err
+				continue
 			}
 
 			command.ID = id
@@ -75,11 +77,11 @@ func (command *Command) Populate(message *kafka.Message) error {
 	id, err := uuid.FromString(string(message.Key))
 
 	if err != nil {
-		return err
+		throw = err
 	}
 
 	command.Key = id
 	command.Data = message.Value
 
-	return nil
+	return throw
 }

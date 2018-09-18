@@ -103,7 +103,7 @@ func TestConsuming(t *testing.T) {
 		select {
 		case <-messages:
 		case <-ctx.Done():
-			t.Errorf("no message was consumed within the deadline")
+			t.Error("no message was consumed within the deadline")
 		}
 	}()
 
@@ -164,7 +164,7 @@ func TestEvents(t *testing.T) {
 				})
 			}
 		case <-ctx.Done():
-			t.Errorf("no before event was emitted on message consumption")
+			t.Error("no before event was emitted on message consumption")
 		}
 
 		select {
@@ -180,11 +180,11 @@ func TestEvents(t *testing.T) {
 				}
 
 				if !manipulated {
-					t.Errorf("event message has not been manipulated")
+					t.Error("event message has not been manipulated")
 				}
 			}
 		case <-ctx.Done():
-			t.Errorf("no after event was emitted on message consumption")
+			t.Error("no after event was emitted on message consumption")
 		}
 	}()
 
@@ -216,11 +216,11 @@ func TestClosing(t *testing.T) {
 	closeSub()
 
 	if len(consumer.events[BeforeEvent]) != 0 {
-		t.Errorf("The consumer event did not close correctly")
+		t.Error("The consumer event did not close correctly")
 	}
 
 	if len(consumer.Topics[TestTopic]) != 0 {
-		t.Errorf("The consumer subscription did not close correctly")
+		t.Error("The consumer subscription did not close correctly")
 	}
 
 	consumer.Subscribe(TestTopic)
@@ -229,11 +229,11 @@ func TestClosing(t *testing.T) {
 	consumer.Close()
 
 	if len(consumer.events[BeforeEvent]) != 0 {
-		t.Errorf("The consumer event did not close correctly after the consumer closed")
+		t.Error("The consumer event did not close correctly after the consumer closed")
 	}
 
 	if len(consumer.Topics[TestTopic]) != 0 {
-		t.Errorf("The consumer subscription did not close correctly after the consumer closed")
+		t.Error("The consumer subscription did not close correctly after the consumer closed")
 	}
 }
 

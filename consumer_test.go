@@ -55,11 +55,14 @@ func (mock *MockConsumer) Close() error                                      { r
 
 // TestNewConsumer tests the constructing of a new consumer start consuming, and close afterwards
 func TestNewConsumer(t *testing.T) {
+	var err error
+	var consumer *Consumer
+
 	config := &kafka.ConfigMap{
 		"group.id": TestGroup,
 	}
 
-	consumer, err := NewConsumer(config)
+	consumer, err = NewConsumer(config)
 	if err != nil {
 		t.Error(err)
 	}
@@ -67,6 +70,11 @@ func TestNewConsumer(t *testing.T) {
 	consumer.kafka = NewMockConsumer()
 	defer consumer.Close()
 	go consumer.Consume()
+
+	_, err = NewConsumer(&kafka.ConfigMap{})
+	if err == nil {
+		t.Error("No error is thrown when giving a empty config map")
+	}
 }
 
 // TestConsuming test the consuming of messages

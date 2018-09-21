@@ -33,7 +33,7 @@ var (
 	}
 )
 
-func NewCommand() *Command {
+func NewMockCommand() *Command {
 	headers := make(map[string]string)
 	headers["acknowledged"] = "true"
 
@@ -49,7 +49,7 @@ func NewCommand() *Command {
 }
 
 func TestCommandEventConstruction(t *testing.T) {
-	command := NewCommand()
+	command := NewMockCommand()
 	key := uuid.NewV4()
 
 	event := command.NewEvent(TestAction, TestVersion, key, []byte("{}"))
@@ -68,7 +68,7 @@ func TestCommandEventConstruction(t *testing.T) {
 }
 
 func TestCommandErrorEventConstruction(t *testing.T) {
-	command := NewCommand()
+	command := NewMockCommand()
 	event := command.NewErrorEvent(TestAction, []byte("{}"))
 
 	if event.Parent != command.ID {

@@ -34,23 +34,25 @@ func main() {
 
 	config := commander.NewConfig()
 	config.Brokers = []string{"..."}
+	config.AddGroups(users, warehouse)
 
-	config.AddGroups(users)
 	cmdr := commander.New(&config)
 	go cmdr.Consume()
 
 	users.OnCommandHandle("NewUser", func(command *commander.Command) *commander.Event {
+		// ...
+
 		return command.NewEvent("UserCreated", 1, uuid.NewV4(), nil)
 	})
 
-	users.OnCommandHandle("CheckUserWarehouse", func(_ *commander.Command) *commander.Event {
-		command := warehouse.NewCommand("CheckUsernameAvailable")
-		event, err := warehouse.SyncCommand(command)
+	users.OnCommandHandle("CheckUserWarehouse", func(command *commander.Command) *commander.Event {
+		available := warehouse.NewCommand("CheckUsernameAvailable")
+		event, err := warehouse.SyncCommand(available)
 		if err != nil {
-			return ...
+			// return ...
 		}
 
-		...
+		// ...
 	})
 }
 

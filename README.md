@@ -6,6 +6,57 @@ Commander gives you a toolset for writing distributed applications following the
 
 ## Getting started
 
+```go
+package main
+
+func main() {
+	users := commander.Group{
+		Topics: []commander.Topic{
+			commander.CommandTopic{
+				Name: "user-commands",
+			},
+			commander.EventTopic{
+				Name: "user-events",
+			},
+		},
+	}
+
+	warehouse := commander.Group{
+		Topics: []commander.Topic{
+			commander.CommandTopic{
+				Name: "warehouse-commands",
+			},
+			commander.EventTopic{
+				Name: "warehouse-events",
+			},
+		},
+	}
+
+	config := commander.NewConfig()
+	config.Brokers = []string{"..."}
+
+	config.AddGroups(users)
+	cmdr := commander.New(&config)
+	go cmdr.Consume()
+
+	users.OnCommandHandle("NewUser", func(command *commander.Command) *commander.Event {
+		return command.NewEvent("UserCreated", 1, uuid.NewV4(), nil)
+	})
+
+	users.OnCommandHandle("CheckUserWarehouse", func(_ *commander.Command) *commander.Event {
+		command := warehouse.NewCommand("CheckUsernameAvailable")
+		event, err := warehouse.SyncCommand(command)
+		if err != nil {
+			return ...
+		}
+
+		...
+	})
+}
+
+
+```
+
 To get started quickly download/fork the [boilerplate](https://github.com/sysco-middleware/commander-boilerplate).
 
 ## Examples

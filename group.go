@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Shopify/sarama"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -69,8 +69,57 @@ func (group *Group) AsyncCommand(command *Command) ([]CommandTopic, error) {
 	return topics, nil
 }
 
+// NewEvent creates a new acknowledged event.
+func (group *Group) NewEvent(action string, version int, parent uuid.UUID, key uuid.UUID, data []byte) *Event {
+	id := uuid.NewV4()
+	event := &Event{
+		Parent:       parent,
+		ID:           id,
+		Action:       action,
+		Data:         data,
+		Key:          key,
+		Acknowledged: true,
+		Version:      version,
+	}
+
+	return event
+}
+
+// NewCommand creates a new command.
+func (group *Group) NewCommand(action string, key uuid.UUID, data []byte) *Command {
+	id := uuid.NewV4()
+	command := &Command{
+		Key:    key,
+		ID:     id,
+		Action: action,
+		Data:   data,
+	}
+
+	return command
+}
+
+// SyncEvent creates a new event message to the given group.
+// If a error occured while writing the event the the events topic(s)
+func (group *Group) SyncEvent(event *Event) ([]EventTopic, error) {
+	topics := []EventTopic{}
+
+	for _, t := range group.Topics {
+		switch topic := t.(type) {
+		case EventTopic:
+			err := group.ProduceEvent(event, topic.Name)
+			if err != nil {
+				return nil, err
+			}
+
+			topics = append(topics, topic)
+		}
+	}
+
+	return topics, nil
+}
+
 // SyncCommand creates a command message to the given group and awaits
-// its responding message. If no message is received within the set timeout period
+// its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
 func (group *Group) SyncCommand(command *Command) ([]*Event, error) {
 	topics, err := group.AsyncCommand(command)
@@ -138,10 +187,6 @@ func (group *Group) AwaitEvents(timeout time.Duration, parent uuid.UUID, expecti
 	return sink, err
 }
 
-// NewEvent creates a new event for the given group.
-func (group *Group) NewEvent() {
-}
-
 // ProduceCommand constructs and produces a command kafka message to the given topic.
 // A error is returned if anything went wrong in the process.
 //
@@ -153,20 +198,22 @@ func (group *Group) ProduceCommand(command *Command, topic string) error {
 		command.Key = command.ID
 	}
 
-	message := sarama.ProducerMessage{
-		Headers: []sarama.RecordHeader{
-			sarama.RecordHeader{
-				Key:   []byte(ActionHeader),
+	message := kafka.Message{
+		Headers: []kafka.Header{
+			kafka.Header{
+				Key:   ActionHeader,
 				Value: []byte(command.Action),
 			},
-			sarama.RecordHeader{
-				Key:   []byte(IDHeader),
+			kafka.Header{
+				Key:   IDHeader,
 				Value: []byte(command.ID.String()),
 			},
 		},
-		Key:   sarama.StringEncoder(command.Key.String()),
-		Value: sarama.ByteEncoder(command.Data),
-		Topic: topic,
+		Key:   []byte(command.Key.String()),
+		Value: command.Data,
+		TopicPartition: kafka.TopicPartition{
+			Topic: &topic,
+		},
 	}
 
 	return group.Produce(&message)
@@ -179,35 +226,37 @@ func (group *Group) ProduceEvent(event *Event, topic string) error {
 		event.Key = event.ID
 	}
 
-	message := &sarama.ProducerMessage{
-		Headers: []sarama.RecordHeader{
-			sarama.RecordHeader{
-				Key:   []byte(ActionHeader),
+	message := kafka.Message{
+		Headers: []kafka.Header{
+			kafka.Header{
+				Key:   ActionHeader,
 				Value: []byte(event.Action),
 			},
-			sarama.RecordHeader{
-				Key:   []byte(ParentHeader),
+			kafka.Header{
+				Key:   ParentHeader,
 				Value: []byte(event.Parent.String()),
 			},
-			sarama.RecordHeader{
-				Key:   []byte(IDHeader),
+			kafka.Header{
+				Key:   IDHeader,
 				Value: []byte(event.ID.String()),
 			},
-			sarama.RecordHeader{
-				Key:   []byte(AcknowledgedHeader),
+			kafka.Header{
+				Key:   AcknowledgedHeader,
 				Value: []byte(strconv.FormatBool(event.Acknowledged)),
 			},
-			sarama.RecordHeader{
-				Key:   []byte(VersionHeader),
+			kafka.Header{
+				Key:   VersionHeader,
 				Value: []byte(strconv.Itoa(event.Version)),
 			},
 		},
-		Key:   sarama.StringEncoder(event.Key.String()),
-		Value: sarama.ByteEncoder(event.Data),
-		Topic: topic,
+		Key:   []byte(event.Key.String()),
+		Value: event.Data,
+		TopicPartition: kafka.TopicPartition{
+			Topic: &topic,
+		},
 	}
 
-	return group.Produce(message)
+	return group.Produce(&message)
 }
 
 // NewEventsConsumer starts consuming events of the given action and the given versions.

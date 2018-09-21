@@ -9,6 +9,11 @@ Commander gives you a toolset for writing distributed applications following the
 ```go
 package main
 
+import (
+	uuid "github.com/satori/go.uuid"
+	"github.com/sysco-middleware/commander"
+)
+
 func main() {
 	users := commander.Group{
 		Topics: []commander.Topic{
@@ -55,8 +60,6 @@ func main() {
 		// ...
 	})
 }
-
-
 ```
 
 To get started quickly download/fork the [boilerplate](https://github.com/sysco-middleware/commander-boilerplate).

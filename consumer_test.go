@@ -31,12 +31,25 @@ func NewMessage(key, topic string, value []byte, headers []kafka.Header) *kafka.
 }
 
 // NewMockConsumer constructs a new MockConsumer
-func NewMockConsumer() *MockConsumer {
-	consumer := &MockConsumer{
+func NewMockConsumer(config kafka.ConfigMap) (*Consumer, *MockConsumer, error) {
+	if config == nil {
+		config = kafka.ConfigMap{
+			"group.id": TestGroup,
+		}
+	}
+
+	consumer, err := NewConsumer(&config)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cluster := &MockConsumer{
 		events: make(chan kafka.Event),
 	}
 
-	return consumer
+	consumer.kafka = cluster
+
+	return consumer, cluster, nil
 }
 
 // MockConsumer mocks a Sarama cluster consumer.
@@ -67,7 +80,6 @@ func TestNewConsumer(t *testing.T) {
 		t.Error(err)
 	}
 
-	consumer.kafka = NewMockConsumer()
 	defer consumer.Close()
 	go consumer.Consume()
 
@@ -79,17 +91,10 @@ func TestNewConsumer(t *testing.T) {
 
 // TestConsuming test the consuming of messages
 func TestConsuming(t *testing.T) {
-	config := &kafka.ConfigMap{
-		"group.id": TestGroup,
-	}
-
-	consumer, err := NewConsumer(config)
+	consumer, cluster, err := NewMockConsumer(nil)
 	if err != nil {
 		t.Error(err)
 	}
-
-	cluster := NewMockConsumer()
-	consumer.kafka = cluster
 
 	defer consumer.Close()
 	go consumer.Consume()
@@ -129,17 +134,10 @@ func TestConsuming(t *testing.T) {
 // TestEvents test if message events are emitted and
 // if plausible to manipulate consumed messages.
 func TestEvents(t *testing.T) {
-	config := &kafka.ConfigMap{
-		"group.id": TestGroup,
-	}
-
-	consumer, err := NewConsumer(config)
+	consumer, cluster, err := NewMockConsumer(nil)
 	if err != nil {
 		t.Error(err)
 	}
-
-	cluster := NewMockConsumer()
-	consumer.kafka = cluster
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -208,11 +206,7 @@ func TestEvents(t *testing.T) {
 }
 
 func TestClosing(t *testing.T) {
-	config := &kafka.ConfigMap{
-		"group.id": TestGroup,
-	}
-
-	consumer, err := NewConsumer(config)
+	consumer, _, err := NewMockConsumer(nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -246,17 +240,10 @@ func TestClosing(t *testing.T) {
 }
 
 func BenchmarkConsumer(b *testing.B) {
-	config := &kafka.ConfigMap{
-		"group.id": TestGroup,
-	}
-
-	consumer, err := NewConsumer(config)
+	consumer, cluster, err := NewMockConsumer(nil)
 	if err != nil {
 		b.Error(err)
 	}
-
-	cluster := NewMockConsumer()
-	consumer.kafka = cluster
 
 	defer consumer.Close()
 	go consumer.Consume()

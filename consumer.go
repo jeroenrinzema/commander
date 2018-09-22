@@ -31,7 +31,7 @@ func NewConsumer(config *kafka.ConfigMap) (*Consumer, error) {
 		Topics:  make(map[string][]chan *kafka.Message),
 		events:  make(map[string][]chan kafka.Event),
 		kafka:   cluster,
-		closing: make(chan bool),
+		closing: make(chan bool, 1),
 	}
 
 	return consumer, nil
@@ -74,7 +74,7 @@ func (consumer *Consumer) AddGroups(groups ...*Group) error {
 				continue
 			}
 
-			consumer.Topics[topic.Name] = []chan kafka.Event{}
+			consumer.Topics[topic.Name] = []chan *kafka.Message{}
 		}
 	}
 
@@ -108,7 +108,7 @@ func (consumer *Consumer) SubscribeTopics() error {
 func (consumer *Consumer) Consume() {
 	for {
 		select {
-		case <-consumer.closing:
+		case <-consumer.BeforeClosing():
 			break
 		case event := <-consumer.kafka.Events():
 			consumer.EmitEvent(BeforeEvent, event)

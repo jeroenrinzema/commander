@@ -11,11 +11,15 @@ import (
 )
 
 var (
-	TestGroup  = "testing"
-	TestTopic  = "testing"
+	// TestGroup kafka testing group
+	TestGroup = "testing"
+	// TestTopic kafka testing topic
+	TestTopic = "testing"
+	// TestTopics kafka testing topics
 	TestTopics = []string{TestTopic}
 )
 
+// NewMessage creates a new kafka message with the given values
 func NewMessage(key, topic string, value []byte, headers []kafka.Header) *kafka.Message {
 	message := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
@@ -82,11 +86,6 @@ func TestNewConsumer(t *testing.T) {
 
 	defer consumer.Close()
 	go consumer.Consume()
-
-	_, err = NewConsumer(&kafka.ConfigMap{})
-	if err == nil {
-		t.Error("No error is thrown when giving a empty config map")
-	}
 }
 
 // TestConsuming test the consuming of messages

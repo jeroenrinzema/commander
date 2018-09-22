@@ -41,9 +41,9 @@ func main() {
 
 	config := commander.NewConfig()
 	config.Brokers = []string{"..."}
-	config.AddGroups(users, warehouse)
 
 	cmdr := commander.New(&config)
+	cmdr.AddGroups(users, warehouse)
 	go cmdr.Consume()
 
 	users.OnCommandHandle("NewUser", func(command *commander.Command) *commander.Event {

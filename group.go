@@ -23,14 +23,22 @@ const (
 	VersionHeader = "version"
 )
 
+// MockTopic is a neutral topic struct containing all available fields
+type MockTopic struct {
+	Name              string
+	IgnoreConsumption bool
+}
+
 // EventTopic contains the config information of a events topic
 type EventTopic struct {
-	Name string
+	Name              string
+	IgnoreConsumption bool
 }
 
 // CommandTopic contains the config information of a commands topic
 type CommandTopic struct {
-	Name string
+	Name              string
+	IgnoreConsumption bool
 }
 
 // Topic interface is used to store events and commands topics

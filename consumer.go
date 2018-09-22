@@ -21,18 +21,20 @@ func NewConsumer(config *kafka.ConfigMap) (*Consumer, error) {
 	config.SetKey("go.events.channel.enable", true)
 	config.SetKey("go.application.rebalance.enable", true)
 
-	consumer, err := kafka.NewConsumer(config)
+	cluster, err := kafka.NewConsumer(config)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Consumer{
+	consumer := &Consumer{
 		config:  config,
 		Topics:  make(map[string][]chan *kafka.Message),
 		events:  make(map[string][]chan kafka.Event),
-		kafka:   consumer,
+		kafka:   cluster,
 		closing: make(chan bool),
-	}, nil
+	}
+
+	return consumer, nil
 }
 
 // Consumer this consumer consumes messages from a
@@ -47,6 +49,55 @@ type Consumer struct {
 	closing chan bool
 	mutex   sync.Mutex
 	events  map[string][]chan kafka.Event
+}
+
+// NewGroups collects all topics that do not have the IgnoreConsumption
+// property set to true.
+func (consumer *Consumer) NewGroups(groups ...*Group) error {
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
+
+	for _, group := range groups {
+		for _, t := range group.Topics {
+			topic, ok := t.(MockTopic)
+			if ok != true {
+				continue
+			}
+
+			if topic.IgnoreConsumption {
+				continue
+			}
+
+			_, has := consumer.Topics[topic.Name]
+
+			if has {
+				continue
+			}
+
+			consumer.Topics[topic.Name] = []chan kafka.Event{}
+		}
+	}
+
+	err := consumer.SubscribeTopics()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SubscribeTopics subscribed to all set topics.
+func (consumer *Consumer) SubscribeTopics() error {
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
+
+	topics := []string{}
+	for topic := range consumer.Topics {
+		topics = append(topics, topic)
+	}
+
+	err := consumer.kafka.SubscribeTopics(topics, nil)
+	return err
 }
 
 // Consume subscribes to all given topics and creates a new consumer.

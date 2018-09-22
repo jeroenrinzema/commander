@@ -18,15 +18,5 @@ func NewConfig() *Config {
 type Config struct {
 	Timeout time.Duration
 	Brokers []string
-	Groups  []*Group
 	mutex   sync.Mutex
-}
-
-// AddGroups registeres a commander group and initializes it with
-// the set consumer and producer.
-func (config *Config) AddGroups(groups ...*Group) {
-	config.mutex.Lock()
-	defer config.mutex.Unlock()
-
-	config.Groups = append(config.Groups, groups...)
 }

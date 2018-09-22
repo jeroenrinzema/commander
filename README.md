@@ -24,6 +24,7 @@ func main() {
 				Name: "user-events",
 			},
 		},
+		HandleCommands: true,
 	}
 
 	warehouse := commander.Group{
@@ -35,6 +36,7 @@ func main() {
 				Name: "warehouse-events",
 			},
 		},
+		SyncCommands: true,
 	}
 
 	config := commander.NewConfig()

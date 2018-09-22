@@ -51,9 +51,9 @@ type Consumer struct {
 	events  map[string][]chan kafka.Event
 }
 
-// NewGroups collects all topics that do not have the IgnoreConsumption
+// AddGroups collects all topics that do not have the IgnoreConsumption
 // property set to true.
-func (consumer *Consumer) NewGroups(groups ...*Group) error {
+func (consumer *Consumer) AddGroups(groups ...*Group) error {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 

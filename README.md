@@ -23,8 +23,7 @@ func main() {
 			commander.EventTopic{
 				Name: "user-events",
 			},
-		},
-		HandleCommands: true,
+		}
 	}
 
 	warehouse := commander.Group{
@@ -34,9 +33,9 @@ func main() {
 			},
 			commander.EventTopic{
 				Name: "warehouse-events",
+				IgnoreConsumption: true,
 			},
-		},
-		SyncCommands: true,
+		}
 	}
 
 	config := commander.NewConfig()
@@ -52,9 +51,9 @@ func main() {
 		return command.NewEvent("UserCreated", 1, uuid.NewV4(), nil)
 	})
 
-	users.OnCommandHandle("CheckUserWarehouse", func(command *commander.Command) *commander.Event {
-		available := warehouse.NewCommand("CheckUsernameAvailable")
-		event, err := warehouse.SyncCommand(available)
+	users.OnCommandHandle("SendUserSignupGift", func(command *commander.Command) *commander.Event {
+		available := warehouse.NewCommand("SendUserSignupGift")
+		_, err := warehouse.AsyncCommand(available)
 		if err != nil {
 			// return ...
 		}

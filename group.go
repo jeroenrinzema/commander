@@ -273,28 +273,64 @@ func (group *Group) ProduceEvent(event *Event, topic string) error {
 // All received events are published over the returned events go channel.
 func (group *Group) NewEventsConsumer() (chan *Event, func()) {
 	sink := make(chan *Event, 1)
+	topics := []string{}
+
+	for _, t := range group.Topics {
+		switch topic := t.(type) {
+		case EventTopic:
+			if topic.IgnoreConsumption {
+				continue
+			}
+
+			topics = append(topics, topic.Name)
+		}
+	}
+
+	messages, closing := group.Consumer.Subscribe(topics...)
+	defer closing()
 
 	go func() {
-
+		for message := range messages {
+			event := Event{}
+			event.Populate(message)
+			sink <- &event
+		}
 	}()
 
-	return sink, func() {
-	}
+	return sink, closing
 }
 
 // NewCommandsConsumer starts consuming commands of the given action.
 // The commands topic used is set during initialization of the group.
 // Two arguments are returned, a events channel and a method to unsubscribe the consumer.
 // All received events are published over the returned events go channel.
-func (group *Group) NewCommandsConsumer(action string) (chan *Command, func()) {
+func (group *Group) NewCommandsConsumer() (chan *Command, func()) {
 	sink := make(chan *Command, 1)
+	topics := []string{}
+
+	for _, t := range group.Topics {
+		switch topic := t.(type) {
+		case CommandTopic:
+			if topic.IgnoreConsumption {
+				continue
+			}
+
+			topics = append(topics, topic.Name)
+		}
+	}
+
+	messages, closing := group.Consumer.Subscribe(topics...)
+	defer closing()
 
 	go func() {
-		// Create a new command handle subscription for the given group topics
+		for message := range messages {
+			command := Command{}
+			command.Populate(message)
+			sink <- &command
+		}
 	}()
 
-	return sink, func() {
-	}
+	return sink, closing
 }
 
 // EventHandle is a callback function used to handle/process events
@@ -304,22 +340,40 @@ type EventHandle func(*Event)
 // Once a event of the given action is received is the EventHandle callback called.
 // The handle is closed once the consumer receives a close signal.
 func (group *Group) NewEventsHandle(action string, versions []int, callback EventHandle) func() {
-	// sink := make(chan *Event, 1)
+	events, closing := group.NewEventsConsumer()
 
 	go func() {
-		// Create a new event handle subscription for the given group topic
+		for event := range events {
+			if event.Action != action {
+				continue
+			}
+
+			callback(event)
+		}
 	}()
 
-	return func() {
-	}
+	return closing
 }
 
 // CommandHandle is a callback function used to handle/process commands
-type CommandHandle func(*Event)
+type CommandHandle func(*Command) *Event
 
 // NewCommandsHandle is a small wrapper around NewCommandsConsumer but calls the given callback method instead.
 // Once a event of the given action is received is the EventHandle callback called.
 // The handle is closed once the consumer receives a close signal.
 func (group *Group) NewCommandsHandle(action string, callback CommandHandle) func() {
-	return nil
+	commands, closing := group.NewCommandsConsumer()
+
+	go func() {
+		for command := range commands {
+			if command.Action != action {
+				continue
+			}
+
+			event := callback(command)
+			group.SyncEvent(event)
+		}
+	}()
+
+	return closing
 }

@@ -16,7 +16,7 @@ type Command struct {
 	Data    json.RawMessage   `json:"data"`
 }
 
-// NewEvent creates a acknowledged event as a response to this command.
+// NewEvent creates a new acknowledged event as a response to this command.
 func (command *Command) NewEvent(action string, version int, key uuid.UUID, data []byte) *Event {
 	id := uuid.NewV4()
 	event := &Event{

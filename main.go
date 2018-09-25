@@ -67,10 +67,13 @@ func (commander *Commander) BeforeClosing() <-chan bool {
 }
 
 // BeforeConsuming returns a channel which is called before a messages is
-// passed on to a consumer.
-func (commander *Commander) BeforeConsuming() {
+// passed on to a consumer. Two arguments are returned. The events channel and a closing function.
+func (commander *Commander) BeforeConsuming() (<-chan kafka.Event, func()) {
+	return commander.Consumer.OnEvent(BeforeEvent)
 }
 
 // AfterConsumed returns a channel which is called after a message is consumed.
-func (commander *Commander) AfterConsumed() {
+// Two arguments are returned. The events channel and a closing function.
+func (commander *Commander) AfterConsumed() (<-chan kafka.Event, func()) {
+	return commander.Consumer.OnEvent(AfterEvent)
 }

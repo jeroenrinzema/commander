@@ -213,30 +213,34 @@ func (consumer *Consumer) OffEvent(event string, channel <-chan kafka.Event) boo
 // Subscribe creates a new topic subscription channel that will start to receive
 // messages consumed by the consumer of the given topic. A channel and a closing method
 // will be returned once the channel has been subscribed to the given topic.
-func (consumer *Consumer) Subscribe(topic string) (<-chan *kafka.Message, func()) {
+func (consumer *Consumer) Subscribe(topics ...string) (<-chan *kafka.Message, func()) {
 	subscription := make(chan *kafka.Message, 1)
 
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
-	consumer.Topics[topic] = append(consumer.Topics[topic], subscription)
+	for _, topic := range topics {
+		consumer.Topics[topic] = append(consumer.Topics[topic], subscription)
+	}
 
 	return subscription, func() {
-		consumer.Unsubscribe(topic, subscription)
+		consumer.Unsubscribe(subscription)
 	}
 }
 
 // Unsubscribe unsubscribes the given channel from the given topic.
 // A boolean is returned that represents if the method found the channel or not.
-func (consumer *Consumer) Unsubscribe(topic string, channel <-chan *kafka.Message) bool {
+func (consumer *Consumer) Unsubscribe(channel <-chan *kafka.Message) bool {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
-	for index, subscription := range consumer.Topics[topic] {
-		if subscription == channel {
-			close(subscription)
-			consumer.Topics[topic] = append(consumer.Topics[topic][:index], consumer.Topics[topic][index+1:]...)
-			return true
+	for topic := range consumer.Topics {
+		for index, subscription := range consumer.Topics[topic] {
+			if subscription == channel {
+				close(subscription)
+				consumer.Topics[topic] = append(consumer.Topics[topic][:index], consumer.Topics[topic][index+1:]...)
+				return true
+			}
 		}
 	}
 

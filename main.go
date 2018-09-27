@@ -15,14 +15,28 @@ const (
 )
 
 // New creates a new commander instance of the given config
-func New(config *Config) *Commander {
+func New(config *Config) (*Commander, error) {
+	var err error
+	var producer *Producer
+	var consumer *Consumer
+
+	producer, err = NewProducer(config.Kafka)
+	if err != nil {
+		return nil, err
+	}
+
+	consumer, err = NewConsumer(config.Kafka)
+	if err != nil {
+		return nil, err
+	}
+
 	commander := Commander{
-		Producer: &Producer{},
-		Consumer: &Consumer{},
+		Producer: producer,
+		Consumer: consumer,
 		closing:  make(chan bool, 1),
 	}
 
-	return &commander
+	return &commander, nil
 }
 
 // Commander contains all information of a commander instance
@@ -78,7 +92,7 @@ func (commander *Commander) AddGroups(groups ...*Group) error {
 
 // Produce a new message to kafka. A error will be returnes if something went wrong in the process.
 func (commander *Commander) Produce(message *kafka.Message) error {
-	return nil
+	return commander.Producer.Produce(message)
 }
 
 // BeforeClosing returns a channel that gets called before the commander

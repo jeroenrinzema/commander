@@ -1,7 +1,6 @@
 package commander
 
 import (
-	"sync"
 	"time"
 )
 
@@ -18,5 +17,4 @@ func NewConfig() *Config {
 type Config struct {
 	Timeout time.Duration
 	Brokers []string
-	mutex   sync.Mutex
 }

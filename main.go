@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -39,9 +40,29 @@ func (commander *Commander) Consume() {
 	commander.Consumer.Consume()
 }
 
+// ValidateGroup validates the given group and returns a error if the group is not valid/incomplete
+func (commander *Commander) ValidateGroup(group *Group) error {
+	if len(group.CommandTopic.Name) == 0 {
+		return errors.New("The given group has no command topic name set")
+	}
+
+	if len(group.EventTopic.Name) == 0 {
+		return errors.New("The given group has no event topic name set")
+	}
+
+	return nil
+}
+
 // AddGroups registeres a commander group and initializes it with
 // the set consumer and producer.
 func (commander *Commander) AddGroups(groups ...*Group) error {
+	for _, group := range groups {
+		err := commander.ValidateGroup(group)
+		if err != nil {
+			return err
+		}
+	}
+
 	commander.mutex.Lock()
 	defer commander.mutex.Unlock()
 

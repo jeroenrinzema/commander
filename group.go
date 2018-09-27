@@ -23,34 +23,14 @@ const (
 	VersionHeader = "version"
 )
 
-// MockTopic is a neutral topic struct containing all available fields
-type MockTopic struct {
-	Name              string
-	IgnoreConsumption bool
-}
-
-// EventTopic contains the config information of a events topic
-type EventTopic struct {
-	Name              string
-	IgnoreConsumption bool
-}
-
-// CommandTopic contains the config information of a commands topic
-type CommandTopic struct {
-	Name              string
-	IgnoreConsumption bool
-}
-
-// Topic interface is used to store events and commands topics
-type Topic interface{}
-
 // Group contains information about a commander group.
 // A commander group could contain a events and commands topic where
 // commands and events could be consumed and produced to.
 type Group struct {
 	*Commander
-	Timeout time.Duration
-	Topics  []Topic
+	Timeout      time.Duration
+	EventTopic   Topic
+	CommandTopic Topic
 }
 
 // AsyncCommand creates a command message to the given group command topic
@@ -59,22 +39,13 @@ type Group struct {
 // If no command key is set will the command id be used. A command key is used
 // to write a command to the right kafka partition therefor to guarantee the order
 // of the kafka messages is it important to define a "dataset" key.
-func (group *Group) AsyncCommand(command *Command) ([]CommandTopic, error) {
-	topics := []CommandTopic{}
-
-	for _, t := range group.Topics {
-		switch topic := t.(type) {
-		case CommandTopic:
-			err := group.ProduceCommand(command, topic.Name)
-			if err != nil {
-				return nil, err
-			}
-
-			topics = append(topics, topic)
-		}
+func (group *Group) AsyncCommand(command *Command) error {
+	err := group.ProduceCommand(command, group.CommandTopic)
+	if err != nil {
+		return err
 	}
 
-	return topics, nil
+	return nil
 }
 
 // NewEvent creates a new acknowledged event.
@@ -108,91 +79,61 @@ func (group *Group) NewCommand(action string, key uuid.UUID, data []byte) *Comma
 
 // SyncEvent creates a new event message to the given group.
 // If a error occured while writing the event the the events topic(s)
-func (group *Group) SyncEvent(event *Event) ([]EventTopic, error) {
-	topics := []EventTopic{}
-
-	for _, t := range group.Topics {
-		switch topic := t.(type) {
-		case EventTopic:
-			err := group.ProduceEvent(event, topic.Name)
-			if err != nil {
-				return nil, err
-			}
-
-			topics = append(topics, topic)
-		}
+func (group *Group) SyncEvent(event *Event) error {
+	err := group.ProduceEvent(event, group.EventTopic)
+	if err != nil {
+		return err
 	}
 
-	return topics, nil
+	return nil
 }
 
 // SyncCommand creates a command message to the given group and awaits
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
-func (group *Group) SyncCommand(command *Command) ([]*Event, error) {
-	topics, err := group.AsyncCommand(command)
+func (group *Group) SyncCommand(command *Command) (*Event, error) {
+	var err error
+	err = group.AsyncCommand(command)
+
 	if err != nil {
 		return nil, err
 	}
 
-	// The timeout channel gets closed when all events are received within the timeout period
-	sink, timeout := group.AwaitEvents(group.Timeout, command.ID, len(topics))
-	defer close(sink)
+	var event *Event
+	event, err = group.AwaitEvent(group.Timeout, command.ID)
 
-	for message := range timeout {
-		return nil, message
+	if err != nil {
+		return nil, err
 	}
 
-	events := []*Event{}
-	for event := range sink {
-		events = append(events, event)
-	}
-
-	return events, err
+	return event, nil
 }
 
-// AwaitEvents awaits till the expected events are created with the given parent id.
+// AwaitEvent awaits till the expected events are created with the given parent id.
 // The returend events are buffered in the sink channel.
 //
 // If not the expected events are returned within the given timeout period
 // will a error be returned. The timeout channel is closed when all
 // expected events are received or after a timeout is thrown.
-func (group *Group) AwaitEvents(timeout time.Duration, parent uuid.UUID, expecting int) (chan *Event, chan error) {
-	sink := make(chan *Event, expecting)
-	err := make(chan error, 1)
-
+func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (*Event, error) {
 	events, closing := group.NewEventsConsumer()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 	defer cancel()
 	defer closing()
-	defer close(err)
 
-	go func() {
-		// Wait for the events to return
-		// A error is thrown if the event does not return within the given timeout period
-	syncEvent:
-		for {
-			select {
-			case event := <-events:
-				if event.Parent != parent {
-					continue
-				}
-
-				sink <- event
-				expecting = expecting - 1
-
-				if expecting <= 0 {
-					break syncEvent
-				}
-			case <-ctx.Done():
-				err <- errors.New("timeout reached")
-				break
+	for {
+		select {
+		case event := <-events:
+			if event.Parent != parent {
+				continue
 			}
-		}
-	}()
 
-	return sink, err
+			return event, nil
+		case <-ctx.Done():
+			return nil, errors.New("timeout reached")
+		}
+	}
 }
 
 // ProduceCommand constructs and produces a command kafka message to the given topic.
@@ -201,7 +142,7 @@ func (group *Group) AwaitEvents(timeout time.Duration, parent uuid.UUID, expecti
 // If no command key is set will the command id be used. A command key is used
 // to write a command to the right kafka partition therefor to guarantee the order
 // of the kafka messages is it important to define a "dataset" key.
-func (group *Group) ProduceCommand(command *Command, topic string) error {
+func (group *Group) ProduceCommand(command *Command, topic Topic) error {
 	if command.Key == uuid.Nil {
 		command.Key = command.ID
 	}
@@ -220,7 +161,7 @@ func (group *Group) ProduceCommand(command *Command, topic string) error {
 		Key:   []byte(command.Key.String()),
 		Value: command.Data,
 		TopicPartition: kafka.TopicPartition{
-			Topic: &topic,
+			Topic: &topic.Name,
 		},
 	}
 
@@ -229,7 +170,7 @@ func (group *Group) ProduceCommand(command *Command, topic string) error {
 
 // ProduceEvent produces a event kafka message to the given topic.
 // A error is returned if anything went wrong in the process.
-func (group *Group) ProduceEvent(event *Event, topic string) error {
+func (group *Group) ProduceEvent(event *Event, topic Topic) error {
 	if event.Key == uuid.Nil {
 		event.Key = event.ID
 	}
@@ -260,7 +201,7 @@ func (group *Group) ProduceEvent(event *Event, topic string) error {
 		Key:   []byte(event.Key.String()),
 		Value: event.Data,
 		TopicPartition: kafka.TopicPartition{
-			Topic: &topic,
+			Topic: &topic.Name,
 		},
 	}
 
@@ -273,21 +214,7 @@ func (group *Group) ProduceEvent(event *Event, topic string) error {
 // All received events are published over the returned events go channel.
 func (group *Group) NewEventsConsumer() (chan *Event, func()) {
 	sink := make(chan *Event, 1)
-	topics := []string{}
-
-	for _, t := range group.Topics {
-		switch topic := t.(type) {
-		case EventTopic:
-			if topic.IgnoreConsumption {
-				continue
-			}
-
-			topics = append(topics, topic.Name)
-		}
-	}
-
-	messages, closing := group.Consumer.Subscribe(topics...)
-	defer closing()
+	messages, closing := group.Consumer.Subscribe(group.EventTopic)
 
 	go func() {
 		for message := range messages {
@@ -306,21 +233,7 @@ func (group *Group) NewEventsConsumer() (chan *Event, func()) {
 // All received events are published over the returned events go channel.
 func (group *Group) NewCommandsConsumer() (chan *Command, func()) {
 	sink := make(chan *Command, 1)
-	topics := []string{}
-
-	for _, t := range group.Topics {
-		switch topic := t.(type) {
-		case CommandTopic:
-			if topic.IgnoreConsumption {
-				continue
-			}
-
-			topics = append(topics, topic.Name)
-		}
-	}
-
-	messages, closing := group.Consumer.Subscribe(topics...)
-	defer closing()
+	messages, closing := group.Consumer.Subscribe(group.CommandTopic)
 
 	go func() {
 		for message := range messages {

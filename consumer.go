@@ -1,10 +1,17 @@
 package commander
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
+
+// Topic contains information of a kafka topic
+type Topic struct {
+	Name              string
+	IgnoreConsumption bool
+}
 
 // KafkaConsumer is a consumer interface
 type KafkaConsumer interface {
@@ -58,24 +65,7 @@ func (consumer *Consumer) AddGroups(groups ...*Group) error {
 	defer consumer.mutex.Unlock()
 
 	for _, group := range groups {
-		for _, t := range group.Topics {
-			topic, ok := t.(MockTopic)
-			if ok != true {
-				continue
-			}
-
-			if topic.IgnoreConsumption {
-				continue
-			}
-
-			_, has := consumer.Topics[topic.Name]
-
-			if has {
-				continue
-			}
-
-			consumer.Topics[topic.Name] = []chan *kafka.Message{}
-		}
+		consumer.SetTopics(group.CommandTopic, group.EventTopic)
 	}
 
 	err := consumer.SubscribeTopics()
@@ -84,6 +74,24 @@ func (consumer *Consumer) AddGroups(groups ...*Group) error {
 	}
 
 	return nil
+}
+
+// SetTopics initializes a channel for the given topics that do not exist
+// yet or are not have the property IgnoredConsumption set to true.
+func (consumer *Consumer) SetTopics(topics ...Topic) {
+	for _, topic := range topics {
+		if topic.IgnoreConsumption == true {
+			continue
+		}
+
+		_, has := consumer.Topics[topic.Name]
+
+		if has {
+			continue
+		}
+
+		consumer.Topics[topic.Name] = []chan *kafka.Message{}
+	}
 }
 
 // SubscribeTopics subscribed to all set topics.
@@ -213,14 +221,20 @@ func (consumer *Consumer) OffEvent(event string, channel <-chan kafka.Event) boo
 // Subscribe creates a new topic subscription channel that will start to receive
 // messages consumed by the consumer of the given topic. A channel and a closing method
 // will be returned once the channel has been subscribed to the given topic.
-func (consumer *Consumer) Subscribe(topics ...string) (<-chan *kafka.Message, func()) {
+func (consumer *Consumer) Subscribe(topics ...Topic) (<-chan *kafka.Message, func()) {
+	for _, topic := range topics {
+		if topic.IgnoreConsumption == true {
+			panic(fmt.Sprintf("The topic %s is ignored for consumption", topic.Name))
+		}
+	}
+
 	subscription := make(chan *kafka.Message, 1)
 
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
 	for _, topic := range topics {
-		consumer.Topics[topic] = append(consumer.Topics[topic], subscription)
+		consumer.Topics[topic.Name] = append(consumer.Topics[topic.Name], subscription)
 	}
 
 	return subscription, func() {

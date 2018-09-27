@@ -14,16 +14,16 @@ var (
 	// TestGroup kafka testing group
 	TestGroup = "testing"
 	// TestTopic kafka testing topic
-	TestTopic = "testing"
-	// TestTopics kafka testing topics
-	TestTopics = []string{TestTopic}
+	TestTopic = Topic{
+		Name: "testing",
+	}
 )
 
 // NewMessage creates a new kafka message with the given values
-func NewMessage(key, topic string, value []byte, headers []kafka.Header) *kafka.Message {
+func NewMessage(key string, topic Topic, value []byte, headers []kafka.Header) *kafka.Message {
 	message := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
-			Topic: &topic,
+			Topic: &topic.Name,
 		},
 		Key:       []byte(key),
 		Value:     value,
@@ -220,7 +220,7 @@ func TestClosing(t *testing.T) {
 		t.Error("The consumer event did not close correctly")
 	}
 
-	if len(consumer.Topics[TestTopic]) != 0 {
+	if len(consumer.Topics[TestTopic.Name]) != 0 {
 		t.Error("The consumer subscription did not close correctly")
 	}
 
@@ -233,7 +233,7 @@ func TestClosing(t *testing.T) {
 		t.Error("The consumer event did not close correctly after the consumer closed")
 	}
 
-	if len(consumer.Topics[TestTopic]) != 0 {
+	if len(consumer.Topics[TestTopic.Name]) != 0 {
 		t.Error("The consumer subscription did not close correctly after the consumer closed")
 	}
 }

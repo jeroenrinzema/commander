@@ -4,23 +4,25 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/Shopify/sarama"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	uuid "github.com/satori/go.uuid"
 )
 
-// Event is produced as the result from a command
+// Event contains the information of a consumed event.
+// A event is produced as the result of a command.
 type Event struct {
-	Parent       uuid.UUID       `json:"parent"`
-	ID           uuid.UUID       `json:"id"`
-	Action       string          `json:"action"`
-	Data         json.RawMessage `json:"data"`
-	Key          uuid.UUID       `json:"key"`
-	Acknowledged bool            `json:"acknowledged"`
-	Version      int             `json:"version"`
+	Parent       uuid.UUID         `json:"parent"`
+	Headers      map[string]string `json:"headers"`
+	ID           uuid.UUID         `json:"id"`
+	Action       string            `json:"action"`
+	Data         json.RawMessage   `json:"data"`
+	Key          uuid.UUID         `json:"key"`
+	Acknowledged bool              `json:"acknowledged"`
+	Version      int               `json:"version"`
 }
 
 // Populate the event with the data from the given kafka message
-func (event *Event) Populate(message *sarama.ConsumerMessage) error {
+func (event *Event) Populate(message *kafka.Message) error {
 	for _, header := range message.Headers {
 		switch string(header.Key) {
 		case ActionHeader:

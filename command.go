@@ -3,33 +3,20 @@ package commander
 import (
 	"encoding/json"
 
-	"github.com/Shopify/sarama"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	uuid "github.com/satori/go.uuid"
 )
 
-// NewCommand create a new command with the given action and data.
-// A unique ID is generated and set in order to trace the command.
-func NewCommand(action string, data []byte) *Command {
-	id := uuid.NewV4()
-
-	command := Command{
-		ID:     id,
-		Action: action,
-		Data:   data,
-	}
-
-	return &command
-}
-
-// Command a command contains a order for a data change
+// Command contains the information of a consumed command.
 type Command struct {
-	Key    uuid.UUID       `json:"key,omitempty"`
-	ID     uuid.UUID       `json:"id"`
-	Action string          `json:"action"`
-	Data   json.RawMessage `json:"data"`
+	Key     uuid.UUID         `json:"key,omitempty"`
+	Headers map[string]string `json:"headers"`
+	ID      uuid.UUID         `json:"id"`
+	Action  string            `json:"action"`
+	Data    json.RawMessage   `json:"data"`
 }
 
-// NewEvent create a new event as a respond to the consumed command
+// NewEvent creates a new acknowledged event as a response to this command.
 func (command *Command) NewEvent(action string, version int, key uuid.UUID, data []byte) *Event {
 	id := uuid.NewV4()
 	event := &Event{
@@ -45,7 +32,7 @@ func (command *Command) NewEvent(action string, version int, key uuid.UUID, data
 	return event
 }
 
-// NewErrorEvent creates a new error event as a respond to the command
+// NewErrorEvent creates a error event as a response to this command.
 func (command *Command) NewErrorEvent(action string, data []byte) *Event {
 	id := uuid.NewV4()
 	key := uuid.Nil
@@ -61,31 +48,39 @@ func (command *Command) NewErrorEvent(action string, data []byte) *Event {
 	return event
 }
 
-// Populate populate the command with the data from a kafka message
-func (command *Command) Populate(message *sarama.ConsumerMessage) error {
+// Populate populates the command struct with the given kafka message
+func (command *Command) Populate(message *kafka.Message) error {
+	command.Headers = make(map[string]string)
+	var throw error
+
 	for _, header := range message.Headers {
-		switch string(header.Key) {
+		key := string(header.Key)
+		value := string(header.Value)
+
+		switch key {
 		case ActionHeader:
-			command.Action = string(header.Value)
+			command.Action = value
 		case IDHeader:
-			id, err := uuid.FromString(string(header.Value))
+			id, err := uuid.FromString(value)
 
 			if err != nil {
-				return err
+				throw = err
 			}
 
 			command.ID = id
 		}
+
+		command.Headers[key] = value
 	}
 
 	id, err := uuid.FromString(string(message.Key))
 
 	if err != nil {
-		return err
+		throw = err
 	}
 
 	command.Key = id
 	command.Data = message.Value
 
-	return nil
+	return throw
 }

@@ -116,3 +116,16 @@ Command processes and projector processes should never share their states betwee
 ## GDPR (work in progress)
 
 Commander offers various APIs to handle GDPR complaints. To keep the immutable ledger, immutable do we offer the plausibility to encrypt all events. Once a "right to erasure" request needs to be preformed can all data be erased by simply throwing away the key.
+
+```go
+// The mutations preformed before and after consumption
+// will modify the message.
+
+cmdr.BeforeMessage(func (message) {
+  // ... mutate a message before it is consumed
+})
+
+cmdr.AfterMessage(func (message) {
+  // ... mutate a message after it is consumed
+})
+```

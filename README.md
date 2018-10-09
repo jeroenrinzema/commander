@@ -6,6 +6,31 @@ Commander gives you a toolset for writing distributed applications following the
 
 ## Getting started
 
+Commander makes use of groups that represent a "data set". Events and commands could be consumed and produced to the set topics. Sometimes a topic is not required to be consumed, in order to avoid unnessasery consumption could it be ignored.
+
+```go
+users := commander.Group{
+	CommandTopic: commander.Topic{
+		Name: "user-commands",
+	},
+	EventTopic: commander.Topic{
+		Name: "user-events",
+	},
+}
+
+warehouse := commander.Group{
+	CommandTopic: commander.Topic{
+		Name: "warehouse-commands",
+	},
+	EventTopic: commander.Topic{
+		Name: "warehouse-events",
+		IgnoreConsumption: true,
+	},
+}
+```
+
+The created groups after need to be included to a commander instance. Once included is it plausible to consume and produce events.
+
 ```go
 package main
 
@@ -16,26 +41,22 @@ import (
 
 func main() {
 	users := commander.Group{
-		Topics: []commander.Topic{
-			commander.CommandTopic{
-				Name: "user-commands",
-			},
-			commander.EventTopic{
-				Name: "user-events",
-			},
-		}
+		CommandTopic: commander.Topic{
+			Name: "user-commands",
+		},
+		EventTopic: commander.Topic{
+			Name: "user-events",
+		},
 	}
 
 	warehouse := commander.Group{
-		Topics: []commander.Topic{
-			commander.CommandTopic{
-				Name: "warehouse-commands",
-			},
-			commander.EventTopic{
-				Name: "warehouse-events",
-				IgnoreConsumption: true,
-			},
-		}
+		CommandTopic: commander.Topic{
+			Name: "warehouse-commands",
+		},
+		EventTopic: commander.Topic{
+			Name: "warehouse-events",
+			IgnoreConsumption: true,
+		},
 	}
 
 	config := commander.NewConfig()

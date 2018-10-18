@@ -1,9 +1,6 @@
 package commander
 
 import (
-	"errors"
-	"sync"
-
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
@@ -15,100 +12,87 @@ const (
 )
 
 // New creates a new commander instance of the given config
-func New(config *Config) (*Commander, error) {
-	var err error
-	var producer *Producer
-	var consumer *Consumer
+func New(config Config) (Client, error) {
+	var producer Producer
+	var consumer Consumer
 
-	producer, err = NewProducer(config.Kafka)
-	if err != nil {
-		return nil, err
-	}
+	// producer, err = NewProducer(config.Kafka)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	consumer, err = NewConsumer(config.Kafka)
-	if err != nil {
-		return nil, err
-	}
+	// consumer, err = NewConsumer(config.Kafka)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	commander := Commander{
-		Producer: producer,
-		Consumer: consumer,
+	client := &client{
+		Config:   config,
+		producer: producer,
+		consumer: consumer,
 		closing:  make(chan bool, 1),
 	}
 
-	return &commander, nil
+	return client, nil
 }
 
-// Commander contains all information of a commander instance
-type Commander struct {
-	*Config
-	Groups   []*Group
-	Producer *Producer
-	Consumer *Consumer
+// Client manages the consumers, producers and groups.
+type Client interface {
+	// Consume starts consuming messages with the set consumer.
+	Consume()
+
+	// Consumer returns the clients consumer
+	Consumer() Consumer
+
+	// Producer returns the clients producer
+	Producer()
+
+	// Produce a new message to kafka. A error will be returnes if something went wrong in the process.
+	Produce(message *kafka.Message) error
+
+	// BeforeClosing returns a channel that gets called before the commander
+	// instance is closed.
+	BeforeClosing() <-chan bool
+
+	// BeforeConsuming returns a channel which is called before a messages is
+	// passed on to a consumer. Two arguments are returned. The events channel and a closing function.
+	BeforeConsuming() (<-chan kafka.Event, func())
+
+	// AfterConsumed returns a channel which is called after a message is consumed.
+	// Two arguments are returned. The events channel and a closing function.
+	AfterConsumed() (<-chan kafka.Event, func())
+}
+
+type client struct {
+	Config
+	groups   []*Group
+	producer Producer
+	consumer Consumer
 	closing  chan bool
-	mutex    sync.Mutex
 }
 
-// Consume starts consuming messages with the set consumer.
-func (commander *Commander) Consume() {
-	commander.Consumer.Consume()
+func (client *client) Consumer() Consumer {
+	return client.consumer
 }
 
-// ValidateGroup validates the given group and returns a error if the group is not valid/incomplete
-func (commander *Commander) ValidateGroup(group *Group) error {
-	if len(group.CommandTopic.Name) == 0 {
-		return errors.New("The given group has no command topic name set")
-	}
+func (client *client) Producer() {}
 
-	if len(group.EventTopic.Name) == 0 {
-		return errors.New("The given group has no event topic name set")
-	}
+func (client *client) Consume() {
+	client.consumer.Consume()
+}
 
+func (client *client) Produce(message *kafka.Message) error {
 	return nil
 }
 
-// AddGroups registeres a commander group and initializes it with
-// the set consumer and producer.
-func (commander *Commander) AddGroups(groups ...*Group) error {
-	for _, group := range groups {
-		err := commander.ValidateGroup(group)
-		if err != nil {
-			return err
-		}
-	}
-
-	commander.mutex.Lock()
-	defer commander.mutex.Unlock()
-
-	commander.Groups = append(commander.Groups, groups...)
-	err := commander.Consumer.AddGroups(groups...)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (client *client) BeforeClosing() <-chan bool {
+	return client.closing
 }
 
-// Produce a new message to kafka. A error will be returnes if something went wrong in the process.
-func (commander *Commander) Produce(message *kafka.Message) error {
-	return commander.Producer.Produce(message)
+func (client *client) BeforeConsuming() (<-chan kafka.Event, func()) {
+	return client.consumer.OnEvent(BeforeEvent)
 }
 
-// BeforeClosing returns a channel that gets called before the commander
-// instance is closed.
-func (commander *Commander) BeforeClosing() <-chan bool {
-	return commander.closing
-}
-
-// BeforeConsuming returns a channel which is called before a messages is
-// passed on to a consumer. Two arguments are returned. The events channel and a closing function.
-func (commander *Commander) BeforeConsuming() (<-chan kafka.Event, func()) {
-	return commander.Consumer.OnEvent(BeforeEvent)
-}
-
-// AfterConsumed returns a channel which is called after a message is consumed.
-// Two arguments are returned. The events channel and a closing function.
-func (commander *Commander) AfterConsumed() (<-chan kafka.Event, func()) {
-	return commander.Consumer.OnEvent(AfterEvent)
+func (client *client) AfterConsumed() (<-chan kafka.Event, func()) {
+	return client.consumer.OnEvent(AfterEvent)
 }

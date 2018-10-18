@@ -1,4 +1,4 @@
-module github.com/sysco-middleware/commander
+module github.com/jeroenrinzema/commander
 
 require (
 	github.com/confluentinc/confluent-kafka-go v0.11.4

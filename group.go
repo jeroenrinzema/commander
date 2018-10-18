@@ -27,7 +27,7 @@ const (
 // A commander group could contain a events and commands topic where
 // commands and events could be consumed and produced to.
 type Group struct {
-	*Commander
+	Client
 	Timeout      time.Duration
 	EventTopic   Topic
 	CommandTopic Topic
@@ -214,7 +214,7 @@ func (group *Group) ProduceEvent(event *Event, topic Topic) error {
 // All received events are published over the returned events go channel.
 func (group *Group) NewEventsConsumer() (chan *Event, func()) {
 	sink := make(chan *Event, 1)
-	messages, closing := group.Consumer.Subscribe(group.EventTopic)
+	messages, closing := group.Client.Consumer().Subscribe(group.EventTopic)
 
 	go func() {
 		for message := range messages {
@@ -233,7 +233,7 @@ func (group *Group) NewEventsConsumer() (chan *Event, func()) {
 // All received events are published over the returned events go channel.
 func (group *Group) NewCommandsConsumer() (chan *Command, func()) {
 	sink := make(chan *Command, 1)
-	messages, closing := group.Consumer.Subscribe(group.CommandTopic)
+	messages, closing := group.Client.Consumer().Subscribe(group.CommandTopic)
 
 	go func() {
 		for message := range messages {

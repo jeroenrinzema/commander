@@ -24,7 +24,7 @@ type KafkaConsumer interface {
 }
 
 // NewConsumer initalizes a new consumer struct with the given cluster client.
-func NewConsumer(config *kafka.ConfigMap) (*Consumer, error) {
+func NewConsumer(config *kafka.ConfigMap) (Consumer, error) {
 	config.SetKey("go.events.channel.enable", true)
 	config.SetKey("go.application.rebalance.enable", true)
 
@@ -33,9 +33,9 @@ func NewConsumer(config *kafka.ConfigMap) (*Consumer, error) {
 		return nil, err
 	}
 
-	consumer := &Consumer{
+	consumer := &consumer{
 		config:  config,
-		Topics:  make(map[string][]chan *kafka.Message),
+		topics:  make(map[string][]chan *kafka.Message),
 		events:  make(map[string][]chan kafka.Event),
 		kafka:   cluster,
 		closing: make(chan bool, 1),
@@ -46,9 +46,56 @@ func NewConsumer(config *kafka.ConfigMap) (*Consumer, error) {
 
 // Consumer this consumer consumes messages from a
 // kafka topic. A channel is opened to receive kafka messages
-type Consumer struct {
-	Topics map[string][]chan *kafka.Message
-	Group  string
+type Consumer interface {
+	// AddGroups collects and subscribes to all topics that do not have the IgnoreConsumption property set to true.
+	AddGroups(...*Group) error
+
+	// SetTopics initializes a channel for the given topics that do not exist.
+	// This method will ignore all topics that have their IgnoreConsumption property set to true.
+	SetTopics(topics ...Topic)
+
+	// SubscribeTopics subscribed to all registered topics.
+	SubscribeTopics() error
+
+	// UseMockConsumer replaces the current consumer with a mock consumer.
+	// This method is mainly used for testing purposes
+	UseMockConsumer() *MockKafkaConsumer
+
+	// Consume opens the kafka consumer and emits consumed messages to the subscribed subscriptions.
+	// A topic subscription could be made with the Subscribe method.
+	// Before a message is passed on to any topic subscription is a BeforeEvent event with the received message emitted.
+	// After the message has been consumed and processed is the AfterEvent event emitted.
+	Consume()
+
+	// BeforeClosing returns a channel that gets called before the consumer gets closed
+	BeforeClosing() <-chan bool
+
+	// Close closes the kafka consumer, all topic subscriptions and event channels.
+	Close()
+
+	// EmitEvent calls all subscriptions for the given event.
+	// All subscriptions get called in a sync manner to allow the consumed message to be manipulated.
+	EmitEvent(string, kafka.Event)
+
+	// OnEvent creates a new event subscription for the given event.
+	// The method will return a event channel and close function.
+	// Once a event messaged is emitted will it be passed to the returned channel.
+	// The returned channel gets called in a sync manner to allowe consumer messages to be manipulated.
+	OnEvent(string) (<-chan kafka.Event, func())
+
+	// Subscribe creates a new topic subscription that will receive
+	// messages consumed by the consumer of the given topic. This method
+	// will return a message channel and a close function.
+	Subscribe(...Topic) (<-chan *kafka.Message, func())
+
+	// Unsubscribe unsubscribes the given channel subscription from the given topic.
+	// A boolean is returned that represents if the channel successfully got unsubscribed.
+	Unsubscribe(<-chan *kafka.Message) bool
+}
+
+type consumer struct {
+	topics map[string][]chan *kafka.Message
+	group  string
 
 	config *kafka.ConfigMap
 	kafka  KafkaConsumer
@@ -58,9 +105,16 @@ type Consumer struct {
 	events  map[string][]chan kafka.Event
 }
 
-// AddGroups collects all topics that do not have the IgnoreConsumption
-// property set to true.
-func (consumer *Consumer) AddGroups(groups ...*Group) error {
+func (consumer *consumer) UseMockConsumer() *MockKafkaConsumer {
+	mock := &MockKafkaConsumer{
+		events: make(chan kafka.Event),
+	}
+
+	consumer.kafka = mock
+	return mock
+}
+
+func (consumer *consumer) AddGroups(groups ...*Group) error {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
@@ -76,31 +130,28 @@ func (consumer *Consumer) AddGroups(groups ...*Group) error {
 	return nil
 }
 
-// SetTopics initializes a channel for the given topics that do not exist
-// yet or are not have the property IgnoredConsumption set to true.
-func (consumer *Consumer) SetTopics(topics ...Topic) {
+func (consumer *consumer) SetTopics(topics ...Topic) {
 	for _, topic := range topics {
 		if topic.IgnoreConsumption == true {
 			continue
 		}
 
-		_, has := consumer.Topics[topic.Name]
+		_, has := consumer.topics[topic.Name]
 
 		if has {
 			continue
 		}
 
-		consumer.Topics[topic.Name] = []chan *kafka.Message{}
+		consumer.topics[topic.Name] = []chan *kafka.Message{}
 	}
 }
 
-// SubscribeTopics subscribed to all set topics.
-func (consumer *Consumer) SubscribeTopics() error {
+func (consumer *consumer) SubscribeTopics() error {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
 	topics := []string{}
-	for topic := range consumer.Topics {
+	for topic := range consumer.topics {
 		topics = append(topics, topic)
 	}
 
@@ -108,12 +159,7 @@ func (consumer *Consumer) SubscribeTopics() error {
 	return err
 }
 
-// Consume subscribes to all given topics and creates a new consumer.
-// The consumed messages get send to subscribed topic subscriptions.
-// A topic subscription could be made with the consumer.Subscribe method.
-// Before a message is passed on to any topic subscription is the BeforeEvent event emitted.
-// And once a event has been consumed and processed is the AfterEvent event emitted.
-func (consumer *Consumer) Consume() {
+func (consumer *consumer) Consume() {
 	for {
 		select {
 		case <-consumer.BeforeClosing():
@@ -128,7 +174,7 @@ func (consumer *Consumer) Consume() {
 				consumer.kafka.Unassign()
 			case *kafka.Message:
 				consumer.mutex.Lock()
-				for _, subscription := range consumer.Topics[*message.TopicPartition.Topic] {
+				for _, subscription := range consumer.topics[*message.TopicPartition.Topic] {
 					subscription <- message
 				}
 				consumer.mutex.Unlock()
@@ -140,24 +186,22 @@ func (consumer *Consumer) Consume() {
 	}
 }
 
-// BeforeClosing returns a channel that gets called before closing
-func (consumer *Consumer) BeforeClosing() <-chan bool {
+func (consumer *consumer) BeforeClosing() <-chan bool {
 	return consumer.closing
 }
 
-// Close closes all topic subscriptions and event channels.
-func (consumer *Consumer) Close() {
+func (consumer *consumer) Close() {
 	close(consumer.closing)
 
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
-	for topic, subscriptions := range consumer.Topics {
+	for topic, subscriptions := range consumer.topics {
 		for _, subscription := range subscriptions {
 			close(subscription)
 		}
 
-		consumer.Topics[topic] = nil
+		consumer.topics[topic] = nil
 	}
 
 	for event, subscriptions := range consumer.events {
@@ -171,10 +215,7 @@ func (consumer *Consumer) Close() {
 	consumer.kafka.Close()
 }
 
-// EmitEvent calls all subscriptions of the given event.
-// All subscriptions get called in a sync manner to allow consumer message
-// to be manipulated.
-func (consumer *Consumer) EmitEvent(name string, event kafka.Event) {
+func (consumer *consumer) EmitEvent(name string, event kafka.Event) {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
@@ -183,12 +224,7 @@ func (consumer *Consumer) EmitEvent(name string, event kafka.Event) {
 	}
 }
 
-// OnEvent creates a new event subscription for the given events.
-// A channel and close function will be returned. The channel will receive consumer messages once the
-// consumer emits the given event. The returned channel gets called in a sync
-// manner to allowe consumer messages to be manipulated. When the close function gets
-// called will the subscription be removed from the subscribed events list.
-func (consumer *Consumer) OnEvent(event string) (<-chan kafka.Event, func()) {
+func (consumer *consumer) OnEvent(event string) (<-chan kafka.Event, func()) {
 	subscription := make(chan kafka.Event, 1)
 
 	consumer.mutex.Lock()
@@ -203,7 +239,7 @@ func (consumer *Consumer) OnEvent(event string) (<-chan kafka.Event, func()) {
 
 // OffEvent unsubscribes and closes the given channel from the given event.
 // A boolean is returned that represents if the method found the channel or not.
-func (consumer *Consumer) OffEvent(event string, channel <-chan kafka.Event) bool {
+func (consumer *consumer) OffEvent(event string, channel <-chan kafka.Event) bool {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
@@ -218,10 +254,7 @@ func (consumer *Consumer) OffEvent(event string, channel <-chan kafka.Event) boo
 	return false
 }
 
-// Subscribe creates a new topic subscription channel that will start to receive
-// messages consumed by the consumer of the given topic. A channel and a closing method
-// will be returned once the channel has been subscribed to the given topic.
-func (consumer *Consumer) Subscribe(topics ...Topic) (<-chan *kafka.Message, func()) {
+func (consumer *consumer) Subscribe(topics ...Topic) (<-chan *kafka.Message, func()) {
 	for _, topic := range topics {
 		if topic.IgnoreConsumption == true {
 			panic(fmt.Sprintf("The topic %s is ignored for consumption", topic.Name))
@@ -234,7 +267,7 @@ func (consumer *Consumer) Subscribe(topics ...Topic) (<-chan *kafka.Message, fun
 	defer consumer.mutex.Unlock()
 
 	for _, topic := range topics {
-		consumer.Topics[topic.Name] = append(consumer.Topics[topic.Name], subscription)
+		consumer.topics[topic.Name] = append(consumer.topics[topic.Name], subscription)
 	}
 
 	return subscription, func() {
@@ -242,17 +275,15 @@ func (consumer *Consumer) Subscribe(topics ...Topic) (<-chan *kafka.Message, fun
 	}
 }
 
-// Unsubscribe unsubscribes the given channel from the given topic.
-// A boolean is returned that represents if the method found the channel or not.
-func (consumer *Consumer) Unsubscribe(channel <-chan *kafka.Message) bool {
+func (consumer *consumer) Unsubscribe(channel <-chan *kafka.Message) bool {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
-	for topic := range consumer.Topics {
-		for index, subscription := range consumer.Topics[topic] {
+	for topic := range consumer.topics {
+		for index, subscription := range consumer.topics[topic] {
 			if subscription == channel {
 				close(subscription)
-				consumer.Topics[topic] = append(consumer.Topics[topic][:index], consumer.Topics[topic][index+1:]...)
+				consumer.topics[topic] = append(consumer.topics[topic][:index], consumer.topics[topic][index+1:]...)
 				return true
 			}
 		}

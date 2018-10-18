@@ -7,8 +7,8 @@ import (
 
 func NewMockGroup() *Group {
 	group := &Group{
-		Commander: &Commander{},
-		Timeout:   5 * time.Second,
+		Client:  &client{},
+		Timeout: 5 * time.Second,
 		EventTopic: Topic{
 			Name: "testing-events",
 		},

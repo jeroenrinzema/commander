@@ -9,25 +9,16 @@ import (
 )
 
 // NewConfig initializes and returns a config struct.
-func NewConfig() Config {
-	config := &config{
+func NewConfig() *Config {
+	config := &Config{
 		Timeout: 5 * time.Second,
 	}
 
 	return config
 }
 
-// Config validates and processes configuration options
-type Config interface {
-	// ValidateGroup validates the given group and returns a error if the group is invalid
-	ValidateGroup(*Group) error
-
-	// AddGroups validates and registeres the given groups at the producer and consumer
-	AddGroups(...*Group) error
-}
-
-// config contains all config options for a commander instance.
-type config struct {
+// Config contains all config options for a commander instance.
+type Config struct {
 	Timeout time.Duration
 	Kafka   *kafka.ConfigMap
 	Brokers []string
@@ -35,7 +26,8 @@ type config struct {
 	mutex   sync.Mutex
 }
 
-func (config *config) ValidateGroup(group *Group) error {
+// ValidateGroup validates the given group and returns a error if the group is invalid
+func (config *Config) ValidateGroup(group *Group) error {
 	if len(group.CommandTopic.Name) == 0 {
 		return errors.New("The given group has no command topic name set")
 	}
@@ -47,7 +39,8 @@ func (config *config) ValidateGroup(group *Group) error {
 	return nil
 }
 
-func (config *config) AddGroups(groups ...*Group) error {
+// AddGroups validates and registeres the given groups at the producer and consumer
+func (config *Config) AddGroups(groups ...*Group) error {
 	for _, group := range groups {
 		err := config.ValidateGroup(group)
 		if err != nil {

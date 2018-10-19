@@ -1,33 +1,56 @@
 /*
-Package commander gives you a toolset for writing distributed applications using ideas from CQRS and Event Sourcing using Kafka as a event log. The commander pattern is inspired of talk and architecture given by Bobby Calderwood.
-
-    https://github.com/capitalone/cqrs-manager-for-distributed-reactive-services/blob/master/doc/architecture.png
-    https://www.youtube.com/watch?v=B1-gS0oEtYc&t
+Package commander gives you a toolset for writing distributed applications following the CQRS and Event Sourcing pattern using Kafka as the event log.
 
 Getting started
 
-To get started quickly download/fork the boilerplate project.
+Commander makes use of groups that represent a "data set". Events and commands could be consumed and produced to the set topics. Sometimes a topic is not required to be consumed, in order to avoid unnessasery consumption could it be ignored.
 
-    https://github.com/sysco-middleware/commander-boilerplate
+```
+users := commander.Group{
+	CommandTopic: commander.Topic{
+		Name: "user-commands",
+	},
+	EventTopic: commander.Topic{
+		Name: "user-events",
+	},
+}
 
-The pattern
+warehouse := commander.Group{
+	CommandTopic: commander.Topic{
+		Name: "warehouse-commands",
+	},
+	EventTopic: commander.Topic{
+		Name: "warehouse-events",
+		IgnoreConsumption: true,
+	},
+}
+```
 
-All services inside the commander pattern are triggered by events and commands and are immutable. The commander pattern exists out of 4 layers. Every layer has it's own responsibilities and contain different parts of your application.
+The created groups after need to be included to a commander instance. Once included is it plausible to consume and produce events.
 
-Web service
+```
+config := commander.NewConfig()
+config.Brokers = []string{"..."}
 
-This layer is accessible from the outside. The main responsibility is to preform queries on states or to write commands to the event log. Once a command is received is the data not "yet" validated. Optionally could this layer authenticate incoming requests.
+cmdr := commander.New(&config)
+cmdr.AddGroups(users, warehouse)
+go cmdr.Consume()
 
-Event log
+users.OnCommandHandle("NewUser", func(command *commander.Command) *commander.Event {
+	// ...
 
-The event log is the communication layer in between the web service layer and the business logic layer. It's main responsibility is to communicate messages and "log" them in the process. Kafka is used in Commander as the event log.
+	return command.NewEvent("UserCreated", 1, uuid.NewV4(), nil)
+})
 
-Business logic
+users.OnCommandHandle("SendUserSignupGift", func(command *commander.Command) *commander.Event {
+	available := warehouse.NewCommand("SendUserSignupGift")
+	_, err := warehouse.AsyncCommand(available)
+	if err != nil {
+		// return ...
+	}
 
-The logics layer consumes commands/events to process them. Two types of consumers could exists in the business logic layer. The command processor processes commands received from the "commands" topic and generates a resulting event. This event could be a error or the resulting generated data. The projector processes events received from the "events" topic. A projector creates a projection of the consumed events. This projection could be consumed by the web service layer. Command processes and projector processes should never share their states between one another. If a command process requires to preform a validation/query on the latest state should he do it on it's own.
-
-Datastore and projections
-
-This layer contains sets of states that could be used to query upon. Every service could have it's own projection created of the consumed commands/events.
+	// ...
+})
+```
 */
 package commander

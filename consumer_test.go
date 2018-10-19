@@ -34,41 +34,33 @@ func NewMessage(key string, topic Topic, value []byte, headers []kafka.Header) *
 	return message
 }
 
-// TestNewConsumer tests the constructing of a new consumer start consuming, and close afterwards
-func TestNewConsumer(t *testing.T) {
+// NewMockConsumer initializes a new consumer and set's a mock consumer to be used
+func NewMockConsumer() (Consumer, *MockKafkaConsumer) {
 	config := &kafka.ConfigMap{
 		"group.id": TestGroup,
 	}
 
-	consumer, err := NewConsumer(config)
-	if err != nil {
-		t.Error(err)
-	}
-
-	defer consumer.Close()
-	go consumer.Consume()
-}
-
-// TestConsuming test the consuming of messages
-func TestConsuming(t *testing.T) {
-	config := &kafka.ConfigMap{
-		"group.id": TestGroup,
-	}
-
-	consumer, err := NewConsumer(config)
-	if err != nil {
-		t.Error(err)
-	}
-
+	consumer, _ := NewConsumer(config)
 	mock := consumer.UseMockConsumer()
 
 	defer consumer.Close()
 	go consumer.Consume()
 
+	return consumer, mock
+}
+
+// TestNewConsumer tests the constructing of a new consumer start consuming, and close afterwards
+func TestNewConsumer(t *testing.T) {
+	NewMockConsumer()
+}
+
+// TestConsuming test the consuming of messages
+func TestConsuming(t *testing.T) {
+	consumer, mock := NewMockConsumer()
+	messages, _ := consumer.Subscribe(TestTopic)
+
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-
-	messages, _ := consumer.Subscribe(TestTopic)
 
 	// Start a new go routine to test message consumption.
 	// If no message is received within the context deadline is a error thrown.
@@ -100,25 +92,13 @@ func TestConsuming(t *testing.T) {
 // TestEvents test if message events are emitted and
 // if plausible to manipulate consumed messages.
 func TestEvents(t *testing.T) {
-	config := &kafka.ConfigMap{
-		"group.id": TestGroup,
-	}
-
-	consumer, err := NewConsumer(config)
-	if err != nil {
-		t.Error(err)
-	}
-
-	mock := consumer.UseMockConsumer()
-
-	defer consumer.Close()
-	go consumer.Consume()
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+	consumer, mock := NewMockConsumer()
 
 	before, _ := consumer.OnEvent(BeforeEvent)
 	after, _ := consumer.OnEvent(AfterEvent)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 
 	// Start a new go routine to test events consumption.
 	// If no events are received within the context deadline is a error thrown.
@@ -142,11 +122,6 @@ func TestEvents(t *testing.T) {
 					Value: value,
 				})
 			}
-		case <-ctx.Done():
-			t.Error("no before event was emitted on message consumption")
-		}
-
-		select {
 		case event := <-after:
 			switch message := event.(type) {
 			case *kafka.Message:
@@ -163,7 +138,7 @@ func TestEvents(t *testing.T) {
 				}
 			}
 		case <-ctx.Done():
-			t.Error("no after event was emitted on message consumption")
+			t.Error("no before event was emitted on message consumption")
 		}
 	}()
 
@@ -178,6 +153,7 @@ func TestEvents(t *testing.T) {
 	wg.Wait()
 }
 
+// BenchmarkConsumer benchmarks the consumption of messages
 func BenchmarkConsumer(b *testing.B) {
 	config := &kafka.ConfigMap{
 		"group.id": TestGroup,
@@ -189,9 +165,6 @@ func BenchmarkConsumer(b *testing.B) {
 	}
 
 	mock := consumer.UseMockConsumer()
-
-	defer consumer.Close()
-	go consumer.Consume()
 
 	defer consumer.Close()
 	go consumer.Consume()

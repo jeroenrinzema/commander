@@ -13,7 +13,7 @@ type Topic struct {
 	IgnoreConsumption bool
 }
 
-// KafkaConsumer is a consumer interface
+// KafkaConsumer is the interface used to consume kafka messages
 type KafkaConsumer interface {
 	SubscribeTopics([]string, kafka.RebalanceCb) error
 	Events() chan kafka.Event
@@ -23,12 +23,12 @@ type KafkaConsumer interface {
 	Close() error
 }
 
-// NewConsumer initalizes a new consumer struct with the given cluster client.
+// NewConsumer initalizes a new kafka consumer and consumer instance.
 func NewConsumer(config *kafka.ConfigMap) (Consumer, error) {
 	config.SetKey("go.events.channel.enable", true)
 	config.SetKey("go.application.rebalance.enable", true)
 
-	cluster, err := kafka.NewConsumer(config)
+	client, err := kafka.NewConsumer(config)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func NewConsumer(config *kafka.ConfigMap) (Consumer, error) {
 		config:  config,
 		topics:  make(map[string][]chan *kafka.Message),
 		events:  make(map[string][]chan kafka.Event),
-		kafka:   cluster,
+		client:  client,
 		closing: make(chan bool, 1),
 	}
 
@@ -98,7 +98,7 @@ type consumer struct {
 	group  string
 
 	config *kafka.ConfigMap
-	kafka  KafkaConsumer
+	client KafkaConsumer
 
 	closing chan bool
 	mutex   sync.Mutex
@@ -110,7 +110,7 @@ func (consumer *consumer) UseMockConsumer() *MockKafkaConsumer {
 		events: make(chan kafka.Event),
 	}
 
-	consumer.kafka = mock
+	consumer.client = mock
 	return mock
 }
 
@@ -155,7 +155,7 @@ func (consumer *consumer) SubscribeTopics() error {
 		topics = append(topics, topic)
 	}
 
-	err := consumer.kafka.SubscribeTopics(topics, nil)
+	err := consumer.client.SubscribeTopics(topics, nil)
 	return err
 }
 
@@ -164,7 +164,7 @@ func (consumer *consumer) Consume() {
 		select {
 		case <-consumer.BeforeClosing():
 			break
-		case event := <-consumer.kafka.Events():
+		case event := <-consumer.client.Events():
 			consumer.EmitEvent(BeforeEvent, event)
 
 			switch message := event.(type) {
@@ -212,7 +212,7 @@ func (consumer *consumer) Close() {
 		consumer.events[event] = nil
 	}
 
-	consumer.kafka.Close()
+	consumer.client.Close()
 }
 
 func (consumer *consumer) EmitEvent(name string, event kafka.Event) {

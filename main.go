@@ -15,16 +15,25 @@ const (
 func New(config Config) (Client, error) {
 	var producer Producer
 	var consumer Consumer
+	var err error
 
-	// producer, err = NewProducer(config.Kafka)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	producer, err = NewProducer(config.Kafka)
+	if err != nil {
+		return nil, err
+	}
 
-	// consumer, err = NewConsumer(config.Kafka)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	if err != nil {
+		return nil, err
+	}
+
+	consumer, err = NewConsumer(config.Kafka)
+	if err != nil {
+		return nil, err
+	}
+
+	if err != nil {
+		return nil, err
+	}
 
 	client := &client{
 		Config:   config,

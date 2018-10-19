@@ -37,15 +37,7 @@ func (config *Config) ValidateGroup(group *Group) error {
 	return nil
 }
 
-// AddGroups validates and registeres the given groups at the producer and consumer
-func (config *Config) AddGroups(groups ...*Group) error {
-	for _, group := range groups {
-		err := config.ValidateGroup(group)
-		if err != nil {
-			return err
-		}
-	}
-
+// AddGroups registeres the given groups at the producer and consumer
+func (config *Config) AddGroups(groups ...*Group) {
 	config.Groups = append(config.Groups, groups...)
-	return nil
 }

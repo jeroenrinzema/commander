@@ -34,8 +34,8 @@ func NewMessage(key string, topic Topic, value []byte, headers []kafka.Header) *
 	return message
 }
 
-// NewMockConsumer initializes a new consumer and set's a mock consumer to be used
-func NewMockConsumer() (Consumer, *MockKafkaConsumer) {
+// NewTestConsumer initializes a new consumer and set's a mock consumer to be used
+func NewTestConsumer() (Consumer, *MockKafkaConsumer) {
 	config := &kafka.ConfigMap{
 		"group.id": TestGroup,
 	}
@@ -51,12 +51,12 @@ func NewMockConsumer() (Consumer, *MockKafkaConsumer) {
 
 // TestNewConsumer tests the constructing of a new consumer start consuming, and close afterwards
 func TestNewConsumer(t *testing.T) {
-	NewMockConsumer()
+	NewTestConsumer()
 }
 
 // TestConsuming test the consuming of messages
 func TestConsuming(t *testing.T) {
-	consumer, mock := NewMockConsumer()
+	consumer, mock := NewTestConsumer()
 	messages, _ := consumer.Subscribe(TestTopic)
 
 	wg := sync.WaitGroup{}
@@ -92,7 +92,7 @@ func TestConsuming(t *testing.T) {
 // TestEvents test if message events are emitted and
 // if plausible to manipulate consumed messages.
 func TestEvents(t *testing.T) {
-	consumer, mock := NewMockConsumer()
+	consumer, mock := NewTestConsumer()
 
 	before, _ := consumer.OnEvent(BeforeEvent)
 	after, _ := consumer.OnEvent(AfterEvent)

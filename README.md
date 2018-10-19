@@ -32,56 +32,28 @@ warehouse := commander.Group{
 The created groups after need to be included to a commander instance. Once included is it plausible to consume and produce events.
 
 ```go
-package main
+config := commander.NewConfig()
+config.Brokers = []string{"..."}
 
-import (
-	uuid "github.com/satori/go.uuid"
-	"github.com/sysco-middleware/commander"
-)
+cmdr := commander.New(&config)
+cmdr.AddGroups(users, warehouse)
+go cmdr.Consume()
 
-func main() {
-	users := commander.Group{
-		CommandTopic: commander.Topic{
-			Name: "user-commands",
-		},
-		EventTopic: commander.Topic{
-			Name: "user-events",
-		},
+users.OnCommandHandle("NewUser", func(command *commander.Command) *commander.Event {
+	// ...
+
+	return command.NewEvent("UserCreated", 1, uuid.NewV4(), nil)
+})
+
+users.OnCommandHandle("SendUserSignupGift", func(command *commander.Command) *commander.Event {
+	available := warehouse.NewCommand("SendUserSignupGift")
+	_, err := warehouse.AsyncCommand(available)
+	if err != nil {
+		// return ...
 	}
 
-	warehouse := commander.Group{
-		CommandTopic: commander.Topic{
-			Name: "warehouse-commands",
-		},
-		EventTopic: commander.Topic{
-			Name: "warehouse-events",
-			IgnoreConsumption: true,
-		},
-	}
-
-	config := commander.NewConfig()
-	config.Brokers = []string{"..."}
-
-	cmdr := commander.New(&config)
-	cmdr.AddGroups(users, warehouse)
-	go cmdr.Consume()
-
-	users.OnCommandHandle("NewUser", func(command *commander.Command) *commander.Event {
-		// ...
-
-		return command.NewEvent("UserCreated", 1, uuid.NewV4(), nil)
-	})
-
-	users.OnCommandHandle("SendUserSignupGift", func(command *commander.Command) *commander.Event {
-		available := warehouse.NewCommand("SendUserSignupGift")
-		_, err := warehouse.AsyncCommand(available)
-		if err != nil {
-			// return ...
-		}
-
-		// ...
-	})
-}
+	// ...
+})
 ```
 
 To get started quickly download/fork the [boilerplate](https://github.com/sysco-middleware/commander-boilerplate).

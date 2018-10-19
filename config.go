@@ -2,7 +2,6 @@ package commander
 
 import (
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -23,7 +22,6 @@ type Config struct {
 	Kafka   *kafka.ConfigMap
 	Brokers []string
 	Groups  []*Group
-	mutex   sync.Mutex
 }
 
 // ValidateGroup validates the given group and returns a error if the group is invalid
@@ -47,9 +45,6 @@ func (config *Config) AddGroups(groups ...*Group) error {
 			return err
 		}
 	}
-
-	config.mutex.Lock()
-	defer config.mutex.Unlock()
 
 	config.Groups = append(config.Groups, groups...)
 	return nil

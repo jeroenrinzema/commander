@@ -169,9 +169,9 @@ func (consumer *consumer) Consume() {
 
 			switch message := event.(type) {
 			case kafka.AssignedPartitions:
-				consumer.kafka.Assign(message.Partitions)
+				consumer.client.Assign(message.Partitions)
 			case kafka.RevokedPartitions:
-				consumer.kafka.Unassign()
+				consumer.client.Unassign()
 			case *kafka.Message:
 				consumer.mutex.Lock()
 				for _, subscription := range consumer.topics[*message.TopicPartition.Topic] {

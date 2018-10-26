@@ -24,6 +24,15 @@ type Config struct {
 	Groups  []*Group
 }
 
+// Validate validates the given config
+func (config *Config) Validate() error {
+	if len(config.Brokers) == 0 {
+		return errors.New("At least 1 kafka broker has to been set")
+	}
+
+	return nil
+}
+
 // ValidateGroup validates the given group and returns a error if the group is invalid
 func (config *Config) ValidateGroup(group *Group) error {
 	if len(group.CommandTopic.Name) == 0 {

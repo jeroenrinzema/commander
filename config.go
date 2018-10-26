@@ -11,6 +11,7 @@ import (
 func NewConfig() *Config {
 	config := &Config{
 		Timeout: 5 * time.Second,
+		Kafka:   &kafka.ConfigMap{},
 	}
 
 	return config
@@ -21,6 +22,7 @@ type Config struct {
 	Timeout time.Duration
 	Kafka   *kafka.ConfigMap
 	Brokers []string
+	Group   string
 	Groups  []*Group
 }
 
@@ -28,6 +30,10 @@ type Config struct {
 func (config *Config) Validate() error {
 	if len(config.Brokers) == 0 {
 		return errors.New("At least 1 kafka broker has to been set")
+	}
+
+	if len(config.Group) == 0 {
+		return errors.New("No group config name is set")
 	}
 
 	return nil

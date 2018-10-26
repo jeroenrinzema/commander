@@ -11,8 +11,6 @@ import (
 )
 
 var (
-	// TestGroup kafka testing group
-	TestGroup = "testing"
 	// TestTopic kafka testing topic
 	TestTopic = Topic{
 		Name: "testing",
@@ -37,7 +35,7 @@ func NewMessage(key string, topic Topic, value []byte, headers []kafka.Header) *
 // NewTestConsumer initializes a new consumer and set's a mock consumer to be used
 func NewTestConsumer() (Consumer, *MockKafkaConsumer) {
 	config := &kafka.ConfigMap{
-		"group.id": TestGroup,
+		"group.id": "testing",
 	}
 
 	consumer, _ := NewConsumer(config)
@@ -80,7 +78,7 @@ func TestConsuming(t *testing.T) {
 
 	message := NewMessage(uuid.NewV4().String(), TestTopic, []byte("{}"), []kafka.Header{
 		kafka.Header{
-			Key:   "acknowledged",
+			Key:   AcknowledgedHeader,
 			Value: []byte("true"),
 		},
 	})
@@ -113,38 +111,44 @@ func TestEvents(t *testing.T) {
 		key := "manipulated"
 		value := []byte("true")
 
-		select {
-		case event := <-before:
-			switch message := event.(type) {
-			case *kafka.Message:
-				message.Headers = append(message.Headers, kafka.Header{
-					Key:   key,
-					Value: value,
-				})
-			}
-		case event := <-after:
-			switch message := event.(type) {
-			case *kafka.Message:
-				manipulated := false
+	events:
+		for {
+			select {
+			case event := <-before:
+				switch message := event.(type) {
+				case *kafka.Message:
+					message.Headers = append(message.Headers, kafka.Header{
+						Key:   key,
+						Value: value,
+					})
+				}
+			case event := <-after:
+				switch message := event.(type) {
+				case *kafka.Message:
+					manipulated := false
 
-				for _, header := range message.Headers {
-					if header.Key == key && string(header.Value) == string(value) {
-						manipulated = true
+					for _, header := range message.Headers {
+						if header.Key == key && string(header.Value) == string(value) {
+							manipulated = true
+						}
 					}
-				}
 
-				if !manipulated {
-					t.Error("event message has not been manipulated")
+					if !manipulated {
+						t.Error("event message has not been manipulated")
+					}
+
+					break events
 				}
+			case <-ctx.Done():
+				t.Error("no before event was emitted on message consumption")
+				break events
 			}
-		case <-ctx.Done():
-			t.Error("no before event was emitted on message consumption")
 		}
 	}()
 
 	message := NewMessage(uuid.NewV4().String(), TestTopic, []byte("{}"), []kafka.Header{
 		kafka.Header{
-			Key:   "acknowledged",
+			Key:   AcknowledgedHeader,
 			Value: []byte("true"),
 		},
 	})
@@ -156,7 +160,7 @@ func TestEvents(t *testing.T) {
 // BenchmarkConsumer benchmarks the consumption of messages
 func BenchmarkConsumer(b *testing.B) {
 	config := &kafka.ConfigMap{
-		"group.id": TestGroup,
+		"group.id": "testing",
 	}
 
 	consumer, err := NewConsumer(config)
@@ -184,7 +188,7 @@ func BenchmarkConsumer(b *testing.B) {
 		go func() {
 			message := NewMessage(uuid.NewV4().String(), TestTopic, []byte("{}"), []kafka.Header{
 				kafka.Header{
-					Key:   "acknowledged",
+					Key:   AcknowledgedHeader,
 					Value: []byte("true"),
 				},
 			})

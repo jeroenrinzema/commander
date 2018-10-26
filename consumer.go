@@ -100,9 +100,10 @@ type consumer struct {
 	config *kafka.ConfigMap
 	client KafkaConsumer
 
-	closing chan bool
-	mutex   sync.Mutex
-	events  map[string][]chan kafka.Event
+	closing      chan bool
+	mutex        sync.Mutex
+	consumptions sync.WaitGroup
+	events       map[string][]chan kafka.Event
 }
 
 func (consumer *consumer) UseMockConsumer() *MockKafkaConsumer {
@@ -116,11 +117,12 @@ func (consumer *consumer) UseMockConsumer() *MockKafkaConsumer {
 
 func (consumer *consumer) AddGroups(groups ...*Group) error {
 	consumer.mutex.Lock()
-	defer consumer.mutex.Unlock()
 
 	for _, group := range groups {
 		consumer.SetTopics(group.CommandTopic, group.EventTopic)
 	}
+
+	consumer.mutex.Unlock()
 
 	err := consumer.SubscribeTopics()
 	if err != nil {
@@ -162,9 +164,8 @@ func (consumer *consumer) SubscribeTopics() error {
 func (consumer *consumer) Consume() {
 	for {
 		select {
-		case <-consumer.BeforeClosing():
-			break
 		case event := <-consumer.client.Events():
+			consumer.consumptions.Add(1)
 			consumer.EmitEvent(BeforeEvent, event)
 
 			switch message := event.(type) {
@@ -182,6 +183,7 @@ func (consumer *consumer) Consume() {
 
 			// The AfterEvent does not have to be called synchronously
 			go consumer.EmitEvent(AfterEvent, event)
+			consumer.consumptions.Done()
 		}
 	}
 }
@@ -192,6 +194,9 @@ func (consumer *consumer) BeforeClosing() <-chan bool {
 
 func (consumer *consumer) Close() {
 	close(consumer.closing)
+
+	consumer.client.Close()
+	consumer.consumptions.Wait()
 
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
@@ -211,8 +216,6 @@ func (consumer *consumer) Close() {
 
 		consumer.events[event] = nil
 	}
-
-	consumer.client.Close()
 }
 
 func (consumer *consumer) EmitEvent(name string, event kafka.Event) {

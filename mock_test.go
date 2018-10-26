@@ -25,3 +25,22 @@ func (mock *MockKafkaConsumer) Unassign() error { return nil }
 
 // Close ...
 func (mock *MockKafkaConsumer) Close() error { return nil }
+
+// MockKafkaProducer mocks a confluent-kafka-go cluster producer.
+// Message consumption could be simulated by emitting messages via the Emit method.
+type MockKafkaProducer struct {
+	events chan kafka.Event
+}
+
+// Produce produce a empty "success" message to the events channel to simulate a successfull
+// produced kafka message.
+func (mock *MockKafkaProducer) Produce(message *kafka.Message, event chan kafka.Event) error {
+	go func() {
+		event <- &kafka.Message{}
+	}()
+
+	return nil
+}
+
+// Close ...
+func (mock *MockKafkaProducer) Close() {}

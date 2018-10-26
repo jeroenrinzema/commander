@@ -1,6 +1,8 @@
 package commander
 
 import (
+	"strings"
+
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
@@ -12,16 +14,15 @@ const (
 )
 
 // New creates a new commander instance of the given config
-func New(config Config) (Client, error) {
+func New(config *Config) (Client, error) {
 	var producer Producer
 	var consumer Consumer
 	var err error
 
-	producer, err = NewProducer(config.Kafka)
-	if err != nil {
-		return nil, err
-	}
+	config.Kafka.SetKey("group.id", config.Group)
+	config.Kafka.SetKey("bootstrap.servers", strings.Join(config.Brokers, ","))
 
+	producer, err = NewProducer(config.Kafka)
 	if err != nil {
 		return nil, err
 	}
@@ -31,17 +32,18 @@ func New(config Config) (Client, error) {
 		return nil, err
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
 	client := &client{
-		Config:   config,
+		config:   config,
 		producer: producer,
 		consumer: consumer,
 		closing:  make(chan bool, 1),
 	}
 
+	for _, group := range config.Groups {
+		group.Client = client
+	}
+
+	consumer.AddGroups(config.Groups...)
 	return client, nil
 }
 
@@ -54,7 +56,7 @@ type Client interface {
 	Consumer() Consumer
 
 	// Producer returns the clients producer
-	Producer()
+	Producer() Producer
 
 	// Produce a new message to kafka. A error will be returnes if something went wrong in the process.
 	Produce(message *kafka.Message) error
@@ -70,10 +72,13 @@ type Client interface {
 	// AfterConsumed returns a channel which is called after a message is consumed.
 	// Two arguments are returned. The events channel and a closing function.
 	AfterConsumed() (<-chan kafka.Event, func())
+
+	// Close closes the kafka consumer and finishes the last consumed messages
+	Close()
 }
 
 type client struct {
-	Config
+	config   *Config
 	groups   []*Group
 	producer Producer
 	consumer Consumer
@@ -84,7 +89,9 @@ func (client *client) Consumer() Consumer {
 	return client.consumer
 }
 
-func (client *client) Producer() {}
+func (client *client) Producer() Producer {
+	return client.producer
+}
 
 func (client *client) Consume() {
 	client.consumer.Consume()
@@ -104,4 +111,8 @@ func (client *client) BeforeConsuming() (<-chan kafka.Event, func()) {
 
 func (client *client) AfterConsumed() (<-chan kafka.Event, func()) {
 	return client.consumer.OnEvent(AfterEvent)
+}
+
+func (client *client) Close() {
+
 }

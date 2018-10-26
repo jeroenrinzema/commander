@@ -1,12 +1,13 @@
 package commander
 
-import "github.com/confluentinc/confluent-kafka-go/kafka"
+import (
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+)
 
 // KafkaProducer is the interface used to produce kafka messages
 type KafkaProducer interface {
-	Close()
-	Event() chan kafka.Event
 	Produce(*kafka.Message, chan kafka.Event) error
+	Close()
 }
 
 // NewProducer initializes a new kafka producer and producer instance.
@@ -27,10 +28,23 @@ func NewProducer(config *kafka.ConfigMap) (Producer, error) {
 type Producer interface {
 	// Produce produces a kafka message to the given topic on the configured cluster
 	Produce(*kafka.Message) error
+
+	// UseMockProducer replaces the current producer with a mock producer.
+	// This method is mainly used for testing purposes
+	UseMockProducer() *MockKafkaProducer
 }
 
 type producer struct {
-	client *kafka.Producer
+	client KafkaProducer
+}
+
+func (producer *producer) UseMockProducer() *MockKafkaProducer {
+	mock := &MockKafkaProducer{
+		events: make(chan kafka.Event),
+	}
+
+	producer.client = mock
+	return mock
 }
 
 func (producer *producer) Produce(msg *kafka.Message) error {

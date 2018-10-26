@@ -1,6 +1,8 @@
 package commander
 
-import "testing"
+import (
+	"testing"
+)
 
 // TestNewConfig test the creation of a new config
 func TestNewConfig(t *testing.T) {
@@ -30,6 +32,38 @@ func TestConfigValidateGroup(t *testing.T) {
 		t.Error("no error was thrown when not specifying a event topic name")
 	}
 	group.CommandTopic.Name = ""
+}
+
+// TestConfigValidate tests if groups get validated correctly
+func TestConfigValidate(t *testing.T) {
+	var err error
+
+	config := NewConfig()
+
+	brokers := []string{"localhost"}
+	group := "testing"
+
+	config.Brokers = brokers
+	config.Group = group
+
+	err = config.Validate()
+	if err != nil {
+		t.Error("No error should have been given")
+	}
+
+	config.Brokers = []string{}
+	err = config.Validate()
+	if err == nil {
+		t.Error("No error was given while the broker was empty")
+	}
+	config.Brokers = brokers
+
+	config.Group = ""
+	err = config.Validate()
+	if err == nil {
+		t.Error("No error was given while there were no groups defined")
+	}
+	config.Group = group
 }
 
 // TestConfigAddGroup tests if groups get added correctly

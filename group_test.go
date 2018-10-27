@@ -94,3 +94,69 @@ func TestSyncCommand(t *testing.T) {
 
 	consumer.Emit(message)
 }
+
+// TestSyncEvent tests if able to send a sync event
+func TestSyncEvent(t *testing.T) {
+	group := NewTestGroup()
+	NewTestClient(group)
+
+	key := uuid.NewV4()
+	parent := uuid.NewV4()
+	event := group.NewEvent("testing", 1, parent, key, []byte("{}"))
+
+	group.SyncEvent(event)
+}
+
+// TestAwaitEvent tests if plausible to await a event
+func TestAwaitEvent(t *testing.T) {
+	group := NewTestGroup()
+	client, consumer, _ := NewTestClient(group)
+
+	go client.Consume()
+
+	timeout := 2 * time.Second
+	parent := uuid.NewV4()
+
+	go func() {
+		_, err := group.AwaitEvent(timeout, parent)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+
+	message := NewMessage(uuid.NewV4().String(), TestTopic, []byte("{}"), []kafka.Header{
+		kafka.Header{
+			Key:   AcknowledgedHeader,
+			Value: []byte("true"),
+		},
+		kafka.Header{
+			Key:   ParentHeader,
+			Value: parent.Bytes(),
+		},
+	})
+
+	consumer.Emit(message)
+}
+
+// TestProduceCommand tests if able to produce a command
+func TestProduceCommand(t *testing.T) {
+	group := NewTestGroup()
+	NewTestClient(group)
+
+	key := uuid.NewV4()
+	command := group.NewCommand("testing", key, []byte("{}"))
+
+	group.ProduceCommand(command)
+}
+
+// TestProduceEvent tests if able to produce a event
+func TestProduceEvent(t *testing.T) {
+	group := NewTestGroup()
+	NewTestClient(group)
+
+	key := uuid.NewV4()
+	parent := uuid.NewV4()
+	event := group.NewEvent("testing", 1, parent, key, []byte("{}"))
+
+	group.ProduceEvent(event)
+}

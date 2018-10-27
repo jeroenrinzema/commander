@@ -40,7 +40,7 @@ type Group struct {
 // to write a command to the right kafka partition therefor to guarantee the order
 // of the kafka messages is it important to define a "dataset" key.
 func (group *Group) AsyncCommand(command *Command) error {
-	err := group.ProduceCommand(command, group.CommandTopic)
+	err := group.ProduceCommand(command)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (group *Group) NewCommand(action string, key uuid.UUID, data []byte) *Comma
 // SyncEvent creates a new event message to the given group.
 // If a error occured while writing the event the the events topic(s)
 func (group *Group) SyncEvent(event *Event) error {
-	err := group.ProduceEvent(event, group.EventTopic)
+	err := group.ProduceEvent(event)
 	if err != nil {
 		return err
 	}
@@ -136,13 +136,13 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (*Event,
 	}
 }
 
-// ProduceCommand constructs and produces a command kafka message to the given topic.
+// ProduceCommand constructs and produces a command kafka message to the set command topic.
 // A error is returned if anything went wrong in the process.
 //
 // If no command key is set will the command id be used. A command key is used
 // to write a command to the right kafka partition therefor to guarantee the order
 // of the kafka messages is it important to define a "dataset" key.
-func (group *Group) ProduceCommand(command *Command, topic Topic) error {
+func (group *Group) ProduceCommand(command *Command) error {
 	if command.Key == uuid.Nil {
 		command.Key = command.ID
 	}
@@ -161,16 +161,16 @@ func (group *Group) ProduceCommand(command *Command, topic Topic) error {
 		Key:   []byte(command.Key.String()),
 		Value: command.Data,
 		TopicPartition: kafka.TopicPartition{
-			Topic: &topic.Name,
+			Topic: &group.CommandTopic.Name,
 		},
 	}
 
 	return group.Produce(&message)
 }
 
-// ProduceEvent produces a event kafka message to the given topic.
+// ProduceEvent produces a event kafka message to the set event topic.
 // A error is returned if anything went wrong in the process.
-func (group *Group) ProduceEvent(event *Event, topic Topic) error {
+func (group *Group) ProduceEvent(event *Event) error {
 	if event.Key == uuid.Nil {
 		event.Key = event.ID
 	}
@@ -201,7 +201,7 @@ func (group *Group) ProduceEvent(event *Event, topic Topic) error {
 		Key:   []byte(event.Key.String()),
 		Value: event.Data,
 		TopicPartition: kafka.TopicPartition{
-			Topic: &topic.Name,
+			Topic: &group.EventTopic.Name,
 		},
 	}
 

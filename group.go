@@ -220,6 +220,8 @@ func (group *Group) NewEventsConsumer() (chan *Event, func()) {
 		for message := range messages {
 			event := Event{}
 			event.Populate(message)
+			// TODO: handle the event populate error
+
 			sink <- &event
 		}
 	}()
@@ -261,7 +263,14 @@ func (group *Group) NewEventsHandle(action string, versions []int, callback Even
 				continue
 			}
 
-			callback(event)
+			for _, version := range versions {
+				if version != event.Version {
+					continue
+				}
+
+				callback(event)
+				break
+			}
 		}
 	}()
 
@@ -284,6 +293,10 @@ func (group *Group) NewCommandsHandle(action string, callback CommandHandle) fun
 			}
 
 			event := callback(command)
+			if event == nil {
+				continue
+			}
+
 			group.SyncEvent(event)
 		}
 	}()

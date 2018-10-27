@@ -2,6 +2,7 @@ package commander
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -18,16 +19,60 @@ var (
 )
 
 // NewMessage creates a new kafka message with the given values
-func NewMessage(key string, topic Topic, value []byte, headers []kafka.Header) *kafka.Message {
+func NewMessage(key uuid.UUID, topic Topic, value []byte, headers []kafka.Header) *kafka.Message {
 	message := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic: &topic.Name,
 		},
-		Key:       []byte(key),
+		Key:       []byte(key.String()),
 		Value:     value,
 		Timestamp: time.Now(),
 		Headers:   headers,
 	}
+
+	return message
+}
+
+// NewEventMessage creates a new kafka event message with the given values
+func NewEventMessage(action string, key uuid.UUID, parent uuid.UUID, id uuid.UUID, version int, topic Topic, value []byte) *kafka.Message {
+	message := NewMessage(key, topic, []byte("{}"), []kafka.Header{
+		kafka.Header{
+			Key:   ActionHeader,
+			Value: []byte(action),
+		},
+		kafka.Header{
+			Key:   AcknowledgedHeader,
+			Value: []byte("true"),
+		},
+		kafka.Header{
+			Key:   ParentHeader,
+			Value: []byte(parent.String()),
+		},
+		kafka.Header{
+			Key:   IDHeader,
+			Value: []byte(id.String()),
+		},
+		kafka.Header{
+			Key:   VersionHeader,
+			Value: []byte(strconv.Itoa(version)),
+		},
+	})
+
+	return message
+}
+
+// NewCommandMessage creates a new kafka command message with the given values
+func NewCommandMessage(action string, key uuid.UUID, id uuid.UUID, topic Topic, value []byte) *kafka.Message {
+	message := NewMessage(key, topic, []byte("{}"), []kafka.Header{
+		kafka.Header{
+			Key:   ActionHeader,
+			Value: []byte(action),
+		},
+		kafka.Header{
+			Key:   IDHeader,
+			Value: []byte(id.String()),
+		},
+	})
 
 	return message
 }
@@ -76,7 +121,8 @@ func TestConsuming(t *testing.T) {
 		}
 	}()
 
-	message := NewMessage(uuid.NewV4().String(), TestTopic, []byte("{}"), []kafka.Header{
+	key := uuid.NewV4()
+	message := NewMessage(key, TestTopic, []byte("{}"), []kafka.Header{
 		kafka.Header{
 			Key:   AcknowledgedHeader,
 			Value: []byte("true"),
@@ -146,7 +192,8 @@ func TestEvents(t *testing.T) {
 		}
 	}()
 
-	message := NewMessage(uuid.NewV4().String(), TestTopic, []byte("{}"), []kafka.Header{
+	key := uuid.NewV4()
+	message := NewMessage(key, TestTopic, []byte("{}"), []kafka.Header{
 		kafka.Header{
 			Key:   AcknowledgedHeader,
 			Value: []byte("true"),
@@ -186,7 +233,8 @@ func BenchmarkConsumer(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		go func() {
-			message := NewMessage(uuid.NewV4().String(), TestTopic, []byte("{}"), []kafka.Header{
+			key := uuid.NewV4()
+			message := NewMessage(key, TestTopic, []byte("{}"), []kafka.Header{
 				kafka.Header{
 					Key:   AcknowledgedHeader,
 					Value: []byte("true"),

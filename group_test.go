@@ -82,7 +82,7 @@ func TestSyncCommand(t *testing.T) {
 		}
 	}()
 
-	message := NewMessage(uuid.NewV4().String(), TestTopic, []byte("{}"), []kafka.Header{
+	message := NewMessage(key, TestTopic, []byte("{}"), []kafka.Header{
 		kafka.Header{
 			Key:   AcknowledgedHeader,
 			Value: []byte("true"),
@@ -125,7 +125,8 @@ func TestAwaitEvent(t *testing.T) {
 		}
 	}()
 
-	message := NewMessage(uuid.NewV4().String(), TestTopic, []byte("{}"), []kafka.Header{
+	key := uuid.NewV4()
+	message := NewMessage(key, TestTopic, []byte("{}"), []kafka.Header{
 		kafka.Header{
 			Key:   AcknowledgedHeader,
 			Value: []byte("true"),
@@ -162,7 +163,7 @@ func TestProduceEvent(t *testing.T) {
 	group.ProduceEvent(event)
 }
 
-// TestEventConsumer test if events get consumed
+// TestEventConsumer tests if events get consumed
 func TestEventConsumer(t *testing.T) {
 	group := NewTestGroup()
 	client, consumer, _ := NewTestClient(group)
@@ -188,33 +189,11 @@ func TestEventConsumer(t *testing.T) {
 	parent := uuid.NewV4()
 	key := uuid.NewV4()
 
-	message := NewMessage(key.String(), group.EventTopic, []byte("{}"), []kafka.Header{
-		kafka.Header{
-			Key:   ActionHeader,
-			Value: []byte("testing"),
-		},
-		kafka.Header{
-			Key:   AcknowledgedHeader,
-			Value: []byte("true"),
-		},
-		kafka.Header{
-			Key:   ParentHeader,
-			Value: []byte(parent.Bytes()),
-		},
-		kafka.Header{
-			Key:   IDHeader,
-			Value: []byte(id.String()),
-		},
-		kafka.Header{
-			Key:   VersionHeader,
-			Value: []byte("1"),
-		},
-	})
-
+	message := NewEventMessage("testing", key, parent, id, 1, group.EventTopic, []byte("{}"))
 	consumer.Emit(message)
 }
 
-// TestCommandConsumer test if commands get consumed
+// TestCommandConsumer tests if commands get consumed
 func TestCommandConsumer(t *testing.T) {
 	group := NewTestGroup()
 	client, consumer, _ := NewTestClient(group)
@@ -222,8 +201,8 @@ func TestCommandConsumer(t *testing.T) {
 	go client.Consume()
 	go func() {
 		deadline := time.Now().Add(500 * time.Millisecond)
-
 		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
 		commands, close := group.NewCommandsConsumer()
 
 		defer cancel()
@@ -239,16 +218,154 @@ func TestCommandConsumer(t *testing.T) {
 	id := uuid.NewV4()
 	key := uuid.NewV4()
 
-	message := NewMessage(key.String(), group.CommandTopic, []byte("{}"), []kafka.Header{
-		kafka.Header{
-			Key:   ActionHeader,
-			Value: []byte("testing"),
-		},
-		kafka.Header{
-			Key:   IDHeader,
-			Value: []byte(id.String()),
-		},
+	message := NewCommandMessage("testing", key, id, group.CommandTopic, []byte("{}"))
+	consumer.Emit(message)
+}
+
+// TestEventsHandle tests if a event handle gets called
+func TestEventsHandle(t *testing.T) {
+	group := NewTestGroup()
+	client, consumer, _ := NewTestClient(group)
+
+	go client.Consume()
+
+	action := "testing"
+	version := 1
+	delivered := make(chan *Event, 1)
+
+	group.NewEventsHandle(action, []int{version}, func(event *Event) {
+		delivered <- event
 	})
 
+	id := uuid.NewV4()
+	parent := uuid.NewV4()
+	key := uuid.NewV4()
+
+	message := NewEventMessage(action, key, parent, id, version, group.EventTopic, []byte("{}"))
 	consumer.Emit(message)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	select {
+	case <-delivered:
+	case <-ctx.Done():
+		t.Error("the events handle was not called within the deadline")
+	}
+}
+
+// TestMultipleEventVersionsHandle tests if multiple event versions get handled
+func TestMultipleEventVersionsHandle(t *testing.T) {
+	group := NewTestGroup()
+	client, consumer, _ := NewTestClient(group)
+
+	go client.Consume()
+
+	action := "testing"
+	versions := []int{1, 2}
+	delivered := make(chan *Event, len(versions))
+
+	group.NewEventsHandle(action, versions, func(event *Event) {
+		delivered <- event
+	})
+
+	id := uuid.NewV4()
+	parent := uuid.NewV4()
+	key := uuid.NewV4()
+
+	// Emit messages for the given versions
+	for _, version := range versions {
+		message := NewEventMessage(action, key, parent, id, version, group.EventTopic, []byte("{}"))
+		consumer.Emit(message)
+
+		deadline := time.Now().Add(500 * time.Millisecond)
+		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+		select {
+		case <-delivered:
+		case <-ctx.Done():
+			t.Error("the events handle was not called within the deadline")
+		}
+
+		cancel()
+	}
+}
+
+// TestIgnoreMultipleEventVersionsHandle tests if certain versions get ignored by the event handle
+func TestIgnoreMultipleEventVersionsHandle(t *testing.T) {
+	group := NewTestGroup()
+	client, consumer, _ := NewTestClient(group)
+
+	go client.Consume()
+
+	action := "testing"
+	versions := []int{1, 2}
+	handled := 1
+	delivered := make(chan *Event, len(versions))
+
+	group.NewEventsHandle(action, []int{handled}, func(event *Event) {
+		delivered <- event
+	})
+
+	id := uuid.NewV4()
+	parent := uuid.NewV4()
+	key := uuid.NewV4()
+
+	// Emit messages for the given versions
+	for _, version := range versions {
+		message := NewEventMessage(action, key, parent, id, version, group.EventTopic, []byte("{}"))
+		consumer.Emit(message)
+
+		deadline := time.Now().Add(500 * time.Millisecond)
+		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+		received := false
+
+		select {
+		case <-delivered:
+			received = true
+		case <-ctx.Done():
+		}
+
+		if received && version != handled {
+			t.Error("the events handle received a event of a version it did not expect")
+		}
+
+		cancel()
+	}
+}
+
+// TestCommandsHandle tests if a command handle gets called
+func TestCommandsHandle(t *testing.T) {
+	group := NewTestGroup()
+	client, consumer, _ := NewTestClient(group)
+
+	go client.Consume()
+
+	action := "testing"
+	delivered := make(chan *Command, 1)
+
+	group.NewCommandsHandle(action, func(command *Command) *Event {
+		delivered <- command
+		return nil
+	})
+
+	id := uuid.NewV4()
+	key := uuid.NewV4()
+
+	message := NewCommandMessage(action, key, id, group.CommandTopic, []byte("{}"))
+	consumer.Emit(message)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	select {
+	case <-delivered:
+	case <-ctx.Done():
+		t.Error("the command handle was not called within the deadline")
+	}
 }

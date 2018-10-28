@@ -21,23 +21,6 @@ func NewTestGroup() *Group {
 	return group
 }
 
-// NewTestClient initializes a new client used for testing
-func NewTestClient(groups ...*Group) (Client, *MockKafkaConsumer, *MockKafkaProducer) {
-	config := NewConfig()
-	config.AddGroups(groups...)
-	config.Group = "testing"
-
-	client, err := New(config)
-	if err != nil {
-		panic(err)
-	}
-
-	consumer := client.Consumer().UseMockConsumer()
-	producer := client.Producer().UseMockProducer()
-
-	return client, consumer, producer
-}
-
 // TestAsyncCommand tests if plausible to create a async command
 func TestAsyncCommand(t *testing.T) {
 	group := NewTestGroup()

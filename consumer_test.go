@@ -18,21 +18,6 @@ var (
 	}
 )
 
-// NewMessage creates a new kafka message with the given values
-func NewMessage(key uuid.UUID, topic Topic, value []byte, headers []kafka.Header) *kafka.Message {
-	message := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic: &topic.Name,
-		},
-		Key:       []byte(key.String()),
-		Value:     value,
-		Timestamp: time.Now(),
-		Headers:   headers,
-	}
-
-	return message
-}
-
 // NewEventMessage creates a new kafka event message with the given values
 func NewEventMessage(action string, key uuid.UUID, parent uuid.UUID, id uuid.UUID, version int, topic Topic, value []byte) *kafka.Message {
 	message := NewMessage(key, topic, []byte("{}"), []kafka.Header{
@@ -86,15 +71,14 @@ func NewTestConsumer() (Consumer, *MockKafkaConsumer) {
 	consumer, _ := NewConsumer(config)
 	mock := consumer.UseMockConsumer()
 
-	defer consumer.Close()
 	go consumer.Consume()
-
 	return consumer, mock
 }
 
 // TestNewConsumer tests the constructing of a new consumer start consuming, and close afterwards
 func TestNewConsumer(t *testing.T) {
-	NewTestConsumer()
+	consumer, _ := NewTestConsumer()
+	defer consumer.Close()
 }
 
 // TestConsuming test the consuming of messages

@@ -173,7 +173,7 @@ func TestEventConsumer(t *testing.T) {
 		deadline := time.Now().Add(500 * time.Millisecond)
 
 		ctx, cancel := context.WithDeadline(context.Background(), deadline)
-		events, close := group.NewEventsConsumer()
+		events, close := group.NewEventConsumer()
 
 		defer cancel()
 		defer close()
@@ -203,7 +203,7 @@ func TestCommandConsumer(t *testing.T) {
 		deadline := time.Now().Add(500 * time.Millisecond)
 		ctx, cancel := context.WithDeadline(context.Background(), deadline)
 
-		commands, close := group.NewCommandsConsumer()
+		commands, close := group.NewCommandConsumer()
 
 		defer cancel()
 		defer close()
@@ -233,7 +233,7 @@ func TestEventsHandle(t *testing.T) {
 	version := 1
 	delivered := make(chan *Event, 1)
 
-	group.NewEventsHandle(action, []int{version}, func(event *Event) {
+	group.NewEventHandle(action, []int{version}, func(event *Event) {
 		delivered <- event
 	})
 
@@ -267,7 +267,7 @@ func TestMultipleEventVersionsHandle(t *testing.T) {
 	versions := []int{1, 2}
 	delivered := make(chan *Event, len(versions))
 
-	group.NewEventsHandle(action, versions, func(event *Event) {
+	group.NewEventHandle(action, versions, func(event *Event) {
 		delivered <- event
 	})
 
@@ -305,7 +305,7 @@ func TestIgnoreMultipleEventVersionsHandle(t *testing.T) {
 	handled := 1
 	delivered := make(chan *Event, len(versions))
 
-	group.NewEventsHandle(action, []int{handled}, func(event *Event) {
+	group.NewEventHandle(action, []int{handled}, func(event *Event) {
 		delivered <- event
 	})
 
@@ -347,7 +347,7 @@ func TestCommandsHandle(t *testing.T) {
 	action := "testing"
 	delivered := make(chan *Command, 1)
 
-	group.NewCommandsHandle(action, func(command *Command) *Event {
+	group.NewCommandHandle(action, func(command *Command) *Event {
 		delivered <- command
 		return nil
 	})

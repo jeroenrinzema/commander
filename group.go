@@ -116,7 +116,7 @@ func (group *Group) SyncCommand(command *Command) (*Event, error) {
 // will a error be returned. The timeout channel is closed when all
 // expected events are received or after a timeout is thrown.
 func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (*Event, error) {
-	events, closing := group.NewEventsConsumer()
+	events, closing := group.NewEventConsumer()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 	defer cancel()
@@ -208,11 +208,11 @@ func (group *Group) ProduceEvent(event *Event) error {
 	return group.Produce(&message)
 }
 
-// NewEventsConsumer starts consuming events of the given action and the given versions.
+// NewEventConsumer starts consuming events of the given action and the given versions.
 // The events topic used is set during initialization of the group.
 // Two arguments are returned, a events channel and a method to unsubscribe the consumer.
 // All received events are published over the returned events go channel.
-func (group *Group) NewEventsConsumer() (chan *Event, func()) {
+func (group *Group) NewEventConsumer() (chan *Event, func()) {
 	sink := make(chan *Event, 1)
 	messages, closing := group.Client.Consumer().Subscribe(group.EventTopic)
 
@@ -229,11 +229,11 @@ func (group *Group) NewEventsConsumer() (chan *Event, func()) {
 	return sink, closing
 }
 
-// NewCommandsConsumer starts consuming commands of the given action.
+// NewCommandConsumer starts consuming commands of the given action.
 // The commands topic used is set during initialization of the group.
 // Two arguments are returned, a events channel and a method to unsubscribe the consumer.
 // All received events are published over the returned events go channel.
-func (group *Group) NewCommandsConsumer() (chan *Command, func()) {
+func (group *Group) NewCommandConsumer() (chan *Command, func()) {
 	sink := make(chan *Command, 1)
 	messages, closing := group.Client.Consumer().Subscribe(group.CommandTopic)
 
@@ -251,11 +251,11 @@ func (group *Group) NewCommandsConsumer() (chan *Command, func()) {
 // EventHandle is a callback function used to handle/process events
 type EventHandle func(*Event)
 
-// NewEventsHandle is a small wrapper around NewEventsConsumer but calls the given callback method instead.
+// NewEventHandle is a small wrapper around NewEventConsumer but calls the given callback method instead.
 // Once a event of the given action is received is the EventHandle callback called.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) NewEventsHandle(action string, versions []int, callback EventHandle) func() {
-	events, closing := group.NewEventsConsumer()
+func (group *Group) NewEventHandle(action string, versions []int, callback EventHandle) func() {
+	events, closing := group.NewEventConsumer()
 
 	go func() {
 		for event := range events {
@@ -280,11 +280,11 @@ func (group *Group) NewEventsHandle(action string, versions []int, callback Even
 // CommandHandle is a callback function used to handle/process commands
 type CommandHandle func(*Command) *Event
 
-// NewCommandsHandle is a small wrapper around NewCommandsConsumer but calls the given callback method instead.
+// NewCommandHandle is a small wrapper around NewCommandConsumer but calls the given callback method instead.
 // Once a event of the given action is received is the EventHandle callback called.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) NewCommandsHandle(action string, callback CommandHandle) func() {
-	commands, closing := group.NewCommandsConsumer()
+func (group *Group) NewCommandHandle(action string, callback CommandHandle) func() {
+	commands, closing := group.NewCommandConsumer()
 
 	go func() {
 		for command := range commands {

@@ -138,9 +138,6 @@ func TestConsuming(t *testing.T) {
 func TestEvents(t *testing.T) {
 	consumer, mock := NewTestConsumer()
 
-	before, _ := consumer.OnEvent(BeforeEvent)
-	after, _ := consumer.OnEvent(AfterEvent)
-
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
@@ -157,38 +154,41 @@ func TestEvents(t *testing.T) {
 		key := "manipulated"
 		value := []byte("true")
 
-	events:
-		for {
-			select {
-			case event := <-before:
-				switch message := event.(type) {
-				case *kafka.Message:
-					message.Headers = append(message.Headers, kafka.Header{
-						Key:   key,
-						Value: value,
-					})
-				}
-			case event := <-after:
-				switch message := event.(type) {
-				case *kafka.Message:
-					manipulated := false
+		delivered := make(chan kafka.Event, 2)
 
-					for _, header := range message.Headers {
-						if header.Key == key && string(header.Value) == string(value) {
-							manipulated = true
-						}
-					}
-
-					if !manipulated {
-						t.Error("event message has not been manipulated")
-					}
-
-					break events
-				}
-			case <-ctx.Done():
-				t.Error("no before event was emitted on message consumption")
-				break events
+		consumer.OnEvent(BeforeEvent, func(event kafka.Event) {
+			switch message := event.(type) {
+			case *kafka.Message:
+				message.Headers = append(message.Headers, kafka.Header{
+					Key:   key,
+					Value: value,
+				})
 			}
+		})
+
+		consumer.OnEvent(AfterEvent, func(event kafka.Event) {
+			switch message := event.(type) {
+			case *kafka.Message:
+				manipulated := false
+
+				for _, header := range message.Headers {
+					if header.Key == key && string(header.Value) == string(value) {
+						manipulated = true
+					}
+				}
+
+				if !manipulated {
+					t.Error("event message has not been manipulated")
+				}
+			}
+
+			delivered <- event
+		})
+
+		select {
+		case <-delivered:
+		case <-ctx.Done():
+			t.Error("no before event was emitted on message consumption")
 		}
 	}()
 

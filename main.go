@@ -67,11 +67,11 @@ type Client interface {
 
 	// BeforeConsuming returns a channel which is called before a messages is
 	// passed on to a consumer. Two arguments are returned. The events channel and a closing function.
-	BeforeConsuming() (<-chan kafka.Event, func())
+	BeforeConsuming(ConsumerEventHandle) func()
 
 	// AfterConsumed returns a channel which is called after a message is consumed.
 	// Two arguments are returned. The events channel and a closing function.
-	AfterConsumed() (<-chan kafka.Event, func())
+	AfterConsumed(ConsumerEventHandle) func()
 
 	// Close closes the kafka consumer and finishes the last consumed messages
 	Close()
@@ -105,12 +105,12 @@ func (client *client) BeforeClosing() <-chan bool {
 	return client.closing
 }
 
-func (client *client) BeforeConsuming() (<-chan kafka.Event, func()) {
-	return client.consumer.OnEvent(BeforeEvent)
+func (client *client) BeforeConsuming(handle ConsumerEventHandle) func() {
+	return client.consumer.OnEvent(BeforeEvent, handle)
 }
 
-func (client *client) AfterConsumed() (<-chan kafka.Event, func()) {
-	return client.consumer.OnEvent(AfterEvent)
+func (client *client) AfterConsumed(handle ConsumerEventHandle) func() {
+	return client.consumer.OnEvent(AfterEvent, handle)
 }
 
 func (client *client) Close() {

@@ -23,6 +23,9 @@ type KafkaConsumer interface {
 	Close() error
 }
 
+// ConsumerEventHandle hadnles events emitted by the consumer
+type ConsumerEventHandle func(kafka.Event)
+
 // NewConsumer initalizes a new kafka consumer and consumer instance.
 func NewConsumer(config *kafka.ConfigMap) (Consumer, error) {
 	config.SetKey("go.events.channel.enable", true)
@@ -36,7 +39,7 @@ func NewConsumer(config *kafka.ConfigMap) (Consumer, error) {
 	consumer := &consumer{
 		config:  config,
 		topics:  make(map[string][]chan *kafka.Message),
-		events:  make(map[string][]chan kafka.Event),
+		events:  make(map[string][]ConsumerEventHandle),
 		client:  client,
 		closing: make(chan bool, 1),
 	}
@@ -78,10 +81,13 @@ type Consumer interface {
 	EmitEvent(string, kafka.Event)
 
 	// OnEvent creates a new event subscription for the given event.
-	// The method will return a event channel and close function.
-	// Once a event messaged is emitted will it be passed to the returned channel.
-	// The returned channel gets called in a sync manner to allowe consumer messages to be manipulated.
-	OnEvent(string) (<-chan kafka.Event, func())
+	// The method will return a close function to unsubscribe the handle method.
+	// Once a event messaged is emitted will it be passed to given ConsumerEventHandle.
+	OnEvent(string, ConsumerEventHandle) func()
+
+	// OffEvent unsubscribes the given handle from the given event.
+	// A boolean is returned that represents if the handle method was found or not.
+	OffEvent(string, ConsumerEventHandle) bool
 
 	// Subscribe creates a new topic subscription that will receive
 	// messages consumed by the consumer of the given topic. This method
@@ -103,7 +109,7 @@ type consumer struct {
 	closing      chan bool
 	mutex        sync.Mutex
 	consumptions sync.WaitGroup
-	events       map[string][]chan kafka.Event
+	events       map[string][]ConsumerEventHandle
 }
 
 func (consumer *consumer) UseMockConsumer() *MockKafkaConsumer {
@@ -181,8 +187,7 @@ func (consumer *consumer) Consume() {
 				consumer.mutex.Unlock()
 			}
 
-			// The AfterEvent does not have to be called synchronously
-			go consumer.EmitEvent(AfterEvent, event)
+			consumer.EmitEvent(AfterEvent, event)
 			consumer.consumptions.Done()
 		}
 	}
@@ -209,11 +214,7 @@ func (consumer *consumer) Close() {
 		consumer.topics[topic] = nil
 	}
 
-	for event, subscriptions := range consumer.events {
-		for _, subscription := range subscriptions {
-			close(subscription)
-		}
-
+	for event := range consumer.events {
 		consumer.events[event] = nil
 	}
 }
@@ -223,32 +224,27 @@ func (consumer *consumer) EmitEvent(name string, event kafka.Event) {
 	defer consumer.mutex.Unlock()
 
 	for _, subscription := range consumer.events[name] {
-		subscription <- event
+		subscription(event)
 	}
 }
 
-func (consumer *consumer) OnEvent(event string) (<-chan kafka.Event, func()) {
-	subscription := make(chan kafka.Event, 1)
-
+func (consumer *consumer) OnEvent(event string, handle ConsumerEventHandle) func() {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
-	consumer.events[event] = append(consumer.events[event], subscription)
+	consumer.events[event] = append(consumer.events[event], handle)
 
-	return subscription, func() {
-		consumer.OffEvent(event, subscription)
+	return func() {
+		consumer.OffEvent(event, handle)
 	}
 }
 
-// OffEvent unsubscribes and closes the given channel from the given event.
-// A boolean is returned that represents if the method found the channel or not.
-func (consumer *consumer) OffEvent(event string, channel <-chan kafka.Event) bool {
+func (consumer *consumer) OffEvent(event string, handle ConsumerEventHandle) bool {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
 	for index, subscription := range consumer.events[event] {
-		if channel == subscription {
-			close(subscription)
+		if &handle == &subscription {
 			consumer.events[event] = append(consumer.events[event][:index], consumer.events[event][index+1:]...)
 			return true
 		}

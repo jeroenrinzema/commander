@@ -114,5 +114,5 @@ func (client *client) AfterConsumed(handle ConsumerEventHandle) func() {
 }
 
 func (client *client) Close() {
-
+	client.Consumer().Close()
 }

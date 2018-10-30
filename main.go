@@ -1,7 +1,10 @@
 package commander
 
 import (
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
@@ -73,6 +76,10 @@ type Client interface {
 	// Two arguments are returned. The events channel and a closing function.
 	AfterConsumed(ConsumerEventHandle) func()
 
+	// CloseOnSIGTERM automatically closes the commander instance
+	// once the SIGTERM signal is send.
+	CloseOnSIGTERM()
+
 	// Close closes the kafka consumer and finishes the last consumed messages
 	Close()
 }
@@ -111,6 +118,14 @@ func (client *client) BeforeConsuming(handle ConsumerEventHandle) func() {
 
 func (client *client) AfterConsumed(handle ConsumerEventHandle) func() {
 	return client.consumer.OnEvent(AfterEvent, handle)
+}
+
+func (client *client) CloseOnSIGTERM() {
+	sigterm := make(chan os.Signal, 1)
+	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sigterm
+	client.Close()
 }
 
 func (client *client) Close() {

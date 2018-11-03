@@ -10,22 +10,37 @@ Commander makes use of groups that represent a "data set". Events and commands c
 
 ```go
 users := commander.Group{
-	CommandTopic: commander.Topic{
-		Name: "user-commands",
-	},
-	EventTopic: commander.Topic{
-		Name: "user-events",
-	},
+	Topics: []commander.Topic{
+		commander.Topic{
+			Name: "user-commands",
+			Type: commander.CommandTopic,
+			Consume: true,
+			Produce: false
+		},
+		commander.Topic{
+			Name: "user-events",
+			Type: commander.EventTopic,
+			Consume: true,
+			Produce: false
+		},
+	}
 }
 
 warehouse := commander.Group{
-	CommandTopic: commander.Topic{
-		Name: "warehouse-commands",
-	},
-	EventTopic: commander.Topic{
-		Name: "warehouse-events",
-		IgnoreConsumption: true,
-	},
+	Topics: []commander.Topic{
+		commander.Topic{
+			Name: "warehouse-commands",
+			Type: commander.CommandTopic,
+			Consume: true,
+			Produce: false
+		},
+		commander.Topic{
+			Name: "warehouse-events",
+			Type: commander.EventTopic,
+			Consume: false,
+			Produce: true
+		},
+	}
 }
 ```
 

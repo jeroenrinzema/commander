@@ -36,7 +36,7 @@ func TestClosingConsumptions(t *testing.T) {
 	version := 1
 	delivered := make(chan *Event, 1)
 
-	group.NewEventHandle(action, []int{version}, func(event *Event) {
+	group.EventHandleFunc(action, []int{version}, func(event *Event) {
 		time.Sleep(1 * time.Second)
 		delivered <- event
 	})
@@ -45,7 +45,7 @@ func TestClosingConsumptions(t *testing.T) {
 	parent := uuid.NewV4()
 	key := uuid.NewV4()
 
-	message := NewEventMessage(action, key, parent, id, version, group.EventTopic, []byte("{}"))
+	message := NewEventMessage(action, key, parent, id, version, group.Topics, []byte("{}"))
 
 	consumer.Emit(message)
 	client.Close()

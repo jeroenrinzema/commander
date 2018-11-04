@@ -19,6 +19,7 @@ type Event struct {
 	Key          uuid.UUID         `json:"key"`
 	Acknowledged bool              `json:"acknowledged"`
 	Version      int               `json:"version"`
+	Origin       string            `json:"-"`
 }
 
 // Populate the event with the data from the given kafka message
@@ -70,6 +71,7 @@ func (event *Event) Populate(message *kafka.Message) error {
 
 	event.Key = id
 	event.Data = message.Value
+	event.Origin = *message.TopicPartition.Topic
 
 	return nil
 }

@@ -7,10 +7,21 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
+// TopicType represents the various topic types
+type TopicType int8
+
+// Represents the various topic types
+const (
+	EventTopic   TopicType = 1
+	CommandTopic TopicType = 2
+)
+
 // Topic contains information of a kafka topic
 type Topic struct {
-	Name              string
-	IgnoreConsumption bool
+	Name    string
+	Type    TopicType
+	Produce bool
+	Consume bool
 }
 
 // KafkaConsumer is the interface used to consume kafka messages
@@ -125,7 +136,17 @@ func (consumer *consumer) AddGroups(groups ...*Group) error {
 	consumer.mutex.Lock()
 
 	for _, group := range groups {
-		consumer.SetTopics(group.CommandTopic, group.EventTopic)
+		topics := []Topic{}
+
+		for _, topic := range group.Topics {
+			if topic.Consume != true {
+				continue
+			}
+
+			topics = append(topics, topic)
+		}
+
+		consumer.SetTopics(topics...)
 	}
 
 	consumer.mutex.Unlock()
@@ -140,7 +161,7 @@ func (consumer *consumer) AddGroups(groups ...*Group) error {
 
 func (consumer *consumer) SetTopics(topics ...Topic) {
 	for _, topic := range topics {
-		if topic.IgnoreConsumption == true {
+		if topic.Consume == false {
 			continue
 		}
 
@@ -255,7 +276,7 @@ func (consumer *consumer) OffEvent(event string, handle ConsumerEventHandle) boo
 
 func (consumer *consumer) Subscribe(topics ...Topic) (<-chan *kafka.Message, func()) {
 	for _, topic := range topics {
-		if topic.IgnoreConsumption == true {
+		if topic.Consume == false {
 			panic(fmt.Sprintf("The topic %s is ignored for consumption", topic.Name))
 		}
 	}

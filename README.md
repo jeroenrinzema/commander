@@ -8,7 +8,7 @@ Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for det
 
 ## Getting started
 
-A "data set" is represented in Commander as a group. Every data set contains a group of topics which are used to write different type of messages (commands, events). Commander does not limit on how many topics could be defined for a single group.
+A "data set" is represented in Commander as a group. Every data set contains a group of topics which are used to write different type of messages (commands, events). Multiple topics could be defined for a single type but only a single consume and single produce topic.
 
 ```go
 package main

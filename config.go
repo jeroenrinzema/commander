@@ -41,12 +41,50 @@ func (config *Config) Validate() error {
 
 // ValidateGroup validates the given group and returns a error if the group is invalid
 func (config *Config) ValidateGroup(group *Group) error {
-	if len(group.CommandTopic.Name) == 0 {
-		return errors.New("The given group has no command topic name set")
+	type types struct {
+		commands int
+		events   int
 	}
 
-	if len(group.EventTopic.Name) == 0 {
-		return errors.New("The given group has no event topic name set")
+	consume := &types{}
+	produce := &types{}
+
+	for _, topic := range group.Topics {
+		if topic.Consume == true {
+			if topic.Type == EventTopic {
+				consume.events++
+			}
+
+			if topic.Type == CommandTopic {
+				consume.commands++
+			}
+		}
+
+		if topic.Produce == true {
+			if topic.Type == EventTopic {
+				produce.events++
+			}
+
+			if topic.Type == CommandTopic {
+				produce.commands++
+			}
+		}
+	}
+
+	if consume.events > 1 {
+		return errors.New("To many event topics marked for consumption exist")
+	}
+
+	if consume.commands > 1 {
+		return errors.New("To many command topics marked for consumption exist")
+	}
+
+	if produce.events > 1 {
+		return errors.New("To many event topics marked for production exist")
+	}
+
+	if produce.commands > 1 {
+		return errors.New("To many command topics marked for production exist")
 	}
 
 	return nil

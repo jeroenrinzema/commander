@@ -15,23 +15,82 @@ func TestConfigValidateGroup(t *testing.T) {
 
 	config := NewConfig()
 	group := &Group{
-		EventTopic:   Topic{Name: ""},
-		CommandTopic: Topic{Name: ""},
+		Topics: []Topic{
+			Topic{
+				Name:    "",
+				Type:    EventTopic,
+				Consume: true,
+				Produce: true,
+			},
+			Topic{
+				Name:    "",
+				Type:    CommandTopic,
+				Consume: true,
+				Produce: true,
+			},
+		},
 	}
 
-	group.EventTopic.Name = "example"
 	err = config.ValidateGroup(group)
-	if err == nil {
-		t.Error("no error was thrown when not specifying a command topic name")
+	if err != nil {
+		t.Error("validate fails while it should not", err)
 	}
-	group.EventTopic.Name = ""
 
-	group.CommandTopic.Name = "example"
+	group.Topics = append(group.Topics, Topic{
+		Name:    "",
+		Type:    CommandTopic,
+		Consume: true,
+		Produce: false,
+	})
+
 	err = config.ValidateGroup(group)
 	if err == nil {
-		t.Error("no error was thrown when not specifying a event topic name")
+		t.Error("no error was thrown when having too many command topics marked for consumption")
 	}
-	group.CommandTopic.Name = ""
+
+	group.Topics = group.Topics[:len(group.Topics)-1]
+
+	group.Topics = append(group.Topics, Topic{
+		Name:    "",
+		Type:    CommandTopic,
+		Consume: false,
+		Produce: true,
+	})
+
+	err = config.ValidateGroup(group)
+	if err == nil {
+		t.Error("no error was thrown when having too many command topics marked for production")
+	}
+
+	group.Topics = group.Topics[:len(group.Topics)-1]
+
+	group.Topics = append(group.Topics, Topic{
+		Name:    "",
+		Type:    EventTopic,
+		Consume: true,
+		Produce: false,
+	})
+
+	err = config.ValidateGroup(group)
+	if err == nil {
+		t.Error("no error was thrown when having too many event topics marked for consumption")
+	}
+
+	group.Topics = group.Topics[:len(group.Topics)-1]
+
+	group.Topics = append(group.Topics, Topic{
+		Name:    "",
+		Type:    EventTopic,
+		Consume: false,
+		Produce: true,
+	})
+
+	err = config.ValidateGroup(group)
+	if err == nil {
+		t.Error("no error was thrown when having too many event topics marked for production")
+	}
+
+	group.Topics = group.Topics[:len(group.Topics)-1]
 }
 
 // TestConfigValidate tests if groups get validated correctly

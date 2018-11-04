@@ -14,52 +14,78 @@ import (
 var (
 	// TestTopic kafka testing topic
 	TestTopic = Topic{
-		Name: "testing",
+		Name:    "testing",
+		Consume: true,
+		Produce: true,
 	}
 )
 
 // NewEventMessage creates a new kafka event message with the given values
-func NewEventMessage(action string, key uuid.UUID, parent uuid.UUID, id uuid.UUID, version int, topic Topic, value []byte) *kafka.Message {
-	message := NewMessage(key, topic, []byte("{}"), []kafka.Header{
-		kafka.Header{
-			Key:   ActionHeader,
-			Value: []byte(action),
-		},
-		kafka.Header{
-			Key:   AcknowledgedHeader,
-			Value: []byte("true"),
-		},
-		kafka.Header{
-			Key:   ParentHeader,
-			Value: []byte(parent.String()),
-		},
-		kafka.Header{
-			Key:   IDHeader,
-			Value: []byte(id.String()),
-		},
-		kafka.Header{
-			Key:   VersionHeader,
-			Value: []byte(strconv.Itoa(version)),
-		},
-	})
+func NewEventMessage(action string, key uuid.UUID, parent uuid.UUID, id uuid.UUID, version int, topics []Topic, value []byte) *kafka.Message {
+	for _, topic := range topics {
+		if topic.Type != EventTopic {
+			continue
+		}
 
-	return message
+		if topic.Produce != true {
+			continue
+		}
+
+		message := NewMessage(key, topic, []byte("{}"), []kafka.Header{
+			kafka.Header{
+				Key:   ActionHeader,
+				Value: []byte(action),
+			},
+			kafka.Header{
+				Key:   AcknowledgedHeader,
+				Value: []byte("true"),
+			},
+			kafka.Header{
+				Key:   ParentHeader,
+				Value: []byte(parent.String()),
+			},
+			kafka.Header{
+				Key:   IDHeader,
+				Value: []byte(id.String()),
+			},
+			kafka.Header{
+				Key:   VersionHeader,
+				Value: []byte(strconv.Itoa(version)),
+			},
+		})
+
+		return message
+	}
+
+	return nil
 }
 
 // NewCommandMessage creates a new kafka command message with the given values
-func NewCommandMessage(action string, key uuid.UUID, id uuid.UUID, topic Topic, value []byte) *kafka.Message {
-	message := NewMessage(key, topic, []byte("{}"), []kafka.Header{
-		kafka.Header{
-			Key:   ActionHeader,
-			Value: []byte(action),
-		},
-		kafka.Header{
-			Key:   IDHeader,
-			Value: []byte(id.String()),
-		},
-	})
+func NewCommandMessage(action string, key uuid.UUID, id uuid.UUID, topics []Topic, value []byte) *kafka.Message {
+	for _, topic := range topics {
+		if topic.Type != CommandTopic {
+			continue
+		}
 
-	return message
+		if topic.Produce != true {
+			continue
+		}
+
+		message := NewMessage(key, topic, []byte("{}"), []kafka.Header{
+			kafka.Header{
+				Key:   ActionHeader,
+				Value: []byte(action),
+			},
+			kafka.Header{
+				Key:   IDHeader,
+				Value: []byte(id.String()),
+			},
+		})
+
+		return message
+	}
+
+	return nil
 }
 
 // NewTestConsumer initializes a new consumer and set's a mock consumer to be used

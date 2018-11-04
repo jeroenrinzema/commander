@@ -12,10 +12,22 @@ import (
 // NewTestGroup initializes a new group used for testing
 func NewTestGroup() *Group {
 	group := &Group{
-		Client:       &client{},
-		Timeout:      5 * time.Second,
-		EventTopic:   TestTopic,
-		CommandTopic: TestTopic,
+		Client:  &client{},
+		Timeout: 5 * time.Second,
+		Topics: []Topic{
+			Topic{
+				Name:    "",
+				Type:    EventTopic,
+				Consume: true,
+				Produce: true,
+			},
+			Topic{
+				Name:    "",
+				Type:    CommandTopic,
+				Consume: true,
+				Produce: true,
+			},
+		},
 	}
 
 	return group
@@ -88,7 +100,7 @@ func TestSyncEvent(t *testing.T) {
 	parent := uuid.NewV4()
 	event := group.NewEvent("testing", 1, parent, key, []byte("{}"))
 
-	group.SyncEvent(event)
+	group.AsyncEvent(event)
 }
 
 // TestAwaitEvent tests if plausible to await a event
@@ -172,7 +184,7 @@ func TestEventConsumer(t *testing.T) {
 	parent := uuid.NewV4()
 	key := uuid.NewV4()
 
-	message := NewEventMessage("testing", key, parent, id, 1, group.EventTopic, []byte("{}"))
+	message := NewEventMessage("testing", key, parent, id, 1, group.Topics, []byte("{}"))
 	consumer.Emit(message)
 }
 
@@ -201,7 +213,7 @@ func TestCommandConsumer(t *testing.T) {
 	id := uuid.NewV4()
 	key := uuid.NewV4()
 
-	message := NewCommandMessage("testing", key, id, group.CommandTopic, []byte("{}"))
+	message := NewCommandMessage("testing", key, id, group.Topics, []byte("{}"))
 	consumer.Emit(message)
 }
 
@@ -216,7 +228,7 @@ func TestEventsHandle(t *testing.T) {
 	version := 1
 	delivered := make(chan *Event, 1)
 
-	group.NewEventHandle(action, []int{version}, func(event *Event) {
+	group.EventHandleFunc(action, []int{version}, func(event *Event) {
 		delivered <- event
 	})
 
@@ -224,7 +236,7 @@ func TestEventsHandle(t *testing.T) {
 	parent := uuid.NewV4()
 	key := uuid.NewV4()
 
-	message := NewEventMessage(action, key, parent, id, version, group.EventTopic, []byte("{}"))
+	message := NewEventMessage(action, key, parent, id, version, group.Topics, []byte("{}"))
 	consumer.Emit(message)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -250,7 +262,7 @@ func TestMultipleEventVersionsHandle(t *testing.T) {
 	versions := []int{1, 2}
 	delivered := make(chan *Event, len(versions))
 
-	group.NewEventHandle(action, versions, func(event *Event) {
+	group.EventHandleFunc(action, versions, func(event *Event) {
 		delivered <- event
 	})
 
@@ -260,7 +272,7 @@ func TestMultipleEventVersionsHandle(t *testing.T) {
 
 	// Emit messages for the given versions
 	for _, version := range versions {
-		message := NewEventMessage(action, key, parent, id, version, group.EventTopic, []byte("{}"))
+		message := NewEventMessage(action, key, parent, id, version, group.Topics, []byte("{}"))
 		consumer.Emit(message)
 
 		deadline := time.Now().Add(500 * time.Millisecond)
@@ -288,7 +300,7 @@ func TestIgnoreMultipleEventVersionsHandle(t *testing.T) {
 	handled := 1
 	delivered := make(chan *Event, len(versions))
 
-	group.NewEventHandle(action, []int{handled}, func(event *Event) {
+	group.EventHandleFunc(action, []int{handled}, func(event *Event) {
 		delivered <- event
 	})
 
@@ -298,7 +310,7 @@ func TestIgnoreMultipleEventVersionsHandle(t *testing.T) {
 
 	// Emit messages for the given versions
 	for _, version := range versions {
-		message := NewEventMessage(action, key, parent, id, version, group.EventTopic, []byte("{}"))
+		message := NewEventMessage(action, key, parent, id, version, group.Topics, []byte("{}"))
 		consumer.Emit(message)
 
 		deadline := time.Now().Add(500 * time.Millisecond)
@@ -330,7 +342,7 @@ func TestCommandsHandle(t *testing.T) {
 	action := "testing"
 	delivered := make(chan *Command, 1)
 
-	group.NewCommandHandle(action, func(command *Command) *Event {
+	group.CommandHandleFunc(action, func(command *Command) *Event {
 		delivered <- command
 		return nil
 	})
@@ -338,7 +350,7 @@ func TestCommandsHandle(t *testing.T) {
 	id := uuid.NewV4()
 	key := uuid.NewV4()
 
-	message := NewCommandMessage(action, key, id, group.CommandTopic, []byte("{}"))
+	message := NewCommandMessage(action, key, id, group.Topics, []byte("{}"))
 	consumer.Emit(message)
 
 	deadline := time.Now().Add(500 * time.Millisecond)

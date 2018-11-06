@@ -8,53 +8,63 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-const (
-	TestAction  = "create"
-	TestVersion = 1
-)
+// NewMockCommandKafkaMessage produces a mock command message
+func NewMockCommandKafkaMessage(action string, key string, id string, value string) kafka.Message {
+	topic := "topic"
 
-var (
-	TestKey            = uuid.NewV4()
-	TestID             = uuid.NewV4()
-	TestCommandMessage = kafka.Message{
-		Key:       []byte(TestKey.String()),
-		Value:     []byte("{}"),
+	message := kafka.Message{
+		TopicPartition: kafka.TopicPartition{
+			Topic: &topic,
+		},
+		Key:       []byte(key),
+		Value:     []byte(value),
 		Timestamp: time.Now(),
 		Headers: []kafka.Header{
 			kafka.Header{
 				Key:   ActionHeader,
-				Value: []byte(TestAction),
+				Value: []byte(action),
 			},
 			kafka.Header{
 				Key:   IDHeader,
-				Value: []byte(TestID.String()),
+				Value: []byte(id),
 			},
 		},
 	}
-)
 
-func NewMockCommand() *Command {
+	return message
+}
+
+// NewMockCommand produces a new mock command with the given action
+func NewMockCommand(action string) *Command {
 	headers := make(map[string]string)
-	headers["acknowledged"] = "true"
 
 	command := &Command{
+		Origin:  "topic",
 		Key:     uuid.NewV4(),
 		Headers: headers,
 		ID:      uuid.NewV4(),
-		Action:  TestAction,
+		Action:  action,
 		Data:    []byte("{}"),
 	}
 
 	return command
 }
 
+// TestCommandEventConstruction tests if able to construct a event of a command
 func TestCommandEventConstruction(t *testing.T) {
-	command := NewMockCommand()
+	command := NewMockCommand("action")
+
+	action := "event"
+	version := 1
 	key := uuid.NewV4()
 
-	event := command.NewEvent(TestAction, TestVersion, key, []byte("{}"))
+	event := command.NewEvent(action, version, key, []byte("{}"))
 
-	if event.Version != TestVersion {
+	if event.Action != action {
+		t.Error("Ecent action does not match")
+	}
+
+	if event.Version != version {
 		t.Error("Event version does not match given version")
 	}
 
@@ -67,9 +77,10 @@ func TestCommandEventConstruction(t *testing.T) {
 	}
 }
 
+// TestCommandErrorEventConstruction tests if able to construct a error event
 func TestCommandErrorEventConstruction(t *testing.T) {
-	command := NewMockCommand()
-	event := command.NewErrorEvent(TestAction, []byte("{}"))
+	command := NewMockCommand("action")
+	event := command.NewErrorEvent("event", []byte("{}"))
 
 	if event.Parent != command.ID {
 		t.Error("Event does not have id of command")
@@ -80,29 +91,42 @@ func TestCommandErrorEventConstruction(t *testing.T) {
 	}
 }
 
+// TestCommandPopulation tests if able to populate a command from a kafka message
 func TestCommandPopulation(t *testing.T) {
-	command := &Command{}
-	command.Populate(&TestCommandMessage)
+	action := "action"
+	key := uuid.NewV4().String()
+	id := uuid.NewV4().String()
 
-	if command.Action != TestAction {
+	message := NewMockCommandKafkaMessage("action", key, id, "{}")
+
+	command := &Command{}
+	command.Populate(&message)
+
+	if command.Action != action {
 		t.Error("The populated command action is not set correctly")
 	}
 
-	if command.ID.String() != TestID.String() {
+	if command.ID.String() != id {
 		t.Error("The populated command id is not set correctly")
 	}
 
-	if command.Key.String() != TestKey.String() {
+	if command.Key.String() != key {
 		t.Error("The populated command key is not set correctly")
 	}
 }
 
+// TestErrorHandlingCommandPopulation tests if errors are thrown when populating a command
 func TestErrorHandlingCommandPopulation(t *testing.T) {
 	var err error
 	var corrupted kafka.Message
 	command := &Command{}
 
-	corrupted = TestCommandMessage
+	action := "action"
+	key := uuid.NewV4().String()
+	id := uuid.NewV4().String()
+	value := "{}"
+
+	corrupted = NewMockCommandKafkaMessage(action, key, id, value)
 	corrupted.Key = []byte("")
 
 	err = command.Populate(&corrupted)
@@ -110,7 +134,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted key population")
 	}
 
-	corrupted = TestCommandMessage
+	corrupted = NewMockCommandKafkaMessage(action, key, id, value)
 	for index, header := range corrupted.Headers {
 		if header.Key == IDHeader {
 			corrupted.Headers[index].Value = []byte("")
@@ -120,5 +144,17 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 	err = command.Populate(&corrupted)
 	if err == nil {
 		t.Error("no error is thrown during corrupted id population")
+	}
+
+	corrupted = NewMockCommandKafkaMessage(action, key, id, value)
+	for index, header := range corrupted.Headers {
+		if header.Key == ActionHeader {
+			corrupted.Headers[index].Value = []byte("")
+		}
+	}
+
+	err = command.Populate(&corrupted)
+	if err == nil {
+		t.Error("no error is thrown during corrupted action population")
 	}
 }

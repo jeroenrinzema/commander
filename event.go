@@ -2,6 +2,7 @@ package commander
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -67,6 +68,10 @@ func (event *Event) Populate(message *kafka.Message) error {
 
 	if err != nil {
 		return err
+	}
+
+	if len(event.Action) == 0 {
+		return errors.New("No event action is set")
 	}
 
 	event.Key = id

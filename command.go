@@ -2,6 +2,7 @@ package commander
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	uuid "github.com/satori/go.uuid"
@@ -14,6 +15,7 @@ type Command struct {
 	ID      uuid.UUID         `json:"id"`
 	Action  string            `json:"action"`
 	Data    json.RawMessage   `json:"data"`
+	Origin  string            `json:"-"`
 }
 
 // NewEvent creates a new acknowledged event as a response to this command.
@@ -79,8 +81,13 @@ func (command *Command) Populate(message *kafka.Message) error {
 		throw = err
 	}
 
+	if len(command.Action) == 0 {
+		return errors.New("No command action is set")
+	}
+
 	command.Key = id
 	command.Data = message.Value
+	command.Origin = *message.TopicPartition.Topic
 
 	return throw
 }

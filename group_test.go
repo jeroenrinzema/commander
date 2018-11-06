@@ -36,7 +36,7 @@ func NewTestGroup() *Group {
 // TestAsyncCommand tests if plausible to create a async command
 func TestAsyncCommand(t *testing.T) {
 	group := NewTestGroup()
-	command := NewMockCommand()
+	command := NewMockCommand("action")
 	err := group.AsyncCommand(command)
 
 	if err != nil {

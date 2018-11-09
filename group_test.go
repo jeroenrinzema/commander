@@ -216,7 +216,7 @@ func TestEventsHandle(t *testing.T) {
 	version := 1
 	delivered := make(chan *Event, 1)
 
-	group.EventHandleFunc(action, []int{version}, func(event *Event) {
+	group.EventHandleFunc(action, []int{version}, func(writer ResponseWriter, event *Event) {
 		delivered <- event
 	})
 
@@ -250,7 +250,7 @@ func TestMultipleEventVersionsHandle(t *testing.T) {
 	versions := []int{1, 2}
 	delivered := make(chan *Event, len(versions))
 
-	group.EventHandleFunc(action, versions, func(event *Event) {
+	group.EventHandleFunc(action, versions, func(writer ResponseWriter, event *Event) {
 		delivered <- event
 	})
 
@@ -288,7 +288,7 @@ func TestIgnoreMultipleEventVersionsHandle(t *testing.T) {
 	handled := 1
 	delivered := make(chan *Event, len(versions))
 
-	group.EventHandleFunc(action, []int{handled}, func(event *Event) {
+	group.EventHandleFunc(action, []int{handled}, func(writer ResponseWriter, event *Event) {
 		delivered <- event
 	})
 
@@ -330,9 +330,8 @@ func TestCommandsHandle(t *testing.T) {
 	action := "testing"
 	delivered := make(chan *Command, 1)
 
-	group.CommandHandleFunc(action, func(command *Command) *Event {
+	group.CommandHandleFunc(action, func(writer ResponseWriter, command *Command) {
 		delivered <- command
-		return nil
 	})
 
 	id := uuid.NewV4()

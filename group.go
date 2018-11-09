@@ -37,7 +37,7 @@ type Closing func()
 
 // EventHandler prodvides a interface to handle Events
 type EventHandler interface {
-	Handle(ResponseWriter, *Event)
+	Handle(*Event)
 }
 
 // CommandHandler prodvides a interface to handle Commands
@@ -311,7 +311,7 @@ func (group *Group) NewCommandConsumer() (chan *Command, Closing) {
 
 // EventHandleFunc once a event of the given action is received is the callback method called with the received event called.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) EventHandleFunc(action string, versions []int, callback func(ResponseWriter, *Event)) Closing {
+func (group *Group) EventHandleFunc(action string, versions []int, callback func(*Event)) Closing {
 	events, closing := group.NewEventConsumer()
 
 	go func() {
@@ -325,7 +325,7 @@ func (group *Group) EventHandleFunc(action string, versions []int, callback func
 					continue
 				}
 
-				callback(&writer{group}, event)
+				callback(event)
 				break
 			}
 		}
@@ -349,7 +349,7 @@ func (group *Group) EventHandle(action string, versions []int, handler EventHand
 					continue
 				}
 
-				handler.Handle(&writer{group}, event)
+				handler.Handle(event)
 				break
 			}
 		}
@@ -369,7 +369,7 @@ func (group *Group) CommandHandleFunc(action string, callback func(ResponseWrite
 				continue
 			}
 
-			callback(&writer{group}, command)
+			callback(&writer{group, command}, command)
 		}
 	}()
 
@@ -386,7 +386,7 @@ func (group *Group) CommandHandle(action string, handler CommandHandler) Closing
 				continue
 			}
 
-			handler.Handle(&writer{group}, command)
+			handler.Handle(&writer{group, command}, command)
 		}
 	}()
 

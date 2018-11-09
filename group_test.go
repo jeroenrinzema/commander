@@ -13,7 +13,7 @@ type testEventActionHandle struct {
 	events chan *Event
 }
 
-func (a *testEventActionHandle) Handle(writer ResponseWriter, event *Event) {
+func (a *testEventActionHandle) Handle(event *Event) {
 	a.events <- event
 }
 
@@ -232,7 +232,7 @@ func TestEventHandleFunc(t *testing.T) {
 	version := 1
 	delivered := make(chan *Event, 1)
 
-	group.EventHandleFunc(action, []int{version}, func(writer ResponseWriter, event *Event) {
+	group.EventHandleFunc(action, []int{version}, func(event *Event) {
 		delivered <- event
 	})
 
@@ -299,7 +299,7 @@ func TestMultipleEventVersionsHandle(t *testing.T) {
 	versions := []int{1, 2}
 	delivered := make(chan *Event, len(versions))
 
-	group.EventHandleFunc(action, versions, func(writer ResponseWriter, event *Event) {
+	group.EventHandleFunc(action, versions, func(event *Event) {
 		delivered <- event
 	})
 
@@ -337,7 +337,7 @@ func TestIgnoreMultipleEventVersionsHandle(t *testing.T) {
 	handled := 1
 	delivered := make(chan *Event, len(versions))
 
-	group.EventHandleFunc(action, []int{handled}, func(writer ResponseWriter, event *Event) {
+	group.EventHandleFunc(action, []int{handled}, func(event *Event) {
 		delivered <- event
 	})
 

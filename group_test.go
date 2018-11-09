@@ -91,18 +91,6 @@ func TestSyncCommand(t *testing.T) {
 	consumer.Emit(message)
 }
 
-// TestSyncEvent tests if able to send a sync event
-func TestSyncEvent(t *testing.T) {
-	group := NewTestGroup()
-	NewTestClient(group)
-
-	key := uuid.NewV4()
-	parent := uuid.NewV4()
-	event := group.NewEvent("testing", 1, parent, key, []byte("{}"))
-
-	group.AsyncEvent(event)
-}
-
 // TestAwaitEvent tests if plausible to await a event
 func TestAwaitEvent(t *testing.T) {
 	group := NewTestGroup()

@@ -89,17 +89,6 @@ func (group *Group) NewCommand(action string, key uuid.UUID, data []byte) *Comma
 	return command
 }
 
-// AsyncEvent creates a new event message to the given group.
-// If a error occured while writing the event the the events topic(s).
-func (group *Group) AsyncEvent(event *Event) error {
-	err := group.ProduceEvent(event)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // SyncCommand creates a command message to the given group and awaits
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
@@ -322,7 +311,7 @@ func (group *Group) NewCommandConsumer() (chan *Command, Closing) {
 
 // EventHandleFunc once a event of the given action is received is the callback method called with the received event called.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) EventHandleFunc(action string, versions []int, callback func(*Event)) Closing {
+func (group *Group) EventHandleFunc(action string, versions []int, callback func(ResponseWriter, *Event)) Closing {
 	events, closing := group.NewEventConsumer()
 
 	go func() {
@@ -336,7 +325,7 @@ func (group *Group) EventHandleFunc(action string, versions []int, callback func
 					continue
 				}
 
-				callback(event)
+				callback(&writer{group}, event)
 				break
 			}
 		}
@@ -360,7 +349,7 @@ func (group *Group) EventHandle(action string, versions []int, handler EventHand
 					continue
 				}
 
-				// handler.Handle(ResponseWriter, event)
+				handler.Handle(&writer{group}, event)
 				break
 			}
 		}
@@ -371,7 +360,7 @@ func (group *Group) EventHandle(action string, versions []int, handler EventHand
 
 // CommandHandleFunc once a command of the given action is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) CommandHandleFunc(action string, callback func(*Command) *Event) Closing {
+func (group *Group) CommandHandleFunc(action string, callback func(ResponseWriter, *Command)) Closing {
 	commands, closing := group.NewCommandConsumer()
 
 	go func() {
@@ -380,12 +369,24 @@ func (group *Group) CommandHandleFunc(action string, callback func(*Command) *Ev
 				continue
 			}
 
-			event := callback(command)
-			if event == nil {
+			callback(&writer{group}, command)
+		}
+	}()
+
+	return closing
+}
+
+// CommandHandle registeres a handle for the given action.
+func (group *Group) CommandHandle(action string, handler CommandHandler) Closing {
+	commands, closing := group.NewCommandConsumer()
+
+	go func() {
+		for command := range commands {
+			if command.Action != action {
 				continue
 			}
 
-			group.AsyncEvent(event)
+			handler.Handle(&writer{group}, command)
 		}
 	}()
 

@@ -9,6 +9,22 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+type testEventActionHandle struct {
+	events chan *Event
+}
+
+func (a *testEventActionHandle) Handle(writer ResponseWriter, event *Event) {
+	a.events <- event
+}
+
+type testCommandActionHandle struct {
+	commands chan *Command
+}
+
+func (a *testCommandActionHandle) Handle(writer ResponseWriter, command *Command) {
+	a.commands <- command
+}
+
 // NewTestGroup initializes a new group used for testing
 func NewTestGroup() *Group {
 	group := &Group{
@@ -205,8 +221,8 @@ func TestCommandConsumer(t *testing.T) {
 	consumer.Emit(message)
 }
 
-// TestEventsHandle tests if a event handle gets called
-func TestEventsHandle(t *testing.T) {
+// TestEventHandleFunc tests if a event handle func get's called
+func TestEventHandleFunc(t *testing.T) {
 	group := NewTestGroup()
 	client, consumer, _ := NewTestClient(group)
 
@@ -219,6 +235,39 @@ func TestEventsHandle(t *testing.T) {
 	group.EventHandleFunc(action, []int{version}, func(writer ResponseWriter, event *Event) {
 		delivered <- event
 	})
+
+	id := uuid.NewV4()
+	parent := uuid.NewV4()
+	key := uuid.NewV4()
+
+	message := NewEventMessage(action, key, parent, id, version, group.Topics, []byte("{}"))
+	consumer.Emit(message)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	select {
+	case <-delivered:
+	case <-ctx.Done():
+		t.Error("the events handle was not called within the deadline")
+	}
+}
+
+// TestEventHandle testis if a event handle get's called
+func TestEventHandle(t *testing.T) {
+	group := NewTestGroup()
+	client, consumer, _ := NewTestClient(group)
+
+	go client.Consume()
+
+	action := "testing"
+	version := 1
+	delivered := make(chan *Event, 1)
+
+	handle := &testEventActionHandle{delivered}
+	group.EventHandle(action, []int{version}, handle)
 
 	id := uuid.NewV4()
 	parent := uuid.NewV4()
@@ -320,8 +369,8 @@ func TestIgnoreMultipleEventVersionsHandle(t *testing.T) {
 	}
 }
 
-// TestCommandsHandle tests if a command handle gets called
-func TestCommandsHandle(t *testing.T) {
+// TestCommandHandleFunc tests if a command handle func get's called
+func TestCommandHandleFunc(t *testing.T) {
 	group := NewTestGroup()
 	client, consumer, _ := NewTestClient(group)
 
@@ -333,6 +382,37 @@ func TestCommandsHandle(t *testing.T) {
 	group.CommandHandleFunc(action, func(writer ResponseWriter, command *Command) {
 		delivered <- command
 	})
+
+	id := uuid.NewV4()
+	key := uuid.NewV4()
+
+	message := NewCommandMessage(action, key, id, group.Topics, []byte("{}"))
+	consumer.Emit(message)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	select {
+	case <-delivered:
+	case <-ctx.Done():
+		t.Error("the command handle was not called within the deadline")
+	}
+}
+
+// TestCommandHandle tests if a command handle get's called
+func TestCommandHandle(t *testing.T) {
+	group := NewTestGroup()
+	client, consumer, _ := NewTestClient(group)
+
+	go client.Consume()
+
+	action := "testing"
+	delivered := make(chan *Command, 1)
+
+	handle := &testCommandActionHandle{delivered}
+	group.CommandHandle(action, handle)
 
 	id := uuid.NewV4()
 	key := uuid.NewV4()

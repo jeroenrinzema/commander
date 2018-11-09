@@ -192,6 +192,10 @@ func (consumer *consumer) Consume() {
 	for {
 		select {
 		case event := <-consumer.client.Events():
+			if event == nil {
+				continue
+			}
+
 			consumer.consumptions.Add(1)
 			consumer.EmitEvent(BeforeEvent, event)
 

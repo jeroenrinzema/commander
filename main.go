@@ -105,7 +105,7 @@ func (client *client) Consume() {
 }
 
 func (client *client) Produce(message *kafka.Message) error {
-	return nil
+	return client.Producer().Produce(message)
 }
 
 func (client *client) BeforeClosing() <-chan bool {

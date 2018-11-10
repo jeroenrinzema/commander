@@ -27,6 +27,7 @@ type Event struct {
 func (event *Event) Populate(message *kafka.Message) error {
 	event.Headers = make(map[string]string)
 
+headers:
 	for _, header := range message.Headers {
 		switch string(header.Key) {
 		case ActionHeader:
@@ -39,6 +40,7 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Parent = parent
+			continue headers
 		case IDHeader:
 			id, err := uuid.FromString(string(header.Value))
 
@@ -47,6 +49,7 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.ID = id
+			continue headers
 		case AcknowledgedHeader:
 			acknowledged, err := strconv.ParseBool(string(header.Value))
 
@@ -55,6 +58,7 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Acknowledged = acknowledged
+			continue headers
 		case VersionHeader:
 			version, err := strconv.ParseInt(string(header.Value), 10, 0)
 
@@ -63,6 +67,7 @@ func (event *Event) Populate(message *kafka.Message) error {
 			}
 
 			event.Version = int(version)
+			continue headers
 		}
 
 		event.Headers[string(header.Key)] = string(header.Value)

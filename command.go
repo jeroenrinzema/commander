@@ -55,6 +55,7 @@ func (command *Command) Populate(message *kafka.Message) error {
 	command.Headers = make(map[string]string)
 	var throw error
 
+headers:
 	for _, header := range message.Headers {
 		key := string(header.Key)
 		value := string(header.Value)
@@ -62,6 +63,7 @@ func (command *Command) Populate(message *kafka.Message) error {
 		switch key {
 		case ActionHeader:
 			command.Action = value
+			continue headers
 		case IDHeader:
 			id, err := uuid.FromString(value)
 
@@ -70,6 +72,7 @@ func (command *Command) Populate(message *kafka.Message) error {
 			}
 
 			command.ID = id
+			continue headers
 		}
 
 		command.Headers[key] = value

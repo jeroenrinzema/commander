@@ -103,7 +103,7 @@ type Consumer interface {
 	// Subscribe creates a new topic subscription that will receive
 	// messages consumed by the consumer of the given topic. This method
 	// will return a message channel and a close function.
-	Subscribe(...Topic) (<-chan *kafka.Message, func())
+	Subscribe(...Topic) (<-chan *kafka.Message, Closing)
 
 	// Unsubscribe unsubscribes the given channel subscription from the given topic.
 	// A boolean is returned that represents if the channel successfully got unsubscribed.
@@ -278,7 +278,7 @@ func (consumer *consumer) OffEvent(event string, handle ConsumerEventHandle) boo
 	return false
 }
 
-func (consumer *consumer) Subscribe(topics ...Topic) (<-chan *kafka.Message, func()) {
+func (consumer *consumer) Subscribe(topics ...Topic) (<-chan *kafka.Message, Closing) {
 	for _, topic := range topics {
 		if topic.Consume == false {
 			panic(fmt.Sprintf("The topic %s is ignored for consumption", topic.Name))

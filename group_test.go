@@ -53,6 +53,8 @@ func NewTestGroup() *Group {
 func TestAsyncCommand(t *testing.T) {
 	group := NewTestGroup()
 	command := NewMockCommand("action")
+	NewTestClient(group)
+
 	err := group.AsyncCommand(command)
 
 	if err != nil {

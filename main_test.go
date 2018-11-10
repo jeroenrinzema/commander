@@ -36,7 +36,7 @@ func TestClosingConsumptions(t *testing.T) {
 	version := 1
 	delivered := make(chan *Event, 1)
 
-	group.EventHandleFunc(action, []int{version}, func(writer ResponseWriter, event *Event) {
+	group.EventHandleFunc(action, []int{version}, func(event *Event) {
 		time.Sleep(1 * time.Second)
 		delivered <- event
 	})

@@ -25,6 +25,8 @@ type Event struct {
 
 // Populate the event with the data from the given kafka message
 func (event *Event) Populate(message *kafka.Message) error {
+	event.Headers = make(map[string]string)
+
 	for _, header := range message.Headers {
 		switch string(header.Key) {
 		case ActionHeader:
@@ -62,6 +64,8 @@ func (event *Event) Populate(message *kafka.Message) error {
 
 			event.Version = int(version)
 		}
+
+		event.Headers[string(header.Key)] = string(header.Value)
 	}
 
 	id, err := uuid.FromString(string(message.Key))

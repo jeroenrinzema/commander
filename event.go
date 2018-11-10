@@ -32,6 +32,7 @@ headers:
 		switch string(header.Key) {
 		case ActionHeader:
 			event.Action = string(header.Value)
+			continue headers
 		case ParentHeader:
 			parent, err := uuid.FromString(string(header.Value))
 

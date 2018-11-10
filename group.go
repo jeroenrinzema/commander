@@ -66,6 +66,7 @@ func (group *Group) NewEvent(action string, version int, parent uuid.UUID, key u
 	event := &Event{
 		Parent:       parent,
 		ID:           id,
+		Headers:      make(map[string]string),
 		Action:       action,
 		Data:         data,
 		Key:          key,
@@ -80,10 +81,11 @@ func (group *Group) NewEvent(action string, version int, parent uuid.UUID, key u
 func (group *Group) NewCommand(action string, key uuid.UUID, data []byte) *Command {
 	id := uuid.NewV4()
 	command := &Command{
-		Key:    key,
-		ID:     id,
-		Action: action,
-		Data:   data,
+		Key:     key,
+		Headers: make(map[string]string),
+		ID:      id,
+		Action:  action,
+		Data:    data,
 	}
 
 	return command

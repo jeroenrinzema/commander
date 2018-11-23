@@ -209,7 +209,7 @@ func (group *Group) ProduceEvent(event *Event) error {
 
 // NewConsumer starts consuming events of topics from the same topic type.
 // All received messages are published over the returned messages channel.
-func (group *Group) NewConsumer(sort TopicType) (chan *Message, Close, error) {
+func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, Close, error) {
 	topics := []Topic{}
 	for _, topic := range group.Topics {
 		if topic.Type != sort {

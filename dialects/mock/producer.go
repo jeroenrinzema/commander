@@ -8,7 +8,7 @@ type Producer struct {
 }
 
 // Publish publishes the given message
-func (producer *Producer) Publish(message commander.Message) error {
+func (producer *Producer) Publish(message *commander.Message) error {
 	producer.consumer.Emit(message)
 	return nil
 }

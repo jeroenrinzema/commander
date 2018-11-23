@@ -46,7 +46,7 @@ func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commande
 		consumer.subscriptions[topic.Name] = subscriptions
 	}
 
-	return <-subscription, nil
+	return subscription, nil
 }
 
 // Unsubscribe unsubscribes the given topic from the subscription list

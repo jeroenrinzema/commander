@@ -39,7 +39,7 @@ func NewMockCommand(action string) *Command {
 	headers := make(map[string]string)
 
 	command := &Command{
-		Origin:  "topic",
+		Origin:  Topic{Name: "topic"},
 		Key:     uuid.NewV4(),
 		Headers: headers,
 		ID:      uuid.NewV4(),
@@ -56,9 +56,8 @@ func TestCommandEventConstruction(t *testing.T) {
 
 	action := "event"
 	version := 1
-	key := uuid.NewV4()
 
-	event := command.NewEvent(action, version, key, []byte("{}"))
+	event := command.NewEvent(action, version, []byte("{}"))
 
 	if event.Action != action {
 		t.Error("Ecent action does not match")
@@ -80,7 +79,7 @@ func TestCommandEventConstruction(t *testing.T) {
 // TestCommandErrorEventConstruction tests if able to construct a error event
 func TestCommandErrorEventConstruction(t *testing.T) {
 	command := NewMockCommand("action")
-	event := command.NewErrorEvent("event", []byte("{}"))
+	event := command.NewError("event", []byte("{}"))
 
 	if event.Parent != command.ID {
 		t.Error("Event does not have id of command")
@@ -97,7 +96,7 @@ func TestCommandPopulation(t *testing.T) {
 	key := uuid.NewV4().String()
 	id := uuid.NewV4().String()
 
-	message := NewMockCommandKafkaMessage("action", key, id, "{}")
+	message := NewMockCommandMessage("action", key, id, "{}")
 
 	command := &Command{}
 	command.Populate(&message)
@@ -118,7 +117,7 @@ func TestCommandPopulation(t *testing.T) {
 // TestErrorHandlingCommandPopulation tests if errors are thrown when populating a command
 func TestErrorHandlingCommandPopulation(t *testing.T) {
 	var err error
-	var corrupted kafka.Message
+	var corrupted Message
 	command := &Command{}
 
 	action := "action"
@@ -126,7 +125,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 	id := uuid.NewV4().String()
 	value := "{}"
 
-	corrupted = NewMockCommandKafkaMessage(action, key, id, value)
+	corrupted = NewMockCommandMessage(action, key, id, value)
 	corrupted.Key = []byte("")
 
 	err = command.Populate(&corrupted)
@@ -134,7 +133,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted key population")
 	}
 
-	corrupted = NewMockCommandKafkaMessage(action, key, id, value)
+	corrupted = NewMockCommandMessage(action, key, id, value)
 	for index, header := range corrupted.Headers {
 		if header.Key == IDHeader {
 			corrupted.Headers[index].Value = []byte("")
@@ -146,7 +145,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted id population")
 	}
 
-	corrupted = NewMockCommandKafkaMessage(action, key, id, value)
+	corrupted = NewMockCommandMessage(action, key, id, value)
 	for index, header := range corrupted.Headers {
 		if header.Key == ActionHeader {
 			corrupted.Headers[index].Value = []byte("")

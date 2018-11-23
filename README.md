@@ -15,6 +15,7 @@ package main
 
 import (
 	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/dialects/kafka"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -36,17 +37,16 @@ cart := commander.Group{
 }
 
 func main() {
-	config := commander.NewConfig()
-	config.Brokers = []string{"..."}
-	config.AddGroups(cart)
+	connectionstring := "brokers=...;group=example"
+	commander.New(kafka.Dialect, connectionstring, cart)
 
-	cmdr := commander.New(&config)
-	go cmdr.Consume()
+	cart.HandleFunc("NewCart", commander.CommandTopic, func(writer *commander.ResponseWriter, message commander.Message) {
+		command, ok := message.(commander.Command)
+		if ok != nil {
+			return
+		}
 
-	cart.CommandHandle("NewCart", func(command *commander.Command) *commander.Event {
-		// ...
-
-		return command.NewEvent("CartCreated", 1, uuid.NewV4(), nil)
+		writer.PublishEvent("CartCreated", 1, uuid.NewV4(), nil)
 	})
 }
 ```

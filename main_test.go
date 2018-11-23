@@ -5,49 +5,46 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jeroenrinzema/commander/dialects/mock"
 	uuid "github.com/satori/go.uuid"
 )
 
 // NewTestClient initializes a new client used for testing
-func NewTestClient(groups ...*Group) (Client, *MockKafkaConsumer, *MockKafkaProducer) {
-	config := NewConfig()
-	config.AddGroups(groups...)
-	config.Group = "testing"
-
-	client, err := New(config)
+func NewTestClient(groups ...*Group) (*Client, *mock.Dialect) {
+	dialect := &mock.Dialect{}
+	client, err := New(dialect, "", groups...)
 	if err != nil {
 		panic(err)
 	}
 
-	consumer := client.Consumer().UseMockConsumer()
-	producer := client.Producer().UseMockProducer()
-
-	return client, consumer, producer
+	return client, dialect
 }
 
 // TestClosingConsumptions test if consumptions get closed properly
 func TestClosingConsumptions(t *testing.T) {
 	group := NewTestGroup()
-	client, consumer, _ := NewTestClient(group)
-
-	go client.Consume()
+	client, _ := NewTestClient(group)
 
 	action := "testing"
 	version := 1
 	delivered := make(chan *Event, 1)
 
-	group.EventHandleFunc(action, []int{version}, func(event *Event) {
+	group.HandleFunc(action, EventTopic, func(writer ResponseWriter, message interface{}) {
+		event, ok := message.(*Event)
+		if !ok {
+			t.Error("the received message is not a event")
+		}
+
 		time.Sleep(1 * time.Second)
 		delivered <- event
 	})
 
-	id := uuid.NewV4()
 	parent := uuid.NewV4()
 	key := uuid.NewV4()
 
-	message := NewEventMessage(action, key, parent, id, version, group.Topics, []byte("{}"))
+	event := NewEvent(action, version, parent, key, []byte("{}"))
+	group.ProduceEvent(event)
 
-	consumer.Emit(message)
 	client.Close()
 
 	deadline := time.Now().Add(500 * time.Millisecond)

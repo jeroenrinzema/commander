@@ -5,9 +5,25 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	uuid "github.com/satori/go.uuid"
 )
+
+// NewEvent constructs a new event
+func NewEvent(action string, version int, parent uuid.UUID, key uuid.UUID, data []byte) *Event {
+	id := uuid.NewV4()
+	event := &Event{
+		Parent:       parent,
+		ID:           id,
+		Headers:      make(map[string]string),
+		Action:       action,
+		Data:         data,
+		Key:          key,
+		Acknowledged: true,
+		Version:      version,
+	}
+
+	return event
+}
 
 // Event contains the information of a consumed event.
 // A event is produced as the result of a command.
@@ -20,11 +36,11 @@ type Event struct {
 	Key          uuid.UUID         `json:"key"`
 	Acknowledged bool              `json:"acknowledged"`
 	Version      int               `json:"version"`
-	Origin       string            `json:"-"`
+	Origin       Topic             `json:"-"`
 }
 
-// Populate the event with the data from the given kafka message
-func (event *Event) Populate(message *kafka.Message) error {
+// Populate the event with the data from the given message
+func (event *Event) Populate(message *Message) error {
 	event.Headers = make(map[string]string)
 
 headers:
@@ -86,7 +102,7 @@ headers:
 
 	event.Key = id
 	event.Data = message.Value
-	event.Origin = *message.TopicPartition.Topic
+	event.Origin = message.Topic
 
 	return nil
 }

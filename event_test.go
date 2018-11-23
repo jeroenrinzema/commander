@@ -1,51 +1,10 @@
 package commander
 
 import (
-	"strconv"
 	"testing"
-	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	uuid "github.com/satori/go.uuid"
 )
-
-// NewMockEventKafkaMessage produces a mock event message
-func NewMockEventKafkaMessage(action string, version int, parent string, key string, id string, value string) kafka.Message {
-	topic := "topic"
-
-	message := kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic: &topic,
-		},
-		Key:       []byte(key),
-		Value:     []byte(value),
-		Timestamp: time.Now(),
-		Headers: []kafka.Header{
-			kafka.Header{
-				Key:   ActionHeader,
-				Value: []byte(action),
-			},
-			kafka.Header{
-				Key:   IDHeader,
-				Value: []byte(id),
-			},
-			kafka.Header{
-				Key:   ParentHeader,
-				Value: []byte(parent),
-			},
-			kafka.Header{
-				Key:   VersionHeader,
-				Value: []byte(strconv.Itoa(version)),
-			},
-			kafka.Header{
-				Key:   AcknowledgedHeader,
-				Value: []byte("true"),
-			},
-		},
-	}
-
-	return message
-}
 
 // NewMockEvent produces a new mock command with the given action
 func NewMockEvent(action string) *Event {
@@ -57,7 +16,7 @@ func NewMockEvent(action string) *Event {
 		Key:          uuid.NewV4(),
 		ID:           uuid.NewV4(),
 		Acknowledged: true,
-		Origin:       "topic",
+		Origin:       Topic{Name: "topic"},
 		Action:       action,
 		Data:         []byte("{}"),
 	}
@@ -73,7 +32,7 @@ func TestEventPopulation(t *testing.T) {
 	key := uuid.NewV4().String()
 	id := uuid.NewV4().String()
 
-	message := NewMockEventKafkaMessage(action, version, parent, key, id, "{}")
+	message := NewMockEventMessage(action, version, parent, key, id, "{}")
 
 	event := &Event{}
 	event.Populate(&message)
@@ -102,7 +61,7 @@ func TestEventPopulation(t *testing.T) {
 // TestErrorHandlingEventPopulation tests if errors are thrown when populating a event
 func TestErrorHandlingEventPopulation(t *testing.T) {
 	var err error
-	var corrupted kafka.Message
+	var corrupted Message
 	event := &Event{}
 
 	action := "action"
@@ -112,7 +71,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 	id := uuid.NewV4().String()
 	value := "{}"
 
-	corrupted = NewMockEventKafkaMessage(action, version, parent, key, id, value)
+	corrupted = NewMockEventMessage(action, version, parent, key, id, value)
 	corrupted.Key = []byte("")
 
 	err = event.Populate(&corrupted)
@@ -120,7 +79,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted key population")
 	}
 
-	corrupted = NewMockEventKafkaMessage(action, version, parent, key, id, value)
+	corrupted = NewMockEventMessage(action, version, parent, key, id, value)
 	for index, header := range corrupted.Headers {
 		if header.Key == IDHeader {
 			corrupted.Headers[index].Value = []byte("")
@@ -132,7 +91,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted id population")
 	}
 
-	corrupted = NewMockEventKafkaMessage(action, version, parent, key, id, value)
+	corrupted = NewMockEventMessage(action, version, parent, key, id, value)
 	for index, header := range corrupted.Headers {
 		if header.Key == ActionHeader {
 			corrupted.Headers[index].Value = []byte("")
@@ -144,7 +103,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted action population")
 	}
 
-	corrupted = NewMockEventKafkaMessage(action, version, parent, key, id, value)
+	corrupted = NewMockEventMessage(action, version, parent, key, id, value)
 	for index, header := range corrupted.Headers {
 		if header.Key == ParentHeader {
 			corrupted.Headers[index].Value = []byte("")
@@ -156,7 +115,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted parent population")
 	}
 
-	corrupted = NewMockEventKafkaMessage(action, version, parent, key, id, value)
+	corrupted = NewMockEventMessage(action, version, parent, key, id, value)
 	for index, header := range corrupted.Headers {
 		if header.Key == VersionHeader {
 			corrupted.Headers[index].Value = []byte("")

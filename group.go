@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -16,7 +15,7 @@ const (
 	// ActionHeader kafka message action header
 	ActionHeader = "action"
 	// IDHeader kafka message id header
-	IDHeader = "key"
+	IDHeader = "id"
 	// AcknowledgedHeader kafka message acknowledged header
 	AcknowledgedHeader = "acknowledged"
 	// VersionHeader kafka message version header
@@ -27,30 +26,25 @@ const (
 // A commander group could contain a events and commands topic where
 // commands and events could be consumed and produced to.
 type Group struct {
-	Client
+	*Client
 	Timeout time.Duration
 	Topics  []Topic
 }
 
-// Closing is a method that closes the assigned handle, channel, callback
-type Closing func()
+// Close represents a closing method
+type Close func()
 
-// EventHandler prodvides a interface to handle Events
-type EventHandler interface {
-	Handle(*Event)
-}
+// Handle represents a message handle method
+// The interface could contain a *Message, *Event or *Command struct
+type Handle func(ResponseWriter, interface{})
 
-// CommandHandler prodvides a interface to handle Commands
-type CommandHandler interface {
-	Handle(ResponseWriter, *Command)
+// Handler prodvides a interface to handle Messages
+type Handler interface {
+	Process(writer ResponseWriter, message interface{})
 }
 
 // AsyncCommand creates a command message to the given group command topic
-// and does not await for the responding event.
-//
-// If no command key is set will the command id be used. A command key is used
-// to write a command to the right kafka partition therefor to guarantee the order
-// of the kafka messages is it important to define a "data set" key.
+// and does not await for the responding event. If no command key is set will the command id be used.
 func (group *Group) AsyncCommand(command *Command) error {
 	err := group.ProduceCommand(command)
 	if err != nil {
@@ -58,37 +52,6 @@ func (group *Group) AsyncCommand(command *Command) error {
 	}
 
 	return nil
-}
-
-// NewEvent creates a new acknowledged event.
-func (group *Group) NewEvent(action string, version int, parent uuid.UUID, key uuid.UUID, data []byte) *Event {
-	id := uuid.NewV4()
-	event := &Event{
-		Parent:       parent,
-		ID:           id,
-		Headers:      make(map[string]string),
-		Action:       action,
-		Data:         data,
-		Key:          key,
-		Acknowledged: true,
-		Version:      version,
-	}
-
-	return event
-}
-
-// NewCommand creates a new command.
-func (group *Group) NewCommand(action string, key uuid.UUID, data []byte) *Command {
-	id := uuid.NewV4()
-	command := &Command{
-		Key:     key,
-		Headers: make(map[string]string),
-		ID:      id,
-		Action:  action,
-		Data:    data,
-	}
-
-	return command
 }
 
 // SyncCommand creates a command message to the given group and awaits
@@ -119,7 +82,11 @@ func (group *Group) SyncCommand(command *Command) (*Event, error) {
 // will a error be returned. The timeout channel is closed when all
 // expected events are received or after a timeout is thrown.
 func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (*Event, error) {
-	events, closing := group.NewEventConsumer()
+	messages, closing, err := group.NewConsumer(EventTopic)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 	defer cancel()
@@ -127,7 +94,10 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (*Event,
 
 	for {
 		select {
-		case event := <-events:
+		case message := <-messages:
+			event := &Event{}
+			event.Populate(message)
+
 			if event.Parent != parent {
 				continue
 			}
@@ -139,12 +109,8 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (*Event,
 	}
 }
 
-// ProduceCommand constructs and produces a command kafka message to the set command topic.
-// A error is returned if anything went wrong in the process.
-//
-// If no command key is set will the command id be used. A command key is used
-// to write a command to the right kafka partition therefor to guarantee the order
-// of the kafka messages is it important to define a "dataset" key.
+// ProduceCommand constructs and produces a command message to the set command topic.
+// A error is returned if anything went wrong in the process. If no command key is set will the command id be used.
 func (group *Group) ProduceCommand(command *Command) error {
 	if command.Key == uuid.Nil {
 		command.Key = command.ID
@@ -159,25 +125,23 @@ func (group *Group) ProduceCommand(command *Command) error {
 			continue
 		}
 
-		message := kafka.Message{
-			Headers: []kafka.Header{
-				kafka.Header{
+		message := &Message{
+			Headers: []Header{
+				Header{
 					Key:   ActionHeader,
 					Value: []byte(command.Action),
 				},
-				kafka.Header{
+				Header{
 					Key:   IDHeader,
 					Value: []byte(command.ID.String()),
 				},
 			},
 			Key:   []byte(command.Key.String()),
 			Value: command.Data,
-			TopicPartition: kafka.TopicPartition{
-				Topic: &topic.Name,
-			},
+			Topic: topic,
 		}
 
-		err := group.Produce(&message)
+		err := group.Producer.Produce(message)
 		if err != nil {
 			return err
 		}
@@ -204,37 +168,35 @@ func (group *Group) ProduceEvent(event *Event) error {
 			continue
 		}
 
-		message := kafka.Message{
-			Headers: []kafka.Header{
-				kafka.Header{
+		message := &Message{
+			Headers: []Header{
+				Header{
 					Key:   ActionHeader,
 					Value: []byte(event.Action),
 				},
-				kafka.Header{
+				Header{
 					Key:   ParentHeader,
 					Value: []byte(event.Parent.String()),
 				},
-				kafka.Header{
+				Header{
 					Key:   IDHeader,
 					Value: []byte(event.ID.String()),
 				},
-				kafka.Header{
+				Header{
 					Key:   AcknowledgedHeader,
 					Value: []byte(strconv.FormatBool(event.Acknowledged)),
 				},
-				kafka.Header{
+				Header{
 					Key:   VersionHeader,
 					Value: []byte(strconv.Itoa(event.Version)),
 				},
 			},
 			Key:   []byte(event.Key.String()),
 			Value: event.Data,
-			TopicPartition: kafka.TopicPartition{
-				Topic: &topic.Name,
-			},
+			Topic: topic,
 		}
 
-		err := group.Produce(&message)
+		err := group.Producer.Produce(message)
 		if err != nil {
 			return err
 		}
@@ -245,14 +207,12 @@ func (group *Group) ProduceEvent(event *Event) error {
 	return errors.New("No event topic is found that could be produced to")
 }
 
-// NewEventConsumer starts consuming events of the given action and the given versions.
-// The events topic used is set during initialization of the group.
-// Two arguments are returned, a events channel and a method to unsubscribe the consumer.
-// All received events are published over the returned events go channel.
-func (group *Group) NewEventConsumer() (chan *Event, func()) {
+// NewConsumer starts consuming events of topics from the same topic type.
+// All received messages are published over the returned messages channel.
+func (group *Group) NewConsumer(sort TopicType) (chan *Message, Close, error) {
 	topics := []Topic{}
 	for _, topic := range group.Topics {
-		if topic.Type != EventTopic {
+		if topic.Type != sort {
 			continue
 		}
 
@@ -263,134 +223,47 @@ func (group *Group) NewEventConsumer() (chan *Event, func()) {
 		topics = append(topics, topic)
 	}
 
-	sink := make(chan *Event, 1)
-	messages, closing := group.Client.Consumer().Subscribe(topics...)
-
-	go func() {
-		for message := range messages {
-			event := Event{}
-			event.Populate(message)
-			// TODO: handle the event populate error
-
-			sink <- &event
-		}
-	}()
-
-	return sink, closing
+	messages, err := group.Consumer.Subscribe(topics...)
+	return messages, func() { group.Consumer.Unsubscribe(messages) }, err
 }
 
-// NewCommandConsumer starts consuming commands of the given action.
-// The commands topic used is set during initialization of the group.
-// Two arguments are returned, a events channel and a method to unsubscribe the consumer.
-// All received events are published over the returned events go channel.
-func (group *Group) NewCommandConsumer() (chan *Command, Closing) {
-	topics := []Topic{}
-	for _, topic := range group.Topics {
-		if topic.Type != CommandTopic {
-			continue
-		}
-
-		if topic.Consume == false {
-			continue
-		}
-
-		topics = append(topics, topic)
+// HandleFunc awaits messages from the given TopicType and action.
+// Once a message is received is the callback method called with the received command.
+// The handle is closed once the consumer receives a close signal.
+func (group *Group) HandleFunc(action string, sort TopicType, callback Handle) (Close, error) {
+	messages, closing, err := group.NewConsumer(sort)
+	if err != nil {
+		return nil, err
 	}
 
-	sink := make(chan *Command, 1)
-	messages, closing := group.Client.Consumer().Subscribe(topics...)
-
 	go func() {
 		for message := range messages {
-			command := Command{}
-			command.Populate(message)
-			sink <- &command
+			var value interface{}
+
+			switch sort {
+			case EventTopic:
+				event := &Event{}
+				event.Populate(message)
+
+				value = event
+			case CommandTopic:
+				command := &Command{}
+				command.Populate(message)
+
+				value = command
+			}
+
+			writer := NewResponseWriter(value)
+			callback(writer, value)
 		}
 	}()
 
-	return sink, closing
+	return closing, nil
 }
 
-// EventHandleFunc once a event of the given action is received is the callback method called with the received event called.
+// Handle awaits messages from the given TopicType and action.
+// Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) EventHandleFunc(action string, versions []int, callback func(*Event)) Closing {
-	events, closing := group.NewEventConsumer()
-
-	go func() {
-		for event := range events {
-			if event.Action != action {
-				continue
-			}
-
-			for _, version := range versions {
-				if version != event.Version {
-					continue
-				}
-
-				callback(event)
-				break
-			}
-		}
-	}()
-
-	return closing
-}
-
-// EventHandle registeres a handle for the given action.
-func (group *Group) EventHandle(action string, versions []int, handler EventHandler) Closing {
-	events, closing := group.NewEventConsumer()
-
-	go func() {
-		for event := range events {
-			if event.Action != action {
-				continue
-			}
-
-			for _, version := range versions {
-				if version != event.Version {
-					continue
-				}
-
-				handler.Handle(event)
-				break
-			}
-		}
-	}()
-
-	return closing
-}
-
-// CommandHandleFunc once a command of the given action is received is the callback method called with the received command.
-// The handle is closed once the consumer receives a close signal.
-func (group *Group) CommandHandleFunc(action string, callback func(ResponseWriter, *Command)) Closing {
-	commands, closing := group.NewCommandConsumer()
-
-	go func() {
-		for command := range commands {
-			if command.Action != action {
-				continue
-			}
-
-			callback(&writer{group, command}, command)
-		}
-	}()
-
-	return closing
-}
-
-// CommandHandle registeres a handle for the given action.
-func (group *Group) CommandHandle(action string, handler CommandHandler) Closing {
-	commands, closing := group.NewCommandConsumer()
-
-	go func() {
-		for command := range commands {
-			if command.Action != action {
-				continue
-			}
-
-			handler.Handle(&writer{group, command}, command)
-		}
-	}()
-
-	return closing
+func (group *Group) Handle(action string, sort TopicType, handler Handler) (Close, error) {
+	return group.HandleFunc(action, sort, handler.Process)
 }

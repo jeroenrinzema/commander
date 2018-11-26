@@ -2,37 +2,9 @@ package commander
 
 import (
 	"testing"
-	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	uuid "github.com/satori/go.uuid"
 )
-
-// NewMockCommandKafkaMessage produces a mock command message
-func NewMockCommandKafkaMessage(action string, key string, id string, value string) kafka.Message {
-	topic := "topic"
-
-	message := kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic: &topic,
-		},
-		Key:       []byte(key),
-		Value:     []byte(value),
-		Timestamp: time.Now(),
-		Headers: []kafka.Header{
-			kafka.Header{
-				Key:   ActionHeader,
-				Value: []byte(action),
-			},
-			kafka.Header{
-				Key:   IDHeader,
-				Value: []byte(id),
-			},
-		},
-	}
-
-	return message
-}
 
 // NewMockCommand produces a new mock command with the given action
 func NewMockCommand(action string) *Command {
@@ -96,7 +68,7 @@ func TestCommandPopulation(t *testing.T) {
 	key := uuid.NewV4().String()
 	id := uuid.NewV4().String()
 
-	message := NewMockCommandMessage("action", key, id, "{}")
+	message := NewMockCommandMessage("action", key, id, "{}", Topic{Name: "testing"})
 
 	command := &Command{}
 	command.Populate(&message)
@@ -125,7 +97,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 	id := uuid.NewV4().String()
 	value := "{}"
 
-	corrupted = NewMockCommandMessage(action, key, id, value)
+	corrupted = NewMockCommandMessage(action, key, id, value, Topic{Name: "testing"})
 	corrupted.Key = []byte("")
 
 	err = command.Populate(&corrupted)
@@ -133,7 +105,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted key population")
 	}
 
-	corrupted = NewMockCommandMessage(action, key, id, value)
+	corrupted = NewMockCommandMessage(action, key, id, value, Topic{Name: "testing"})
 	for index, header := range corrupted.Headers {
 		if header.Key == IDHeader {
 			corrupted.Headers[index].Value = []byte("")
@@ -145,7 +117,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted id population")
 	}
 
-	corrupted = NewMockCommandMessage(action, key, id, value)
+	corrupted = NewMockCommandMessage(action, key, id, value, Topic{Name: "testing"})
 	for index, header := range corrupted.Headers {
 		if header.Key == ActionHeader {
 			corrupted.Headers[index].Value = []byte("")

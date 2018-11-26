@@ -9,7 +9,7 @@ type Consumer interface {
 
 	// Unsubscribe unsubscribes the given channel subscription from the given topic.
 	// A boolean is returned that represents if the channel successfully got unsubscribed.
-	Unsubscribe(<-chan *Message) bool
+	Unsubscribe(<-chan *Message) error
 
 	// Close closes the kafka consumer, all topic subscriptions and event channels.
 	Close() error

@@ -18,19 +18,19 @@ func (handle *actionHandle) Process(writer ResponseWriter, message interface{}) 
 
 // NewTestGroup initializes a new group used for testing
 func NewTestGroup() *Group {
-	client, _ := NewTestClient()
+	client := NewTestClient()
 	group := &Group{
 		Client:  client,
 		Timeout: 5 * time.Second,
 		Topics: []Topic{
 			Topic{
-				Name:    "",
+				Name:    "events",
 				Type:    EventTopic,
 				Consume: true,
 				Produce: true,
 			},
 			Topic{
-				Name:    "",
+				Name:    "commands",
 				Type:    CommandTopic,
 				Consume: true,
 				Produce: true,
@@ -119,30 +119,30 @@ func TestEventConsumer(t *testing.T) {
 	group := NewTestGroup()
 	NewTestClient(group)
 
-	go func() {
-		deadline := time.Now().Add(500 * time.Millisecond)
+	events, close, err := group.NewConsumer(EventTopic)
+	if err != nil {
+		panic(err)
+	}
 
-		ctx, cancel := context.WithDeadline(context.Background(), deadline)
-		events, close, err := group.NewConsumer(EventTopic)
-		if err != nil {
-			panic(err)
-		}
-
-		defer cancel()
-		defer close()
-
-		select {
-		case <-events:
-		case <-ctx.Done():
-			t.Error("no message was consumed within the deadline")
-		}
-	}()
+	defer close()
 
 	parent := uuid.NewV4()
 	key := uuid.NewV4()
 
 	event := NewEvent("tested", 1, parent, key, []byte("{}"))
 	group.ProduceEvent(event)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	select {
+	case <-events:
+	case <-ctx.Done():
+		t.Error("no message was consumed within the deadline")
+	}
 }
 
 // TestCommandConsumer tests if commands get consumed
@@ -150,27 +150,26 @@ func TestCommandConsumer(t *testing.T) {
 	group := NewTestGroup()
 	NewTestClient(group)
 
-	go func() {
-		deadline := time.Now().Add(500 * time.Millisecond)
-		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	commands, close, err := group.NewConsumer(CommandTopic)
+	if err != nil {
+		panic(err)
+	}
 
-		commands, close, err := group.NewConsumer(CommandTopic)
-		if err != nil {
-			panic(err)
-		}
-
-		defer cancel()
-		defer close()
-
-		select {
-		case <-commands:
-		case <-ctx.Done():
-			t.Error("no message was consumed within the deadline")
-		}
-	}()
+	defer close()
 
 	command := NewCommand("testing", uuid.NewV4(), []byte("{}"))
 	group.ProduceCommand(command)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	select {
+	case <-commands:
+	case <-ctx.Done():
+		t.Error("no message was consumed within the deadline")
+	}
 }
 
 // TestEventHandleFunc tests if a event handle func get's called

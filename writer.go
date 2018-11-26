@@ -5,8 +5,10 @@ import (
 )
 
 // NewResponseWriter initializes a new response writer for the given value
-func NewResponseWriter(value interface{}) ResponseWriter {
-	writer := &writer{}
+func NewResponseWriter(group *Group, value interface{}) ResponseWriter {
+	writer := &writer{
+		Group: group,
+	}
 
 	if command, ok := value.(*Command); ok {
 		writer.Command = command

@@ -5,25 +5,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jeroenrinzema/commander/dialects/mock"
 	uuid "github.com/satori/go.uuid"
 )
 
 // NewTestClient initializes a new client used for testing
-func NewTestClient(groups ...*Group) (*Client, *mock.Dialect) {
-	dialect := &mock.Dialect{}
+func NewTestClient(groups ...*Group) *Client {
+	dialect := &MockDialect{}
 	client, err := New(dialect, "", groups...)
 	if err != nil {
 		panic(err)
 	}
 
-	return client, dialect
+	return client
 }
 
 // TestClosingConsumptions test if consumptions get closed properly
 func TestClosingConsumptions(t *testing.T) {
 	group := NewTestGroup()
-	client, _ := NewTestClient(group)
+	client := NewTestClient(group)
 
 	action := "testing"
 	version := 1

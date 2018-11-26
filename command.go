@@ -33,13 +33,13 @@ type Command struct {
 
 // NewEvent creates a new acknowledged event as a response to this command.
 func (command *Command) NewEvent(action string, version int, data []byte) *Event {
-	event := NewEvent(action, version, command.Key, command.ID, data)
+	event := NewEvent(action, version, command.ID, command.Key, data)
 	return event
 }
 
 // NewError creates a error event as a response to this command.
 func (command *Command) NewError(action string, data []byte) *Event {
-	event := NewEvent(action, 0, command.Key, uuid.Nil, data)
+	event := NewEvent(action, 0, command.ID, command.Key, data)
 	event.Acknowledged = false
 
 	return event

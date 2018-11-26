@@ -141,7 +141,7 @@ func (group *Group) ProduceCommand(command *Command) error {
 			Topic: topic,
 		}
 
-		err := group.Producer.Produce(message)
+		err := group.Producer.Publish(message)
 		if err != nil {
 			return err
 		}
@@ -196,7 +196,7 @@ func (group *Group) ProduceEvent(event *Event) error {
 			Topic: topic,
 		}
 
-		err := group.Producer.Produce(message)
+		err := group.Producer.Publish(message)
 		if err != nil {
 			return err
 		}
@@ -253,7 +253,7 @@ func (group *Group) HandleFunc(action string, sort TopicType, callback Handle) (
 				value = command
 			}
 
-			writer := NewResponseWriter(value)
+			writer := NewResponseWriter(group, value)
 			callback(writer, value)
 		}
 	}()

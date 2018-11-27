@@ -96,8 +96,9 @@ func main() {
 			return
 		}
 
-		if !event.Acknowledged {
+		if event.Status != commander.StatusOK {
 			writer.ProduceError("NotAvailable", []byte(err.Error()))
+			return
 		}
 
 		items := []string{item}

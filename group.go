@@ -35,7 +35,8 @@ type Group struct {
 type Close func()
 
 // Handle represents a message handle method
-// The interface could contain a *Message, *Event or *Command struct
+// The interface could contain a *Event or *Command struct
+// regarding to the topic type that is being consumed.
 type Handle func(ResponseWriter, interface{})
 
 // Handler prodvides a interface to handle Messages

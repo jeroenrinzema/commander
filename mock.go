@@ -21,6 +21,11 @@ func (dialect *MockDialect) Open(connectionstring string, groups ...*Group) (Con
 	return consumer, producer, nil
 }
 
+// Healthy checks if the dialect is healthy and up and running
+func (dialect *MockDialect) Healthy() bool {
+	return true
+}
+
 // MockConsumer consumes kafka messages
 type MockConsumer struct {
 	subscriptions map[string][]chan *Message

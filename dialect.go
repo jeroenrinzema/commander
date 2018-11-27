@@ -4,4 +4,7 @@ package commander
 type Dialect interface {
 	// Open opens the given dialect with the given connectionstring
 	Open(connectionstring string, groups ...*Group) (Consumer, Producer, error)
+
+	// Healthy checks if the dialect is healthy and up and running
+	Healthy() bool
 }

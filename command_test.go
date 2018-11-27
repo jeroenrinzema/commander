@@ -43,7 +43,7 @@ func TestCommandEventConstruction(t *testing.T) {
 		t.Error("Event does not have id of command")
 	}
 
-	if !event.Acknowledged {
+	if event.Status != StatusOK {
 		t.Error("Event is not acknowledged")
 	}
 }
@@ -57,7 +57,7 @@ func TestCommandErrorEventConstruction(t *testing.T) {
 		t.Error("Event does not have id of command")
 	}
 
-	if event.Acknowledged {
+	if event.Status == StatusOK {
 		t.Error("Error event is acknowledged")
 	}
 }

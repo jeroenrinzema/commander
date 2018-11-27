@@ -44,7 +44,7 @@ func (writer *writer) ProduceError(action string, data []byte) (*Event, error) {
 
 	if event == nil {
 		event = NewEvent(action, 0, uuid.Nil, uuid.Nil, data)
-		event.Acknowledged = false
+		event.Status = StatusInternalServerError
 	}
 
 	err := writer.Group.ProduceEvent(event)

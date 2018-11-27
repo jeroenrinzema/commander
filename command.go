@@ -40,7 +40,7 @@ func (command *Command) NewEvent(action string, version int, data []byte) *Event
 // NewError creates a error event as a response to this command.
 func (command *Command) NewError(action string, data []byte) *Event {
 	event := NewEvent(action, 0, command.ID, command.Key, data)
-	event.Acknowledged = false
+	event.Status = StatusInternalServerError
 
 	return event
 }

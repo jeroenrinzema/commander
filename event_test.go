@@ -11,14 +11,14 @@ func NewMockEvent(action string) *Event {
 	headers := make(map[string]string)
 
 	event := &Event{
-		Headers:      headers,
-		Parent:       uuid.NewV4(),
-		Key:          uuid.NewV4(),
-		ID:           uuid.NewV4(),
-		Acknowledged: true,
-		Origin:       Topic{Name: "topic"},
-		Action:       action,
-		Data:         []byte("{}"),
+		Headers: headers,
+		Parent:  uuid.NewV4(),
+		Key:     uuid.NewV4(),
+		ID:      uuid.NewV4(),
+		Status:  StatusOK,
+		Origin:  Topic{Name: "topic"},
+		Action:  action,
+		Data:    []byte("{}"),
 	}
 
 	return event

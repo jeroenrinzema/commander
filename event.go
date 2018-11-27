@@ -8,18 +8,25 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+// Status codes that represents the status of a event
+const (
+	StatusOK                  = 200
+	StatusBadRequest          = 400
+	StatusInternalServerError = 500
+)
+
 // NewEvent constructs a new event
 func NewEvent(action string, version int, parent uuid.UUID, key uuid.UUID, data []byte) *Event {
 	id := uuid.NewV4()
 	event := &Event{
-		Parent:       parent,
-		ID:           id,
-		Headers:      make(map[string]string),
-		Action:       action,
-		Data:         data,
-		Key:          key,
-		Acknowledged: true,
-		Version:      version,
+		Parent:  parent,
+		ID:      id,
+		Headers: make(map[string]string),
+		Action:  action,
+		Data:    data,
+		Key:     key,
+		Status:  StatusOK,
+		Version: version,
 	}
 
 	return event
@@ -28,15 +35,15 @@ func NewEvent(action string, version int, parent uuid.UUID, key uuid.UUID, data 
 // Event contains the information of a consumed event.
 // A event is produced as the result of a command.
 type Event struct {
-	Parent       uuid.UUID         `json:"parent"`
-	Headers      map[string]string `json:"headers"`
-	ID           uuid.UUID         `json:"id"`
-	Action       string            `json:"action"`
-	Data         json.RawMessage   `json:"data"`
-	Key          uuid.UUID         `json:"key"`
-	Acknowledged bool              `json:"acknowledged"`
-	Version      int               `json:"version"`
-	Origin       Topic             `json:"-"`
+	Parent  uuid.UUID         `json:"parent"`
+	Headers map[string]string `json:"headers"`
+	ID      uuid.UUID         `json:"id"`
+	Action  string            `json:"action"`
+	Data    json.RawMessage   `json:"data"`
+	Key     uuid.UUID         `json:"key"`
+	Status  int               `json:"status"`
+	Version int               `json:"version"`
+	Origin  Topic             `json:"-"`
 }
 
 // Populate the event with the data from the given message
@@ -67,14 +74,14 @@ headers:
 
 			event.ID = id
 			continue headers
-		case AcknowledgedHeader:
-			acknowledged, err := strconv.ParseBool(string(header.Value))
+		case StatusHeader:
+			status, err := strconv.ParseInt(string(header.Value), 10, 0)
 
 			if err != nil {
 				return err
 			}
 
-			event.Acknowledged = acknowledged
+			event.Status = int(status)
 			continue headers
 		case VersionHeader:
 			version, err := strconv.ParseInt(string(header.Value), 10, 0)

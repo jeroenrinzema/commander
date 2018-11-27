@@ -16,8 +16,8 @@ const (
 	ActionHeader = "action"
 	// IDHeader kafka message id header
 	IDHeader = "id"
-	// AcknowledgedHeader kafka message acknowledged header
-	AcknowledgedHeader = "acknowledged"
+	// StatusHeader kafka message status header
+	StatusHeader = "status"
 	// VersionHeader kafka message version header
 	VersionHeader = "version"
 )
@@ -184,8 +184,8 @@ func (group *Group) ProduceEvent(event *Event) error {
 					Value: []byte(event.ID.String()),
 				},
 				Header{
-					Key:   AcknowledgedHeader,
-					Value: []byte(strconv.FormatBool(event.Acknowledged)),
+					Key:   StatusHeader,
+					Value: []byte(strconv.Itoa(event.Status)),
 				},
 				Header{
 					Key:   VersionHeader,

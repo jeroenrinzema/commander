@@ -17,24 +17,6 @@ Multiple groups/dialects could be defined and work together. Commander tries to 
 An good example is to create a commander instance with a mock dialect.
 
 ```go
-var group = &commander.Group{
-	Topics: []commander.Topic{
-		commander.Topic{
-			Name:    "commands",
-			Type:    commander.CommandTopic,
-			Consume: true,
-			Produce: true,
-		},
-		commander.Topic{
-			Name:    "events",
-			Type:    commander.EventTopic,
-			Consume: true,
-			Produce: true,
-		},
-	},
-	Timeout: 5 * time.Second,
-}
-
 dialect := &commander.MockDialect{}
 commander.New(dialect, "", group)
 

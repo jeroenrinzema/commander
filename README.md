@@ -1,56 +1,48 @@
 # Commander
 
-Commander gives you a toolset for writing event driven applications with Kafka as it's event log. Commender encurages to use the CQRS pattern to seperate write and read operations.
+Commander is a toolset for writing event driven applications, aims to be developer friendly. Commander supports event driven patterns such as CQRS and has support for different infastructure "dialects".
 
 ## Usage and documentation
 
-Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for detailed usage docs.
+Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for detailed usage docs. Or check out the [examples](https://github.com/jeroenrinzema/commander/tree/master/examples).
 
 ## Getting started
 
-A "data set" is represented in Commander as a group. Every data set contains a group of topics which are used to write different type of messages (commands, events). Multiple topics could be defined for a single type but only a single consume and single produce topic.
+Commander mainly exists out of dialects and groups that connect and communicate with one another.
+
+- **Dialects**: A dialect is responsible for it's consumers and producers. It creates a connector to a piece of infastructure that supports some form of event streaming.
+- **Groups**: A group contains all the information for commander to setup it's consumers and producers. Commands and Events are consumed/written from/to groups.
+
+Multiple groups/dialects could be defined and work together. Commander tries to not restrict the ways that you could produce/consume your event streams.
+An good example is to create a commander instance with a mock dialect.
 
 ```go
-package main
-
-import (
-	"github.com/jeroenrinzema/commander"
-	"github.com/jeroenrinzema/commander/dialects/kafka"
-	uuid "github.com/satori/go.uuid"
-)
-
-cart := commander.Group{
+var group = &commander.Group{
 	Topics: []commander.Topic{
 		commander.Topic{
-			Name: "cart-commands",
-			Type: commander.CommandTopic,
+			Name:    "commands",
+			Type:    commander.CommandTopic,
 			Consume: true,
-			Produce: false
+			Produce: true,
 		},
 		commander.Topic{
-			Name: "cart-events",
-			Type: commander.EventTopic,
-			Consume: false,
-			Produce: true
+			Name:    "events",
+			Type:    commander.EventTopic,
+			Consume: true,
+			Produce: true,
 		},
-	}
+	},
+	Timeout: 5 * time.Second,
 }
 
-func main() {
-	connectionstring := "brokers=...;group=example"
-	commander.New(kafka.Dialect, connectionstring, cart)
+dialect := &commander.MockDialect{}
+commander.New(dialect, "", group)
 
-	cart.HandleFunc("NewCart", commander.CommandTopic, func(writer *commander.ResponseWriter, message commander.Message) {
-		command, ok := message.(commander.Command)
-		if ok != nil {
-			return
-		}
-
-		writer.PublishEvent("CartCreated", 1, uuid.NewV4(), nil)
-	})
-}
+group.HandleFunc("example", commander.CommandTopic, func(writer commander.ResponseWriter, message interface{}) {
+	writer.ProduceEvent("created", 1, uuid.NewV4(), nil)
+})
 ```
 
-## GDPR
-
-Commander offers various APIs to handle GDPR complaints. To keep the immutable ledger immutable, do we offer the plausibility to encrypt all data sensitive events. Once a "right to erasure" request needs to be preformed can all data be erased by simply throwing away the key.
+This example consumes commands with the action `example` and produces at once a event with the action `created` to the event topic.
+The CQRS pattern is used in this example but commander is not limited only to it. Commander allowes applications to be written in many different ways.
+Checkout the [multiple groups](https://github.com/jeroenrinzema/commander/tree/master/examples/multiple-groups) example.

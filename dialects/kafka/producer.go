@@ -7,6 +7,15 @@ import (
 	"github.com/jeroenrinzema/commander"
 )
 
+// NewProducer constructs a new producer
+func NewProducer(client sarama.SyncProducer) *Producer {
+	producer := &Producer{
+		client: client,
+	}
+
+	return producer
+}
+
 // Producer produces kafka messages
 type Producer struct {
 	client     sarama.SyncProducer

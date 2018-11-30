@@ -9,7 +9,7 @@ import (
 )
 
 // NewConsumer constructs a new kafka dialect consumer
-func NewConsumer(client sarama.ConsumerGroup, groups ...commander.Group) *Consumer {
+func NewConsumer(client sarama.ConsumerGroup, groups ...*commander.Group) *Consumer {
 	ctx := context.Background()
 	topics := []string{}
 

@@ -52,8 +52,8 @@ func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group
 		return nil, nil, err
 	}
 
-	consumer := &Consumer{client: consumerGroup}
-	producer := &Producer{client: asyncProducer}
+	consumer := NewConsumer(consumerGroup, groups...)
+	producer := NewProducer(asyncProducer)
 
 	return consumer, producer, nil
 }

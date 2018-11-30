@@ -28,7 +28,7 @@ func NewConsumer(client sarama.ConsumerGroup, groups ...*commander.Group) *Consu
 		subscriptions: make(map[string][]chan *commander.Message),
 	}
 
-	client.Consume(ctx, topics, consumer)
+	go client.Consume(ctx, topics, consumer)
 	return consumer
 }
 

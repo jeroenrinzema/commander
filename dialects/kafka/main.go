@@ -24,7 +24,7 @@ type Dialect struct {
 }
 
 // Open opens a kafka consumer and producer
-func (dialect *Dialect) Open(connectionstring string, groups ...commander.Group) (commander.Consumer, commander.Producer, error) {
+func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group) (commander.Consumer, commander.Producer, error) {
 	values := ParseConnectionstring(connectionstring)
 	err := ValidateConnectionKeyVal(values)
 	if err != nil {

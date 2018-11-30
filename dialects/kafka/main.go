@@ -5,6 +5,19 @@ import (
 	"github.com/jeroenrinzema/commander"
 )
 
+// NewClient constructs a new client from the given config
+func NewClient(connection Config) (sarama.Client, error) {
+	config := sarama.NewConfig()
+	config.Version = connection.Version
+
+	client, err := sarama.NewClient(connection.Brokers, config)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
 // Dialect represents the kafka dialect
 type Dialect struct {
 	Groups []commander.Group
@@ -44,15 +57,7 @@ func (dialect *Dialect) Open(connectionstring string, groups ...commander.Group)
 	return consumer, producer, nil
 }
 
-// NewClient constructs a new client from the given config
-func NewClient(connection Config) (sarama.Client, error) {
-	config := sarama.NewConfig()
-	config.Version = connection.Version
-
-	client, err := sarama.NewClient(connection.Brokers, config)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
+// Healthy returns a boolean that reprisents if the dialect is healthy
+func (dialect *Dialect) Healthy() bool {
+	return true
 }

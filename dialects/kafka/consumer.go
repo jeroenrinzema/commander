@@ -41,7 +41,7 @@ type Consumer struct {
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
-func (consumer *Consumer) Subscribe(topics ...commander.Topic) (chan *commander.Message, error) {
+func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commander.Message, error) {
 	subscription := make(chan *commander.Message, 1)
 
 	consumer.mutex.Lock()
@@ -55,7 +55,7 @@ func (consumer *Consumer) Subscribe(topics ...commander.Topic) (chan *commander.
 }
 
 // Unsubscribe unsubscribes the given topic from the subscription list
-func (consumer *Consumer) Unsubscribe(topic commander.Topic) error {
+func (consumer *Consumer) Unsubscribe(<-chan *commander.Message) error {
 	return nil
 }
 

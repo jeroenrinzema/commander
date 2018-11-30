@@ -9,6 +9,7 @@ import (
 func NewClient(connection Config) (sarama.Client, error) {
 	config := sarama.NewConfig()
 	config.Version = connection.Version
+	config.Producer.Return.Successes = true
 
 	client, err := sarama.NewClient(connection.Brokers, config)
 	if err != nil {

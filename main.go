@@ -21,6 +21,7 @@ func New(dialect Dialect, connectionstring string, groups ...*Group) (*Client, e
 	}
 
 	client := &Client{
+		Dialect:  dialect,
 		Consumer: consumer,
 		Producer: producer,
 	}
@@ -35,6 +36,7 @@ func New(dialect Dialect, connectionstring string, groups ...*Group) (*Client, e
 // Client manages the consumers, producers and groups.
 type Client struct {
 	Connectionstring string
+	Dialect          Dialect
 	Consumer         Consumer
 	Producer         Producer
 	Groups           []Group
@@ -51,11 +53,8 @@ func (client *Client) CloseOnSIGTERM() {
 
 // Close closes the consumer and producer
 func (client *Client) Close() error {
-	if err := client.Consumer.Close(); err != nil {
-		return err
-	}
-
-	if err := client.Producer.Close(); err != nil {
+	err := client.Dialect.Close()
+	if err != nil {
 		return err
 	}
 

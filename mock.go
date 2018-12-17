@@ -6,6 +6,8 @@ import (
 
 // MockDialect represents the mock dialect
 type MockDialect struct {
+	consumer *MockConsumer
+	producer *MockProducer
 }
 
 // Open opens a mock consumer and producer
@@ -18,12 +20,23 @@ func (dialect *MockDialect) Open(connectionstring string, groups ...*Group) (Con
 		consumer,
 	}
 
+	dialect.consumer = consumer
+	dialect.producer = producer
+
 	return consumer, producer, nil
 }
 
 // Healthy checks if the dialect is healthy and up and running
 func (dialect *MockDialect) Healthy() bool {
 	return true
+}
+
+// Close closes the mock dialect
+func (dialect *MockDialect) Close() error {
+	dialect.consumer.Close()
+	dialect.producer.Close()
+
+	return nil
 }
 
 // MockConsumer consumes kafka messages

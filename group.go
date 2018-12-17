@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"sync"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
@@ -29,6 +30,7 @@ type Group struct {
 	*Client
 	Timeout time.Duration
 	Topics  []Topic
+	mutex   sync.Mutex
 }
 
 // Close represents a closing method
@@ -211,6 +213,9 @@ func (group *Group) ProduceEvent(event *Event) error {
 // NewConsumer starts consuming events of topics from the same topic type.
 // All received messages are published over the returned messages channel.
 func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, Close, error) {
+	group.mutex.Lock()
+	defer group.mutex.Unlock()
+
 	topics := []Topic{}
 	for _, topic := range group.Topics {
 		if topic.Type != sort {

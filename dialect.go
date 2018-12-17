@@ -7,4 +7,7 @@ type Dialect interface {
 
 	// Healthy checks if the dialect is healthy and up and running
 	Healthy() bool
+
+	// Close closes the dialect and it't consumers/producers
+	Close() error
 }

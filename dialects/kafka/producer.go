@@ -8,7 +8,7 @@ import (
 )
 
 // NewProducer constructs a new producer
-func NewProducer(client sarama.SyncProducer) *Producer {
+func NewProducer(client sarama.AsyncProducer) *Producer {
 	producer := &Producer{
 		client: client,
 	}
@@ -18,7 +18,7 @@ func NewProducer(client sarama.SyncProducer) *Producer {
 
 // Producer produces kafka messages
 type Producer struct {
-	client     sarama.SyncProducer
+	client     sarama.AsyncProducer
 	production sync.WaitGroup
 }
 
@@ -42,9 +42,13 @@ func (producer *Producer) Publish(message *commander.Message) error {
 		Headers: headers,
 	}
 
-	_, _, err := producer.client.SendMessage(m)
-	if err != nil {
+	producer.client.Input() <- m
+
+	select {
+	case err := <-producer.client.Errors():
 		return err
+	case <-producer.client.Successes():
+		// Continue
 	}
 
 	return nil

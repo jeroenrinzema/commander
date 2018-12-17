@@ -55,7 +55,20 @@ func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commande
 }
 
 // Unsubscribe unsubscribes the given topic from the subscription list
-func (consumer *Consumer) Unsubscribe(<-chan *commander.Message) error {
+func (consumer *Consumer) Unsubscribe(channel <-chan *commander.Message) error {
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
+
+	for topic, subscriptions := range consumer.subscriptions {
+		for index, subscription := range subscriptions {
+			if subscription == channel {
+				close(subscription)
+				consumer.subscriptions[topic] = append(consumer.subscriptions[topic][:index], consumer.subscriptions[topic][index+1:]...)
+				break
+			}
+		}
+	}
+
 	return nil
 }
 

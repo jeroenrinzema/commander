@@ -5,23 +5,12 @@ import (
 	"github.com/jeroenrinzema/commander"
 )
 
-// NewClient constructs a new client from the given config
-func NewClient(connection Config) (sarama.Client, error) {
-	config := sarama.NewConfig()
-	config.Version = connection.Version
-	config.Producer.Return.Successes = true
-
-	client, err := sarama.NewClient(connection.Brokers, config)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
-}
-
 // Dialect represents the kafka dialect
 type Dialect struct {
 	Groups []commander.Group
+
+	consumer *Consumer
+	producer *Producer
 }
 
 // Open opens a kafka consumer and producer
@@ -32,22 +21,21 @@ func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group
 		return nil, nil, err
 	}
 
-	config, err := NewConfig(values)
+	connection, err := NewConfig(values)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	client, err := NewClient(config)
+	config := sarama.NewConfig()
+	config.Version = connection.Version
+	config.Producer.Return.Successes = true
+
+	consumerGroup, err := sarama.NewConsumerGroup(connection.Brokers, connection.Group, config)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	consumerGroup, err := sarama.NewConsumerGroupFromClient(config.Group, client)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	asyncProducer, err := sarama.NewSyncProducerFromClient(client)
+	asyncProducer, err := sarama.NewAsyncProducer(connection.Brokers, config)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -55,7 +43,27 @@ func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group
 	consumer := NewConsumer(consumerGroup, groups...)
 	producer := NewProducer(asyncProducer)
 
+	dialect.consumer = consumer
+	dialect.producer = producer
+
 	return consumer, producer, nil
+}
+
+// Close closes the Kafka consumers and producers
+func (dialect *Dialect) Close() error {
+	var err error
+
+	err = dialect.consumer.Close()
+	if err != nil {
+		return err
+	}
+
+	err = dialect.producer.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Healthy returns a boolean that reprisents if the dialect is healthy

@@ -24,7 +24,7 @@ func NewConfig(values ConnectionMap) (Config, error) {
 
 	atLeastV1 := version.IsAtLeast(sarama.V1_0_0_0)
 	if !atLeastV1 {
-		return config, errors.New("Commander requires at least kafka v1.0")
+		return config, errors.New("Commander requires at least kafka >= v1.0")
 	}
 
 	config.Brokers = strings.Split(values[BrokersKey], ",")

@@ -1,7 +1,8 @@
 module github.com/jeroenrinzema/commander/dialects/kafka
 
 require (
-	github.com/Shopify/sarama v1.19.0
+	github.com/DataDog/zstd v1.3.4 // indirect
+	github.com/Shopify/sarama v1.20.0
 	github.com/Shopify/toxiproxy v2.1.3+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.1.0 // indirect

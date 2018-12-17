@@ -4,5 +4,9 @@ github.com/jeroenrinzema/commander v0.0.0-20181110204957-abf71cf23f2d/go.mod h1:
 github.com/jeroenrinzema/commander v0.0.0-20181126160223-a09d37d1790b h1:4eAV3OvoVzKJ4hY+D2tZqskg1ZdDLkhlN2zVj9mG/0k=
 github.com/jeroenrinzema/commander v0.0.0-20181126160223-a09d37d1790b/go.mod h1:Io3mQGAA2UAktycKOxQOX/aemA1jvzU7ZQ3xOOJBab8=
 github.com/jeroenrinzema/commander/dialects/mock v0.0.0-20181123151134-499620133d6c/go.mod h1:4H2uLMV4pwlbXCfCJEy6PCz8JOeUg44ckXnMvMKUW7s=
+github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
+github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
+github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/satori/go.uuid v1.2.0 h1:0uYX9dsZ2yD7q2RtLRtPSdGDWzjeM3TbMJP9utgA0ww=
 github.com/satori/go.uuid v1.2.0/go.mod h1:dA0hQrYB0VpLJoorglMZABFdXlWrHn1NEOzdhQKdks0=
+gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

@@ -63,6 +63,7 @@ func main() {
 		event, err := group.SyncCommand(command)
 
 		if err != nil {
+			w.WriteHeader(500)
 			w.Write([]byte(err.Error()))
 			return
 		}

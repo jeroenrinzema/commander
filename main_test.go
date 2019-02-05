@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 // NewTestClient initializes a new client used for testing
@@ -28,7 +28,7 @@ func TestClosingConsumptions(t *testing.T) {
 	version := 1
 	delivered := make(chan *Event, 1)
 
-	group.HandleFunc(action, EventTopic, func(writer ResponseWriter, message interface{}) {
+	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) {
 		event, ok := message.(*Event)
 		if !ok {
 			t.Error("the received message is not a event")
@@ -38,8 +38,8 @@ func TestClosingConsumptions(t *testing.T) {
 		delivered <- event
 	})
 
-	parent := uuid.NewV4()
-	key := uuid.NewV4()
+	parent, _ := uuid.NewV4()
+	key, _ := uuid.NewV4()
 
 	event := NewEvent(action, version, parent, key, []byte("{}"))
 	group.ProduceEvent(event)

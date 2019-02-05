@@ -1,7 +1,7 @@
 package commander
 
 import (
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 // NewResponseWriter initializes a new response writer for the given value

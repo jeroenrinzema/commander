@@ -6,6 +6,7 @@ type Message struct {
 	Headers []Header `json:"headers"`
 	Value   []byte   `json:"value"`
 	Key     []byte   `json:"key"`
+	Retries int      `json:"retries"`
 }
 
 // Header represents a message header

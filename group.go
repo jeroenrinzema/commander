@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 const (
@@ -21,15 +21,22 @@ const (
 	StatusHeader = "status"
 	// VersionHeader kafka message version header
 	VersionHeader = "version"
+	// RollbackHeader kafka message rollback header
+	RollbackHeader = "rollback"
+
+	// DefaultAttempts represents the default ammount of retry attempts
+	DefaultAttempts = 5
 )
 
 // Group contains information about a commander group.
 // A commander group could contain a events and commands topic where
-// commands and events could be consumed and produced to.
+// commands and events could be consumed and produced to. The ammount of retries
+// attempted before a error is thrown could also be defined in a group.
 type Group struct {
 	*Client
 	Timeout time.Duration
 	Topics  []Topic
+	Retries int
 	mutex   sync.Mutex
 }
 
@@ -144,7 +151,19 @@ func (group *Group) ProduceCommand(command *Command) error {
 			Topic: topic,
 		}
 
-		err := group.Producer.Publish(message)
+		ammount := group.Retries
+		if ammount == 0 {
+			ammount = DefaultAttempts
+		}
+
+		retry := Retry{
+			Ammount: ammount,
+		}
+
+		err := retry.Attempt(func() error {
+			return group.Producer.Publish(message)
+		})
+
 		if err != nil {
 			return err
 		}
@@ -193,13 +212,29 @@ func (group *Group) ProduceEvent(event *Event) error {
 					Key:   VersionHeader,
 					Value: []byte(strconv.Itoa(event.Version)),
 				},
+				Header{
+					Key:   RollbackHeader,
+					Value: []byte(strconv.FormatBool(event.Rollback)),
+				},
 			},
 			Key:   []byte(event.Key.String()),
 			Value: event.Data,
 			Topic: topic,
 		}
 
-		err := group.Producer.Publish(message)
+		ammount := group.Retries
+		if ammount == 0 {
+			ammount = DefaultAttempts
+		}
+
+		retry := Retry{
+			Ammount: ammount,
+		}
+
+		err := retry.Attempt(func() error {
+			return group.Producer.Publish(message)
+		})
+
 		if err != nil {
 			return err
 		}
@@ -236,7 +271,7 @@ func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, Close, error) 
 // HandleFunc awaits messages from the given TopicType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) HandleFunc(action string, sort TopicType, callback Handle) (Close, error) {
+func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (Close, error) {
 	messages, closing, err := group.NewConsumer(sort)
 	if err != nil {
 		return nil, err
@@ -270,6 +305,6 @@ func (group *Group) HandleFunc(action string, sort TopicType, callback Handle) (
 // Handle awaits messages from the given TopicType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) Handle(action string, sort TopicType, handler Handler) (Close, error) {
-	return group.HandleFunc(action, sort, handler.Process)
+func (group *Group) Handle(sort TopicType, action string, handler Handler) (Close, error) {
+	return group.HandleFunc(sort, action, handler.Process)
 }

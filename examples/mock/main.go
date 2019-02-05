@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
-	uuid "github.com/satori/go.uuid"
 )
 
 /**
@@ -49,8 +49,9 @@ func main() {
 	 * HandleFunc handles an "example" command. Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	group.HandleFunc("example", commander.CommandTopic, func(writer commander.ResponseWriter, message interface{}) {
-		writer.ProduceEvent("created", 1, uuid.NewV4(), nil)
+	group.HandleFunc(commander.CommandTopic, "example", func(writer commander.ResponseWriter, message interface{}) {
+		key, _ := uuid.NewV4()
+		writer.ProduceEvent("created", 1, key, nil)
 	})
 
 	/**
@@ -59,7 +60,9 @@ func main() {
 	 * with the parent id set to the id of the received command.
 	 */
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		command := commander.NewCommand("example", uuid.NewV4(), nil)
+		key, _ := uuid.NewV4()
+
+		command := commander.NewCommand("example", key, nil)
 		event, err := group.SyncCommand(command)
 
 		if err != nil {

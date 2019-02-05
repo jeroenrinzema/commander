@@ -3,18 +3,22 @@ package commander
 import (
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 // NewMockEvent produces a new mock command with the given action
 func NewMockEvent(action string) *Event {
 	headers := make(map[string]string)
 
+	parent, _ := uuid.NewV4()
+	key, _ := uuid.NewV4()
+	id, _ := uuid.NewV4()
+
 	event := &Event{
 		Headers: headers,
-		Parent:  uuid.NewV4(),
-		Key:     uuid.NewV4(),
-		ID:      uuid.NewV4(),
+		Parent:  parent,
+		Key:     key,
+		ID:      id,
 		Status:  StatusOK,
 		Origin:  Topic{Name: "topic"},
 		Action:  action,
@@ -28,11 +32,11 @@ func NewMockEvent(action string) *Event {
 func TestEventPopulation(t *testing.T) {
 	action := "action"
 	version := 1
-	parent := uuid.NewV4().String()
-	key := uuid.NewV4().String()
-	id := uuid.NewV4().String()
+	parent, _ := uuid.NewV4()
+	key, _ := uuid.NewV4()
+	id, _ := uuid.NewV4()
 
-	message := NewMockEventMessage(action, version, parent, key, id, "{}", Topic{})
+	message := NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), "{}", Topic{})
 
 	event := &Event{}
 	event.Populate(&message)
@@ -41,15 +45,15 @@ func TestEventPopulation(t *testing.T) {
 		t.Error("The populated event action is not set correctly")
 	}
 
-	if event.ID.String() != id {
+	if event.ID.String() != id.String() {
 		t.Error("The populated event id is not set correctly")
 	}
 
-	if event.Key.String() != key {
+	if event.Key.String() != key.String() {
 		t.Error("The populated event key is not set correctly")
 	}
 
-	if event.Parent.String() != parent {
+	if event.Parent.String() != parent.String() {
 		t.Error("The populated event parent is not set correctly")
 	}
 
@@ -66,12 +70,12 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 
 	action := "action"
 	version := 1
-	parent := uuid.NewV4().String()
-	key := uuid.NewV4().String()
-	id := uuid.NewV4().String()
+	parent, _ := uuid.NewV4()
+	key, _ := uuid.NewV4()
+	id, _ := uuid.NewV4()
 	value := "{}"
 
-	corrupted = NewMockEventMessage(action, version, parent, key, id, value, Topic{Name: "testing"})
+	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
 	corrupted.Key = []byte("")
 
 	err = event.Populate(&corrupted)
@@ -79,7 +83,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted key population")
 	}
 
-	corrupted = NewMockEventMessage(action, version, parent, key, id, value, Topic{Name: "testing"})
+	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
 	for index, header := range corrupted.Headers {
 		if header.Key == IDHeader {
 			corrupted.Headers[index].Value = []byte("")
@@ -91,7 +95,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted id population")
 	}
 
-	corrupted = NewMockEventMessage(action, version, parent, key, id, value, Topic{Name: "testing"})
+	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
 	for index, header := range corrupted.Headers {
 		if header.Key == ActionHeader {
 			corrupted.Headers[index].Value = []byte("")
@@ -103,7 +107,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted action population")
 	}
 
-	corrupted = NewMockEventMessage(action, version, parent, key, id, value, Topic{Name: "testing"})
+	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
 	for index, header := range corrupted.Headers {
 		if header.Key == ParentHeader {
 			corrupted.Headers[index].Value = []byte("")
@@ -115,7 +119,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted parent population")
 	}
 
-	corrupted = NewMockEventMessage(action, version, parent, key, id, value, Topic{Name: "testing"})
+	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
 	for index, header := range corrupted.Headers {
 		if header.Key == VersionHeader {
 			corrupted.Headers[index].Value = []byte("")

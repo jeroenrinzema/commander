@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 // NewCommand constructs a new command
 func NewCommand(action string, key uuid.UUID, data []byte) *Command {
-	id := uuid.NewV4()
+	id, err := uuid.NewV4()
+	if err != nil {
+		panic(err)
+	}
+
 	command := &Command{
 		Key:     key,
 		Headers: make(map[string]string),

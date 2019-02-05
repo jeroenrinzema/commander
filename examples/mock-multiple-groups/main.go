@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
-	uuid "github.com/satori/go.uuid"
 )
 
 // Constructing the commander groups
@@ -64,7 +64,7 @@ func main() {
 	 * HandleFunc handles commands with the action "available". Once a available command is received
 	 * will a available event be produced.
 	 */
-	warehouse.HandleFunc("Available", commander.CommandTopic, func(writer commander.ResponseWriter, message interface{}) {
+	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
 		command, ok := message.(*commander.Command)
 		if !ok {
 			writer.ProduceError("ParseError", []byte("unable to parse the command"))
@@ -79,17 +79,19 @@ func main() {
 
 		// ... validate if the item is available
 
-		writer.ProduceEvent("Available", 1, uuid.NewV4(), []byte(id.String()))
+		key, _ := uuid.NewV4()
+		writer.ProduceEvent("Available", 1, key, []byte(id.String()))
 	})
 
 	/**
 	 * HandleFunc handles command with the action "example". Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	cart.HandleFunc("Purchase", commander.CommandTopic, func(writer commander.ResponseWriter, message interface{}) {
-		item := uuid.NewV4().String()
+	cart.HandleFunc(commander.CommandTopic, "Purchase", func(writer commander.ResponseWriter, message interface{}) {
+		item, _ := uuid.NewV4()
+		key, _ := uuid.NewV4()
 
-		command := commander.NewCommand("Available", uuid.NewV4(), []byte(item))
+		command := commander.NewCommand("Available", key, []byte(item.String()))
 		event, err := warehouse.SyncCommand(command)
 		if err != nil {
 			writer.ProduceError("WarehouseNotAvailable", []byte(err.Error()))
@@ -101,10 +103,10 @@ func main() {
 			return
 		}
 
-		items := []string{item}
+		items := []string{item.String()}
 		response, _ := json.Marshal(items)
 
-		writer.ProduceEvent("Purchased", 1, uuid.NewV4(), response)
+		writer.ProduceEvent("Purchased", 1, key, response)
 	})
 
 	/**
@@ -113,7 +115,9 @@ func main() {
 	 * with the parent id set to the id of the received command.
 	 */
 	http.HandleFunc("/purchase", func(w http.ResponseWriter, r *http.Request) {
-		command := commander.NewCommand("Purchase", uuid.NewV4(), nil)
+		key, _ := uuid.NewV4()
+
+		command := commander.NewCommand("Purchase", key, nil)
 		event, err := cart.SyncCommand(command)
 
 		if err != nil {

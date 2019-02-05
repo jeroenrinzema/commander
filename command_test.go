@@ -3,18 +3,21 @@ package commander
 import (
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 // NewMockCommand produces a new mock command with the given action
 func NewMockCommand(action string) *Command {
 	headers := make(map[string]string)
 
+	key, _ := uuid.NewV4()
+	id, _ := uuid.NewV4()
+
 	command := &Command{
 		Origin:  Topic{Name: "topic"},
-		Key:     uuid.NewV4(),
+		Key:     key,
 		Headers: headers,
-		ID:      uuid.NewV4(),
+		ID:      id,
 		Action:  action,
 		Data:    []byte("{}"),
 	}
@@ -65,10 +68,10 @@ func TestCommandErrorEventConstruction(t *testing.T) {
 // TestCommandPopulation tests if able to populate a command from a kafka message
 func TestCommandPopulation(t *testing.T) {
 	action := "action"
-	key := uuid.NewV4().String()
-	id := uuid.NewV4().String()
+	key, _ := uuid.NewV4()
+	id, _ := uuid.NewV4()
 
-	message := NewMockCommandMessage("action", key, id, "{}", Topic{Name: "testing"})
+	message := NewMockCommandMessage("action", key.String(), id.String(), "{}", Topic{Name: "testing"})
 
 	command := &Command{}
 	command.Populate(&message)
@@ -77,11 +80,11 @@ func TestCommandPopulation(t *testing.T) {
 		t.Error("The populated command action is not set correctly")
 	}
 
-	if command.ID.String() != id {
+	if command.ID.String() != id.String() {
 		t.Error("The populated command id is not set correctly")
 	}
 
-	if command.Key.String() != key {
+	if command.Key.String() != key.String() {
 		t.Error("The populated command key is not set correctly")
 	}
 }
@@ -93,11 +96,11 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 	command := &Command{}
 
 	action := "action"
-	key := uuid.NewV4().String()
-	id := uuid.NewV4().String()
+	key, _ := uuid.NewV4()
+	id, _ := uuid.NewV4()
 	value := "{}"
 
-	corrupted = NewMockCommandMessage(action, key, id, value, Topic{Name: "testing"})
+	corrupted = NewMockCommandMessage(action, key.String(), id.String(), value, Topic{Name: "testing"})
 	corrupted.Key = []byte("")
 
 	err = command.Populate(&corrupted)
@@ -105,7 +108,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted key population")
 	}
 
-	corrupted = NewMockCommandMessage(action, key, id, value, Topic{Name: "testing"})
+	corrupted = NewMockCommandMessage(action, key.String(), id.String(), value, Topic{Name: "testing"})
 	for index, header := range corrupted.Headers {
 		if header.Key == IDHeader {
 			corrupted.Headers[index].Value = []byte("")
@@ -117,7 +120,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted id population")
 	}
 
-	corrupted = NewMockCommandMessage(action, key, id, value, Topic{Name: "testing"})
+	corrupted = NewMockCommandMessage(action, key.String(), id.String(), value, Topic{Name: "testing"})
 	for index, header := range corrupted.Headers {
 		if header.Key == ActionHeader {
 			corrupted.Headers[index].Value = []byte("")

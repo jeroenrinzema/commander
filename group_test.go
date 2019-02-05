@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 type actionHandle struct {
@@ -46,7 +46,7 @@ func TestProduceCommand(t *testing.T) {
 	group := NewTestGroup()
 	NewTestClient(group)
 
-	key := uuid.NewV4()
+	key, _ := uuid.NewV4()
 	command := NewCommand("testing", key, []byte("{}"))
 
 	group.ProduceCommand(command)
@@ -57,8 +57,8 @@ func TestProduceEvent(t *testing.T) {
 	group := NewTestGroup()
 	NewTestClient(group)
 
-	key := uuid.NewV4()
-	parent := uuid.NewV4()
+	key, _ := uuid.NewV4()
+	parent, _ := uuid.NewV4()
 	event := NewEvent("tested", 1, parent, key, []byte("{}"))
 
 	group.ProduceEvent(event)
@@ -82,7 +82,8 @@ func TestSyncCommand(t *testing.T) {
 	group := NewTestGroup()
 	NewTestClient(group)
 
-	command := NewCommand("testing", uuid.NewV4(), []byte("{}"))
+	key, _ := uuid.NewV4()
+	command := NewCommand("testing", key, []byte("{}"))
 
 	go func() {
 		_, err := group.SyncCommand(command)
@@ -101,7 +102,7 @@ func TestAwaitEvent(t *testing.T) {
 	NewTestClient(group)
 
 	timeout := 2 * time.Second
-	parent := uuid.NewV4()
+	parent, _ := uuid.NewV4()
 
 	go func() {
 		_, err := group.AwaitEvent(timeout, parent)
@@ -126,8 +127,8 @@ func TestEventConsumer(t *testing.T) {
 
 	defer close()
 
-	parent := uuid.NewV4()
-	key := uuid.NewV4()
+	parent, _ := uuid.NewV4()
+	key, _ := uuid.NewV4()
 
 	event := NewEvent("tested", 1, parent, key, []byte("{}"))
 	group.ProduceEvent(event)
@@ -157,7 +158,8 @@ func TestCommandConsumer(t *testing.T) {
 
 	defer close()
 
-	command := NewCommand("testing", uuid.NewV4(), []byte("{}"))
+	key, _ := uuid.NewV4()
+	command := NewCommand("testing", key, []byte("{}"))
 	group.ProduceCommand(command)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -180,7 +182,7 @@ func TestEventHandleFunc(t *testing.T) {
 	action := "testing"
 	delivered := make(chan *Event, 1)
 
-	group.HandleFunc(action, EventTopic, func(writer ResponseWriter, message interface{}) {
+	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) {
 		event, ok := message.(*Event)
 		if !ok {
 			t.Error("the received message is not a event")
@@ -189,7 +191,10 @@ func TestEventHandleFunc(t *testing.T) {
 		delivered <- event
 	})
 
-	event := NewEvent("tested", 1, uuid.NewV4(), uuid.NewV4(), []byte("{}"))
+	parent, _ := uuid.NewV4()
+	key, _ := uuid.NewV4()
+
+	event := NewEvent("tested", 1, parent, key, []byte("{}"))
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -213,9 +218,12 @@ func TestEventHandle(t *testing.T) {
 	delivered := make(chan interface{}, 1)
 
 	handle := &actionHandle{delivered}
-	group.Handle(action, EventTopic, handle)
+	group.Handle(EventTopic, action, handle)
 
-	event := NewEvent(action, 1, uuid.NewV4(), uuid.NewV4(), []byte("{}"))
+	parent, _ := uuid.NewV4()
+	key, _ := uuid.NewV4()
+
+	event := NewEvent(action, 1, parent, key, []byte("{}"))
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)

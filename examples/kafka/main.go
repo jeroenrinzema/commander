@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/dialects/kafka"
-	uuid "github.com/satori/go.uuid"
 )
 
 var warehouse = &commander.Group{
@@ -58,8 +58,14 @@ func main() {
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
 	warehouse.HandleFunc("Available", commander.CommandTopic, func(writer commander.ResponseWriter, message interface{}) {
+		key, err := uuid.NewV4()
+		if err != nil {
+			writer.ProduceError(err)
+			return
+		}
+
 		// Event: name, version, key, data
-		writer.ProduceEvent("Available", 1, uuid.NewV4(), nil)
+		writer.ProduceEvent("Available", 1, key, nil)
 	})
 
 	/**
@@ -68,7 +74,14 @@ func main() {
 	 * with the parent id set to the id of the received command.
 	 */
 	http.HandleFunc("/available", func(w http.ResponseWriter, r *http.Request) {
-		command := commander.NewCommand("Available", uuid.NewV4(), nil)
+		key, err := uuid.NewV4()
+		if err != nil {
+			w.WriteHEader(500)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		command := commander.NewCommand("Available", key, nil)
 		event, err := warehouse.SyncCommand(command)
 
 		if err != nil {

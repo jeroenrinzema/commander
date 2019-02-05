@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 // TestNewResponseWriter tests if able to construct a new resoponse writer
@@ -25,7 +25,7 @@ func TestWriterProduceCommand(t *testing.T) {
 	NewTestClient(group)
 
 	action := "testing"
-	key := uuid.NewV4()
+	key, _ := uuid.NewV4()
 	data := []byte("{}")
 
 	command := NewMockCommand(action)
@@ -62,7 +62,7 @@ func TestWriterProduceEvent(t *testing.T) {
 	NewTestClient(group)
 
 	action := "testing"
-	key := uuid.NewV4()
+	key, _ := uuid.NewV4()
 	version := 1
 	data := []byte("{}")
 

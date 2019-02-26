@@ -39,16 +39,15 @@ func NewEvent(action string, version int, parent uuid.UUID, key uuid.UUID, data 
 // Event contains the information of a consumed event.
 // A event is produced as the result of a command.
 type Event struct {
-	Parent   uuid.UUID         `json:"parent"`
-	Headers  map[string]string `json:"headers"`
-	ID       uuid.UUID         `json:"id"`
-	Action   string            `json:"action"`
-	Data     json.RawMessage   `json:"data"`
-	Key      uuid.UUID         `json:"key"`
-	Status   int               `json:"status"`
-	Version  int               `json:"version"`
-	Origin   Topic             `json:"-"`
-	Rollback bool              `json:"rollback"`
+	Parent  uuid.UUID         `json:"parent"`
+	Headers map[string]string `json:"headers"`
+	ID      uuid.UUID         `json:"id"`
+	Action  string            `json:"action"`
+	Data    json.RawMessage   `json:"data"`
+	Key     uuid.UUID         `json:"key"`
+	Status  int               `json:"status"`
+	Version int               `json:"version"`
+	Origin  Topic             `json:"-"`
 }
 
 // Populate the event with the data from the given message
@@ -96,15 +95,6 @@ headers:
 			}
 
 			event.Version = int(version)
-			continue headers
-		case RollbackHeader:
-			rollback, err := strconv.ParseBool(string(header.Value))
-
-			if err != nil {
-				return err
-			}
-
-			event.Rollback = rollback
 			continue headers
 		}
 

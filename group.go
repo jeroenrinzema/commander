@@ -21,8 +21,6 @@ const (
 	StatusHeader = "status"
 	// VersionHeader kafka message version header
 	VersionHeader = "version"
-	// RollbackHeader kafka message rollback header
-	RollbackHeader = "rollback"
 
 	// DefaultAttempts represents the default ammount of retry attempts
 	DefaultAttempts = 5
@@ -211,10 +209,6 @@ func (group *Group) ProduceEvent(event *Event) error {
 				Header{
 					Key:   VersionHeader,
 					Value: []byte(strconv.Itoa(event.Version)),
-				},
-				Header{
-					Key:   RollbackHeader,
-					Value: []byte(strconv.FormatBool(event.Rollback)),
 				},
 			},
 			Key:   []byte(event.Key.String()),

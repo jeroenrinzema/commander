@@ -37,15 +37,15 @@ type Consumer struct {
 	client        sarama.ConsumerGroup
 	subscriptions map[string][]chan *commander.Message
 	consumptions  sync.WaitGroup
-	mutex         sync.Mutex
+	mutex         sync.RWMutex
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
 func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commander.Message, error) {
 	subscription := make(chan *commander.Message, 1)
 
-	consumer.mutex.Lock()
-	defer consumer.mutex.Unlock()
+	consumer.mutex.RLock()
+	defer consumer.mutex.RUnlock()
 
 	for _, topic := range topics {
 		consumer.subscriptions[topic.Name] = append(consumer.subscriptions[topic.Name], subscription)
@@ -56,8 +56,8 @@ func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commande
 
 // Unsubscribe unsubscribes the given topic from the subscription list
 func (consumer *Consumer) Unsubscribe(channel <-chan *commander.Message) error {
-	consumer.mutex.Lock()
-	defer consumer.mutex.Unlock()
+	consumer.mutex.RLock()
+	defer consumer.mutex.RUnlock()
 
 	for topic, subscriptions := range consumer.subscriptions {
 		for index, subscription := range subscriptions {
@@ -105,10 +105,9 @@ func (consumer *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
 func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
 		consumer.consumptions.Add(1)
-		consumer.mutex.Lock()
 
 		subscriptions := consumer.subscriptions[message.Topic]
-		for _, subscription := range subscriptions {
+		if len(subscriptions) > 0 {
 			headers := []commander.Header{}
 			for _, record := range message.Headers {
 				header := commander.Header{
@@ -128,12 +127,12 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 				Key:   message.Key,
 			}
 
-			subscription <- message
+			for _, subscription := range subscriptions {
+				subscription <- message
+			}
 		}
 
 		session.MarkMessage(message, "")
-
-		consumer.mutex.Unlock()
 		consumer.consumptions.Done()
 	}
 

@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"errors"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,6 +16,10 @@ const (
 
 // New creates a new commander instance with the given dialect, connectionstring and groups
 func New(dialect Dialect, connectionstring string, groups ...*Group) (*Client, error) {
+	if len(groups) == 0 {
+		return nil, errors.New("no commander group was given")
+	}
+
 	consumer, producer, err := dialect.Open(connectionstring, groups...)
 	if err != nil {
 		return nil, err

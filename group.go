@@ -64,21 +64,18 @@ func (group *Group) AsyncCommand(command *Command) error {
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
 func (group *Group) SyncCommand(command *Command) (*Event, error) {
-	var err error
-	err = group.AsyncCommand(command)
-
+	sink, erro := group.AwaitEvent(group.Timeout, command.ID)
+	err := group.AsyncCommand(command)
 	if err != nil {
 		return nil, err
 	}
 
-	var event *Event
-	event, err = group.AwaitEvent(group.Timeout, command.ID)
-
-	if err != nil {
+	select {
+	case event := <-sink:
+		return event, nil
+	case err := <-erro:
 		return nil, err
 	}
-
-	return event, nil
 }
 
 // AwaitEvent awaits till the expected events are created with the given parent id.
@@ -87,32 +84,39 @@ func (group *Group) SyncCommand(command *Command) (*Event, error) {
 // If not the expected events are returned within the given timeout period
 // will a error be returned. The timeout channel is closed when all
 // expected events are received or after a timeout is thrown.
-func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (*Event, error) {
+func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan *Event, <-chan error) {
+	sink := make(chan *Event, 1)
+	erro := make(chan error, 1)
+
 	messages, closing, err := group.NewConsumer(EventTopic)
 	if err != nil {
-		return nil, err
+		erro <- err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
-	defer cancel()
-	defer closing()
+		defer cancel()
+		defer closing()
 
-	for {
-		select {
-		case message := <-messages:
-			event := &Event{}
-			event.Populate(message)
+		for {
+			select {
+			case message := <-messages:
+				event := &Event{}
+				event.Populate(message)
 
-			if event.Parent != parent {
-				continue
+				if event.Parent != parent {
+					continue
+				}
+
+				sink <- event
+			case <-ctx.Done():
+				erro <- ErrTimeout
 			}
-
-			return event, nil
-		case <-ctx.Done():
-			return nil, ErrTimeout
 		}
-	}
+	}()
+
+	return sink, erro
 }
 
 // ProduceCommand constructs and produces a command message to the set command topic.

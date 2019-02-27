@@ -93,6 +93,7 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 
 	if err != nil {
 		erro <- err
+		return sink, erro
 	}
 
 	go func() {

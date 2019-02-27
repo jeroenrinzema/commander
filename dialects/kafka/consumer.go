@@ -66,8 +66,8 @@ func (consumer *Consumer) Unsubscribe(channel <-chan *commander.Message) error {
 	for topic, subscriptions := range consumer.subscriptions {
 		for index, subscription := range subscriptions {
 			if subscription == channel {
-				close(subscription)
 				consumer.subscriptions[topic] = append(consumer.subscriptions[topic][:index], consumer.subscriptions[topic][index+1:]...)
+				close(subscription)
 				break
 			}
 		}

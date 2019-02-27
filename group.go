@@ -100,19 +100,22 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 		defer closing()
 		defer cancel()
 
+	await:
 		for {
 			select {
+			case <-ctx.Done():
+				erro <- ErrTimeout
+				break await
 			case message := <-messages:
 				event := &Event{}
 				event.Populate(message)
 
 				if event.Parent != parent {
-					continue
+					continue await
 				}
 
 				sink <- event
-			case <-ctx.Done():
-				erro <- ErrTimeout
+				break await
 			}
 		}
 	}()

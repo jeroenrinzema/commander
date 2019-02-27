@@ -26,9 +26,12 @@ func NewConsumer(client sarama.ConsumerGroup, groups ...*commander.Group) *Consu
 	consumer := &Consumer{
 		client:        client,
 		subscriptions: make(map[string][]chan *commander.Message),
+		ready:         make(<-chan bool, 0),
 	}
 
 	go client.Consume(ctx, topics, consumer)
+	<-consumer.ready
+
 	return consumer
 }
 
@@ -38,6 +41,7 @@ type Consumer struct {
 	subscriptions map[string][]chan *commander.Message
 	consumptions  sync.WaitGroup
 	mutex         sync.RWMutex
+	ready         <-chan bool
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
@@ -93,6 +97,8 @@ func (consumer *Consumer) Close() error {
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
 func (consumer *Consumer) Setup(sarama.ConsumerGroupSession) error {
+	// Mark the consumer as ready
+	close(consumer.ready)
 	return nil
 }
 

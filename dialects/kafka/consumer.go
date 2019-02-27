@@ -26,7 +26,7 @@ func NewConsumer(client sarama.ConsumerGroup, groups ...*commander.Group) *Consu
 	consumer := &Consumer{
 		client:        client,
 		subscriptions: make(map[string][]chan *commander.Message),
-		ready:         make(<-chan bool, 0),
+		ready:         make(chan bool, 0),
 	}
 
 	go client.Consume(ctx, topics, consumer)
@@ -41,7 +41,7 @@ type Consumer struct {
 	subscriptions map[string][]chan *commander.Message
 	consumptions  sync.WaitGroup
 	mutex         sync.RWMutex
-	ready         <-chan bool
+	ready         chan bool
 }
 
 // Subscribe subscribes to the given topics and returs a message channel

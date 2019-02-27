@@ -89,15 +89,15 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 	erro := make(chan error, 1)
 
 	messages, closing, err := group.NewConsumer(EventTopic)
-	defer closing()
-
 	if err != nil {
+		closing()
 		erro <- err
 		return sink, erro
 	}
 
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer closing()
 		defer cancel()
 
 		for {

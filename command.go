@@ -14,6 +14,11 @@ func NewCommand(action string, key uuid.UUID, data []byte) *Command {
 		panic(err)
 	}
 
+	// Fix: unexpected end of JSON input
+	if len(data) == 0 {
+		data = []byte("null")
+	}
+
 	command := &Command{
 		Key:     key,
 		Headers: make(map[string]string),

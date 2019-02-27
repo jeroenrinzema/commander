@@ -22,6 +22,11 @@ func NewEvent(action string, version int, parent uuid.UUID, key uuid.UUID, data 
 		panic(err)
 	}
 
+	// Fix: unexpected end of JSON input
+	if len(data) == 0 {
+		data = []byte("null")
+	}
+
 	event := &Event{
 		Parent:  parent,
 		ID:      id,

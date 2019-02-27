@@ -253,6 +253,10 @@ func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, Close, error) 
 		topics = append(topics, topic)
 	}
 
+	if len(topics) == 0 {
+		return make(<-chan *Message, 0), func() {}, errors.New("no consumable topics are found for the topic type" + string(sort))
+	}
+
 	messages, err := group.Consumer.Subscribe(topics...)
 	return messages, func() { group.Consumer.Unsubscribe(messages) }, err
 }

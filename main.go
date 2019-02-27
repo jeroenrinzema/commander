@@ -14,6 +14,9 @@ const (
 	AfterEvent = "after"
 )
 
+// ErrTimeout is returned when a timeout is reached when awaiting a responding event
+var ErrTimeout = errors.New("timeout reached")
+
 // New creates a new commander instance with the given dialect, connectionstring and groups
 func New(dialect Dialect, connectionstring string, groups ...*Group) (*Client, error) {
 	if len(groups) == 0 {

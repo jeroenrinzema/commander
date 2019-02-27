@@ -110,7 +110,7 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (*Event,
 
 			return event, nil
 		case <-ctx.Done():
-			return nil, errors.New("timeout reached")
+			return nil, ErrTimeout
 		}
 	}
 }

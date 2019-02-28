@@ -18,9 +18,7 @@ func (handle *actionHandle) Process(writer ResponseWriter, message interface{}) 
 
 // NewTestGroup initializes a new group used for testing
 func NewTestGroup() *Group {
-	client := NewTestClient()
 	group := &Group{
-		Client:  client,
 		Timeout: 5 * time.Second,
 		Topics: []Topic{
 			Topic{
@@ -38,6 +36,7 @@ func NewTestGroup() *Group {
 		},
 	}
 
+	NewTestClient(group)
 	return group
 }
 
@@ -47,7 +46,7 @@ func TestProduceCommand(t *testing.T) {
 	NewTestClient(group)
 
 	key, _ := uuid.NewV4()
-	command := NewCommand("testing", key, []byte("{}"))
+	command := NewCommand("testing", 1, key, []byte("{}"))
 
 	group.ProduceCommand(command)
 }
@@ -83,7 +82,7 @@ func TestSyncCommand(t *testing.T) {
 	NewTestClient(group)
 
 	key, _ := uuid.NewV4()
-	command := NewCommand("testing", key, []byte("{}"))
+	command := NewCommand("testing", 1, key, []byte("{}"))
 
 	go func() {
 		_, err := group.SyncCommand(command)
@@ -105,9 +104,11 @@ func TestAwaitEvent(t *testing.T) {
 	parent, _ := uuid.NewV4()
 
 	go func() {
-		_, err := group.AwaitEvent(timeout, parent)
-		if err != nil {
-			t.Error(err)
+		sink, err := group.AwaitEvent(timeout, parent)
+		select {
+		case e := <-err:
+			t.Error(e)
+		case <-sink:
 		}
 	}()
 
@@ -159,7 +160,7 @@ func TestCommandConsumer(t *testing.T) {
 	defer close()
 
 	key, _ := uuid.NewV4()
-	command := NewCommand("testing", key, []byte("{}"))
+	command := NewCommand("testing", 1, key, []byte("{}"))
 	group.ProduceCommand(command)
 
 	deadline := time.Now().Add(500 * time.Millisecond)

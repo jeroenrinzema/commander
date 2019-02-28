@@ -3,12 +3,13 @@ package commander
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 
 	"github.com/gofrs/uuid"
 )
 
 // NewCommand constructs a new command
-func NewCommand(action string, key uuid.UUID, data []byte) *Command {
+func NewCommand(action string, version int8, key uuid.UUID, data []byte) *Command {
 	id, err := uuid.NewV4()
 	if err != nil {
 		panic(err)
@@ -24,6 +25,7 @@ func NewCommand(action string, key uuid.UUID, data []byte) *Command {
 		Headers: make(map[string]string),
 		ID:      id,
 		Action:  action,
+		Version: version,
 		Data:    data,
 	}
 
@@ -37,11 +39,12 @@ type Command struct {
 	ID      uuid.UUID         `json:"id"`
 	Action  string            `json:"action"`
 	Data    json.RawMessage   `json:"data"`
+	Version int8              `json:"version"`
 	Origin  Topic             `json:"-"`
 }
 
 // NewEvent creates a new acknowledged event as a response to this command.
-func (command *Command) NewEvent(action string, version int, data []byte) *Event {
+func (command *Command) NewEvent(action string, version int8, data []byte) *Event {
 	event := NewEvent(action, version, command.ID, command.Key, data)
 	return event
 }
@@ -76,6 +79,14 @@ headers:
 			}
 
 			command.ID = id
+			continue headers
+		case VersionHeader:
+			version, err := strconv.ParseInt(string(header.Value), 10, 8)
+			if err != nil {
+				return err
+			}
+
+			command.Version = int8(version)
 			continue headers
 		}
 

@@ -25,7 +25,7 @@ func TestClosingConsumptions(t *testing.T) {
 	client := NewTestClient(group)
 
 	action := "testing"
-	version := 1
+	version := int8(1)
 	delivered := make(chan *Event, 1)
 
 	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) {

@@ -31,7 +31,7 @@ func NewMockEvent(action string) *Event {
 // TestEventPopulation tests if able to populate a event from a kafka message
 func TestEventPopulation(t *testing.T) {
 	action := "action"
-	version := 1
+	version := int8(1)
 	parent, _ := uuid.NewV4()
 	key, _ := uuid.NewV4()
 	id, _ := uuid.NewV4()
@@ -69,7 +69,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 	event := &Event{}
 
 	action := "action"
-	version := 1
+	version := int8(1)
 	parent, _ := uuid.NewV4()
 	key, _ := uuid.NewV4()
 	id, _ := uuid.NewV4()

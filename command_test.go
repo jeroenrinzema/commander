@@ -30,7 +30,7 @@ func TestCommandEventConstruction(t *testing.T) {
 	command := NewMockCommand("action")
 
 	action := "event"
-	version := 1
+	version := int8(1)
 
 	event := command.NewEvent(action, version, []byte("{}"))
 

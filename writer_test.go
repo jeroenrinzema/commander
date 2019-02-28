@@ -39,7 +39,7 @@ func TestWriterProduceCommand(t *testing.T) {
 
 	defer closing()
 
-	if _, err := writer.ProduceCommand(action, key, data); err != nil {
+	if _, err := writer.ProduceCommand(action, 1, key, data); err != nil {
 		t.Error(err)
 		return
 	}
@@ -63,7 +63,7 @@ func TestWriterProduceEvent(t *testing.T) {
 
 	action := "testing"
 	key, _ := uuid.NewV4()
-	version := 1
+	version := int8(1)
 	data := []byte("{}")
 
 	command := NewMockCommand(action)

@@ -24,7 +24,7 @@ func NewMockCommandMessage(action string, key string, id string, value string, t
 }
 
 // NewMockEventMessage initializes a new mock event message
-func NewMockEventMessage(action string, version int, parent string, key string, id string, value string, topic Topic) Message {
+func NewMockEventMessage(action string, version int8, parent string, key string, id string, value string, topic Topic) Message {
 	message := Message{
 		Headers: []Header{
 			Header{
@@ -41,7 +41,7 @@ func NewMockEventMessage(action string, version int, parent string, key string, 
 			},
 			Header{
 				Key:   VersionHeader,
-				Value: []byte(strconv.Itoa(version)),
+				Value: []byte(strconv.Itoa(int(version))),
 			},
 			Header{
 				Key:   StatusHeader,

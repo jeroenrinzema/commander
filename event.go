@@ -16,7 +16,7 @@ const (
 )
 
 // NewEvent constructs a new event
-func NewEvent(action string, version int, parent uuid.UUID, key uuid.UUID, data []byte) *Event {
+func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data []byte) *Event {
 	id, err := uuid.NewV4()
 	if err != nil {
 		panic(err)
@@ -50,8 +50,8 @@ type Event struct {
 	Action  string            `json:"action"`
 	Data    json.RawMessage   `json:"data"`
 	Key     uuid.UUID         `json:"key"`
-	Status  int               `json:"status"`
-	Version int               `json:"version"`
+	Status  int16             `json:"status"`
+	Version int8              `json:"version"`
 	Origin  Topic             `json:"-"`
 }
 
@@ -84,22 +84,21 @@ headers:
 			event.ID = id
 			continue headers
 		case StatusHeader:
-			status, err := strconv.ParseInt(string(header.Value), 10, 0)
+			status, err := strconv.ParseInt(string(header.Value), 10, 16)
 
 			if err != nil {
 				return err
 			}
 
-			event.Status = int(status)
+			event.Status = int16(status)
 			continue headers
 		case VersionHeader:
-			version, err := strconv.ParseInt(string(header.Value), 10, 0)
-
+			version, err := strconv.ParseInt(string(header.Value), 10, 8)
 			if err != nil {
 				return err
 			}
 
-			event.Version = int(version)
+			event.Version = int8(version)
 			continue headers
 		}
 

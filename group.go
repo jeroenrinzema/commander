@@ -210,11 +210,11 @@ func (group *Group) ProduceEvent(event *Event) error {
 				},
 				Header{
 					Key:   StatusHeader,
-					Value: []byte(strconv.Itoa(event.Status)),
+					Value: []byte(strconv.Itoa(int(event.Status))),
 				},
 				Header{
 					Key:   VersionHeader,
-					Value: []byte(strconv.Itoa(event.Version)),
+					Value: []byte(strconv.Itoa(int(event.Version))),
 				},
 			},
 			Key:   []byte(event.Key.String()),

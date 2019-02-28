@@ -20,13 +20,13 @@ func NewResponseWriter(group *Group, value interface{}) ResponseWriter {
 // ResponseWriter writes events or commands back to the assigned group.
 type ResponseWriter interface {
 	// ProduceEvent creates and produces a new event to the assigned group.
-	ProduceEvent(action string, version int, key uuid.UUID, data []byte) (*Event, error)
+	ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (*Event, error)
 
 	// ProduceError produces a new error event
 	ProduceError(action string, data []byte) (*Event, error)
 
 	// ProduceCommand produces a new command
-	ProduceCommand(action string, key uuid.UUID, data []byte) (*Command, error)
+	ProduceCommand(action string, version int8, key uuid.UUID, data []byte) (*Command, error)
 }
 
 // Writer is a struct representing the ResponseWriter interface
@@ -51,7 +51,7 @@ func (writer *writer) ProduceError(action string, data []byte) (*Event, error) {
 	return event, err
 }
 
-func (writer *writer) ProduceEvent(action string, version int, key uuid.UUID, data []byte) (*Event, error) {
+func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (*Event, error) {
 	parent := uuid.Nil
 
 	if writer.Command != nil {
@@ -68,8 +68,8 @@ func (writer *writer) ProduceEvent(action string, version int, key uuid.UUID, da
 	return event, err
 }
 
-func (writer *writer) ProduceCommand(action string, key uuid.UUID, data []byte) (*Command, error) {
-	command := NewCommand(action, key, data)
+func (writer *writer) ProduceCommand(action string, version int8, key uuid.UUID, data []byte) (*Command, error) {
+	command := NewCommand(action, version, key, data)
 	err := writer.Group.ProduceCommand(command)
 
 	return command, err

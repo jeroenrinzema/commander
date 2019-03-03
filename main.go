@@ -2,6 +2,8 @@ package commander
 
 import (
 	"errors"
+	"io/ioutil"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,14 +16,28 @@ const (
 	AfterEvent = "after"
 )
 
-// ErrTimeout is returned when a timeout is reached when awaiting a responding event
-var ErrTimeout = errors.New("timeout reached")
+var (
+	// ErrTimeout is returned when a timeout is reached when awaiting a responding event
+	ErrTimeout = errors.New("timeout reached")
 
-// New creates a new commander instance with the given dialect, connectionstring and groups
+	// LoggingPrefix holds the commander logging prefix
+	LoggingPrefix = "commander"
+
+	// LoggingFlags holds the logging flag mode
+	LoggingFlags = log.Ldate | log.Ltime | log.Lshortfile
+
+	// Logger holds a io message logger
+	Logger = log.New(ioutil.Discard, LoggingPrefix, LoggingFlags)
+)
+
+// New creates a new commander instance with the given dialect, connectionstring and groups.
+// The dialect will be opened and a new logger will be set up that discards the logs by default.
 func New(dialect Dialect, connectionstring string, groups ...*Group) (*Client, error) {
 	if len(groups) == 0 {
 		return nil, errors.New("no commander group was given")
 	}
+
+	Logger.Println("Opening commander dialect...")
 
 	consumer, producer, err := dialect.Open(connectionstring, groups...)
 	if err != nil {
@@ -56,11 +72,15 @@ func (client *Client) CloseOnSIGTERM() {
 	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigterm
+	Logger.Println("Recieved SIGTERM signal")
+
 	client.Close()
 }
 
 // Close closes the consumer and producer
 func (client *Client) Close() error {
+	Logger.Println("Closing commander client")
+
 	err := client.Dialect.Close()
 	if err != nil {
 		return err

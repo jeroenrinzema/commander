@@ -85,6 +85,8 @@ func (group *Group) SyncCommand(command *Command) (*Event, error) {
 // will a error be returned. The timeout channel is closed when all
 // expected events are received or after a timeout is thrown.
 func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan *Event, <-chan error) {
+	Logger.Println("Awaiting child event")
+
 	sink := make(chan *Event, 1)
 	erro := make(chan error, 1)
 
@@ -126,6 +128,8 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 // ProduceCommand constructs and produces a command message to the set command topic.
 // A error is returned if anything went wrong in the process. If no command key is set will the command id be used.
 func (group *Group) ProduceCommand(command *Command) error {
+	Logger.Println("Producing command")
+
 	if command.Key == uuid.Nil {
 		command.Key = command.ID
 	}
@@ -181,6 +185,8 @@ func (group *Group) ProduceCommand(command *Command) error {
 // ProduceEvent produces a event kafka message to the set event topic.
 // A error is returned if anything went wrong in the process.
 func (group *Group) ProduceEvent(event *Event) error {
+	Logger.Println("Producing event")
+
 	if event.Key == uuid.Nil {
 		event.Key = event.ID
 	}
@@ -248,6 +254,8 @@ func (group *Group) ProduceEvent(event *Event) error {
 // NewConsumer starts consuming events of topics from the same topic type.
 // All received messages are published over the returned messages channel.
 func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, Close, error) {
+	Logger.Println("New topic consumer")
+
 	topics := []Topic{}
 	for _, topic := range group.Topics {
 		if topic.Type != sort {

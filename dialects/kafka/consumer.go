@@ -29,6 +29,8 @@ func NewConsumer(client sarama.ConsumerGroup, groups ...*commander.Group) *Consu
 		ready:         make(chan bool, 0),
 	}
 
+	commander.Logger.Println("Awaiting consumer setup")
+
 	go client.Consume(ctx, topics, consumer)
 	<-consumer.ready
 
@@ -46,6 +48,8 @@ type Consumer struct {
 
 // Subscribe subscribes to the given topics and returs a message channel
 func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commander.Message, error) {
+	commander.Logger.Println("Subscribing to topics:", topics)
+
 	subscription := make(chan *commander.Message, 1)
 
 	consumer.mutex.RLock()
@@ -110,6 +114,7 @@ func (consumer *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
+		commander.Logger.Println("Message claimed")
 		consumer.consumptions.Add(1)
 
 		subscriptions := consumer.subscriptions[message.Topic]

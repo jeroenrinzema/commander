@@ -19,6 +19,7 @@ const (
 func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data []byte) *Event {
 	id, err := uuid.NewV4()
 	if err != nil {
+		Logger.Println("Unable to generate a new uuid!")
 		panic(err)
 	}
 
@@ -57,7 +58,10 @@ type Event struct {
 
 // Populate the event with the data from the given message
 func (event *Event) Populate(message *Message) error {
+	Logger.Println("Populating a event from a message")
+
 	event.Headers = make(map[string]string)
+	var throw error
 
 headers:
 	for _, header := range message.Headers {
@@ -69,7 +73,7 @@ headers:
 			parent, err := uuid.FromString(string(header.Value))
 
 			if err != nil {
-				return err
+				throw = err
 			}
 
 			event.Parent = parent
@@ -78,7 +82,7 @@ headers:
 			id, err := uuid.FromString(string(header.Value))
 
 			if err != nil {
-				return err
+				throw = err
 			}
 
 			event.ID = id
@@ -87,7 +91,7 @@ headers:
 			status, err := strconv.ParseInt(string(header.Value), 10, 16)
 
 			if err != nil {
-				return err
+				throw = err
 			}
 
 			event.Status = int16(status)
@@ -95,7 +99,7 @@ headers:
 		case VersionHeader:
 			version, err := strconv.ParseInt(string(header.Value), 10, 8)
 			if err != nil {
-				return err
+				throw = err
 			}
 
 			event.Version = int8(version)
@@ -108,16 +112,20 @@ headers:
 	id, err := uuid.FromString(string(message.Key))
 
 	if err != nil {
-		return err
+		throw = err
 	}
 
 	if len(event.Action) == 0 {
-		return errors.New("No event action is set")
+		throw = errors.New("No event action is set")
 	}
 
 	event.Key = id
 	event.Data = message.Value
 	event.Origin = message.Topic
 
-	return nil
+	if throw != nil {
+		Logger.Println("A error was thrown when populating the command message:", throw)
+	}
+
+	return throw
 }

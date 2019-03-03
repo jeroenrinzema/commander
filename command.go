@@ -12,6 +12,7 @@ import (
 func NewCommand(action string, version int8, key uuid.UUID, data []byte) *Command {
 	id, err := uuid.NewV4()
 	if err != nil {
+		Logger.Println("Unable to generate a new uuid!")
 		panic(err)
 	}
 
@@ -59,6 +60,8 @@ func (command *Command) NewError(action string, data []byte) *Event {
 
 // Populate populates the command struct with the given message
 func (command *Command) Populate(message *Message) error {
+	Logger.Println("Populating a command from a message")
+
 	command.Headers = make(map[string]string)
 	var throw error
 
@@ -106,6 +109,10 @@ headers:
 	command.Key = id
 	command.Data = message.Value
 	command.Origin = message.Topic
+
+	if throw != nil {
+		Logger.Println("A error was thrown when populating the command message:", throw)
+	}
 
 	return throw
 }

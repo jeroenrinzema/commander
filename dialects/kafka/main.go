@@ -15,6 +15,8 @@ type Dialect struct {
 
 // Open opens a kafka consumer and producer
 func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group) (commander.Consumer, commander.Producer, error) {
+	commander.Logger.Println("Opening kafka dialect...")
+
 	values := ParseConnectionstring(connectionstring)
 	err := ValidateConnectionKeyVal(values)
 	if err != nil {
@@ -39,6 +41,8 @@ func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group
 	if err != nil {
 		return nil, nil, err
 	}
+
+	commander.Logger.Println("Constructing consumer/producer")
 
 	consumer := NewConsumer(consumerGroup, groups...)
 	producer := NewProducer(asyncProducer)

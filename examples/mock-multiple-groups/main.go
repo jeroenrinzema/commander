@@ -91,7 +91,7 @@ func main() {
 		item, _ := uuid.NewV4()
 		key, _ := uuid.NewV4()
 
-		command := commander.NewCommand("Available", key, []byte(item.String()))
+		command := commander.NewCommand("Available", 1, key, []byte(item.String()))
 		event, err := warehouse.SyncCommand(command)
 		if err != nil {
 			writer.ProduceError("WarehouseNotAvailable", []byte(err.Error()))

@@ -21,7 +21,7 @@ var (
 	ErrTimeout = errors.New("timeout reached")
 
 	// LoggingPrefix holds the commander logging prefix
-	LoggingPrefix = "commander"
+	LoggingPrefix = "[commander] "
 
 	// LoggingFlags holds the logging flag mode
 	LoggingFlags = log.Ldate | log.Ltime | log.Lshortfile

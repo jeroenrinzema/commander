@@ -117,7 +117,7 @@ func main() {
 	http.HandleFunc("/purchase", func(w http.ResponseWriter, r *http.Request) {
 		key, _ := uuid.NewV4()
 
-		command := commander.NewCommand("Purchase", key, nil)
+		command := commander.NewCommand("Purchase", 1, key, nil)
 		event, err := cart.SyncCommand(command)
 
 		if err != nil {

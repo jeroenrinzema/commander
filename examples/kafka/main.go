@@ -57,10 +57,10 @@ func main() {
 	 * HandleFunc handles an "Available" command. Once a command with the action "Available" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	warehouse.HandleFunc("Available", commander.CommandTopic, func(writer commander.ResponseWriter, message interface{}) {
+	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
 		key, err := uuid.NewV4()
 		if err != nil {
-			writer.ProduceError(err)
+			writer.ProduceError("UUIDGenErr", []byte(err.Error()))
 			return
 		}
 
@@ -76,12 +76,12 @@ func main() {
 	http.HandleFunc("/available", func(w http.ResponseWriter, r *http.Request) {
 		key, err := uuid.NewV4()
 		if err != nil {
-			w.WriteHEader(500)
+			w.WriteHeader(500)
 			w.Write([]byte(err.Error()))
 			return
 		}
 
-		command := commander.NewCommand("Available", key, nil)
+		command := commander.NewCommand("Available", 1, key, nil)
 		event, err := warehouse.SyncCommand(command)
 
 		if err != nil {

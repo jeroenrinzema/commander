@@ -62,7 +62,7 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		key, _ := uuid.NewV4()
 
-		command := commander.NewCommand("example", key, nil)
+		command := commander.NewCommand("example", 1, key, nil)
 		event, err := group.SyncCommand(command)
 
 		if err != nil {

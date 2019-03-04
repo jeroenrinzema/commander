@@ -32,7 +32,12 @@ func NewConsumer(client sarama.ConsumerGroup, groups ...*commander.Group) *Consu
 	commander.Logger.Println("Awaiting consumer setup")
 
 	go client.Consume(ctx, topics, consumer)
-	<-consumer.ready
+
+	select {
+	case err := <-client.Errors():
+		commander.Logger.Println(err)
+	case <-consumer.ready:
+	}
 
 	return consumer
 }

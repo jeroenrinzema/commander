@@ -28,10 +28,10 @@ func (producer *Producer) Publish(message *commander.Message) error {
 	defer producer.production.Done()
 
 	headers := []sarama.RecordHeader{}
-	for _, header := range message.Headers {
+	for key, value := range message.Headers {
 		headers = append(headers, sarama.RecordHeader{
-			Key:   []byte(header.Key),
-			Value: header.Value,
+			Key:   []byte(key),
+			Value: value,
 		})
 	}
 

@@ -8,18 +8,36 @@ import (
 )
 
 // NewProducer constructs a new producer
-func NewProducer(client sarama.AsyncProducer) *Producer {
-	producer := &Producer{
-		client: client,
+func NewProducer(connectionstring Config, config *sarama.Config) (*Producer, error) {
+	producer := &Producer{}
+	err := producer.Connect(connectionstring, config)
+	if err != nil {
+		return nil, err
 	}
 
-	return producer
+	return producer, nil
 }
 
 // Producer produces kafka messages
 type Producer struct {
-	client     sarama.AsyncProducer
-	production sync.WaitGroup
+	client           sarama.AsyncProducer
+	connectionstring Config
+	config           *sarama.Config
+	production       sync.WaitGroup
+}
+
+// Connect initializes and opens a new Sarama producer group.
+func (producer *Producer) Connect(connectionstring Config, config *sarama.Config) error {
+	client, err := sarama.NewAsyncProducer(connectionstring.Brokers, config)
+	if err != nil {
+		return err
+	}
+
+	producer.client = client
+	producer.connectionstring = connectionstring
+	producer.config = config
+
+	return nil
 }
 
 // Publish publishes the given message

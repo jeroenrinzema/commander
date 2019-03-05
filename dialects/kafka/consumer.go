@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"sync"
 
 	"github.com/Shopify/sarama"
@@ -10,8 +11,7 @@ import (
 )
 
 // NewConsumer constructs a new kafka dialect consumer
-func NewConsumer(client sarama.ConsumerGroup, groups ...*commander.Group) *Consumer {
-	ctx := context.Background()
+func NewConsumer(connectionstring Config, config *sarama.Config, groups ...*commander.Group) (*Consumer, error) {
 	topics := []string{}
 
 	for _, group := range groups {
@@ -25,31 +25,62 @@ func NewConsumer(client sarama.ConsumerGroup, groups ...*commander.Group) *Consu
 	}
 
 	consumer := &Consumer{
-		client:        client,
+		topics:        topics,
 		subscriptions: make(map[string][]chan *commander.Message),
 		ready:         make(chan bool, 0),
 	}
 
 	commander.Logger.Println("Awaiting consumer setup")
 
-	go client.Consume(ctx, topics, consumer)
-
-	select {
-	case err := <-client.Errors():
+	err := consumer.Connect(connectionstring, config)
+	if err != nil {
 		commander.Logger.Println(err)
-	case <-consumer.ready:
+		return nil, err
 	}
 
-	return consumer
+	return consumer, nil
 }
 
 // Consumer consumes kafka messages
 type Consumer struct {
-	client        sarama.ConsumerGroup
-	subscriptions map[string][]chan *commander.Message
-	consumptions  sync.WaitGroup
-	mutex         sync.RWMutex
-	ready         chan bool
+	client           sarama.ConsumerGroup
+	connectionstring Config
+	config           *sarama.Config
+	topics           []string
+	subscriptions    map[string][]chan *commander.Message
+	consumptions     sync.WaitGroup
+	mutex            sync.RWMutex
+	ready            chan bool
+}
+
+// Connect initializes a new Sarama consumer group and awaits till the consumer
+// group is set up and ready to consume messages.
+func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config) error {
+	err := consumer.client.Close()
+	log.Println(err)
+
+	consumer.ready = make(chan bool, 0)
+
+	ctx := context.Background()
+	client, err := sarama.NewConsumerGroup(connectionstring.Brokers, connectionstring.Group, config)
+	if err != nil {
+		return err
+	}
+
+	go client.Consume(ctx, consumer.topics, consumer)
+
+	select {
+	case err := <-client.Errors():
+		commander.Logger.Println(err)
+		return err
+	case <-consumer.ready:
+	}
+
+	consumer.client = client
+	consumer.connectionstring = connectionstring
+	consumer.config = config
+
+	return nil
 }
 
 // Subscribe subscribes to the given topics and returs a message channel

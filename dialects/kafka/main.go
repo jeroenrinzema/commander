@@ -32,20 +32,17 @@ func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group
 	config.Version = connection.Version
 	config.Producer.Return.Successes = true
 
-	consumerGroup, err := sarama.NewConsumerGroup(connection.Brokers, connection.Group, config)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	asyncProducer, err := sarama.NewAsyncProducer(connection.Brokers, config)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	commander.Logger.Println("Constructing consumer/producer")
 
-	consumer := NewConsumer(consumerGroup, groups...)
-	producer := NewProducer(asyncProducer)
+	consumer, err := NewConsumer(connection, config, groups...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	producer, err := NewProducer(connection, config)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	dialect.consumer = consumer
 	dialect.producer = producer

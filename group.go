@@ -2,6 +2,7 @@ package commander
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
@@ -143,20 +144,16 @@ func (group *Group) ProduceCommand(command *Command) error {
 			continue
 		}
 
+		headers := map[string]json.RawMessage{
+			ActionHeader: []byte(command.Action),
+			IDHeader:     []byte(command.ID.String()),
+		}
+
 		message := &Message{
-			Headers: []Header{
-				Header{
-					Key:   ActionHeader,
-					Value: []byte(command.Action),
-				},
-				Header{
-					Key:   IDHeader,
-					Value: []byte(command.ID.String()),
-				},
-			},
-			Key:   []byte(command.Key.String()),
-			Value: command.Data,
-			Topic: topic,
+			Headers: headers,
+			Key:     []byte(command.Key.String()),
+			Value:   command.Data,
+			Topic:   topic,
 		}
 
 		ammount := group.Retries
@@ -200,32 +197,19 @@ func (group *Group) ProduceEvent(event *Event) error {
 			continue
 		}
 
+		headers := map[string]json.RawMessage{
+			ActionHeader:  []byte(event.Action),
+			ParentHeader:  []byte(event.Parent.String()),
+			IDHeader:      []byte(event.ID.String()),
+			StatusHeader:  []byte(strconv.Itoa(int(event.Status))),
+			VersionHeader: []byte(strconv.Itoa(int(event.Version))),
+		}
+
 		message := &Message{
-			Headers: []Header{
-				Header{
-					Key:   ActionHeader,
-					Value: []byte(event.Action),
-				},
-				Header{
-					Key:   ParentHeader,
-					Value: []byte(event.Parent.String()),
-				},
-				Header{
-					Key:   IDHeader,
-					Value: []byte(event.ID.String()),
-				},
-				Header{
-					Key:   StatusHeader,
-					Value: []byte(strconv.Itoa(int(event.Status))),
-				},
-				Header{
-					Key:   VersionHeader,
-					Value: []byte(strconv.Itoa(int(event.Version))),
-				},
-			},
-			Key:   []byte(event.Key.String()),
-			Value: event.Data,
-			Topic: topic,
+			Headers: headers,
+			Key:     []byte(event.Key.String()),
+			Value:   event.Data,
+			Topic:   topic,
 		}
 
 		ammount := group.Retries
@@ -289,6 +273,11 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 	go func() {
 		for message := range messages {
 			var value interface{}
+
+			a := string(message.Headers[ActionHeader])
+			if a != action {
+				continue
+			}
 
 			switch sort {
 			case EventTopic:

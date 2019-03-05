@@ -195,7 +195,7 @@ func TestEventHandleFunc(t *testing.T) {
 	parent, _ := uuid.NewV4()
 	key, _ := uuid.NewV4()
 
-	event := NewEvent("tested", 1, parent, key, []byte("{}"))
+	event := NewEvent(action, 1, parent, key, []byte("{}"))
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -234,6 +234,67 @@ func TestEventHandle(t *testing.T) {
 
 	select {
 	case <-delivered:
+	case <-ctx.Done():
+		t.Error("the events handle was not called within the deadline")
+	}
+}
+
+// TestActionEventHandle tests if event actions are isolated
+func TestActionEventHandle(t *testing.T) {
+	group := NewTestGroup()
+	NewTestClient(group)
+
+	delivered := make(chan interface{}, 1)
+	failure := make(chan interface{}, 1)
+
+	group.Handle(EventTopic, "create", &actionHandle{delivered})
+	group.Handle(EventTopic, "delete", &actionHandle{failure})
+
+	parent, _ := uuid.NewV4()
+	key, _ := uuid.NewV4()
+
+	event := NewEvent("create", 1, parent, key, []byte("{}"))
+	group.ProduceEvent(event)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	select {
+	case <-delivered:
+	case <-failure:
+		t.Error("the event action was not isolated")
+	case <-ctx.Done():
+		t.Error("the events handle was not called within the deadline")
+	}
+}
+
+// TestActionCommandHandle tests if command actions are isolated
+func TestActionCommandHandle(t *testing.T) {
+	group := NewTestGroup()
+	NewTestClient(group)
+
+	delivered := make(chan interface{}, 1)
+	failure := make(chan interface{}, 1)
+
+	group.Handle(CommandTopic, "delete", &actionHandle{failure})
+	group.Handle(CommandTopic, "create", &actionHandle{delivered})
+
+	key, _ := uuid.NewV4()
+
+	command := NewCommand("create", 1, key, []byte("{}"))
+	group.ProduceCommand(command)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	select {
+	case <-delivered:
+	case <-failure:
+		t.Error("the event action was not isolated")
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}

@@ -84,11 +84,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 	}
 
 	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
-	for index, header := range corrupted.Headers {
-		if header.Key == IDHeader {
-			corrupted.Headers[index].Value = []byte("")
-		}
-	}
+	corrupted.Headers[IDHeader] = []byte("")
 
 	err = event.Populate(&corrupted)
 	if err == nil {
@@ -96,11 +92,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 	}
 
 	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
-	for index, header := range corrupted.Headers {
-		if header.Key == ActionHeader {
-			corrupted.Headers[index].Value = []byte("")
-		}
-	}
+	corrupted.Headers[ActionHeader] = []byte("")
 
 	err = event.Populate(&corrupted)
 	if err == nil {
@@ -108,11 +100,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 	}
 
 	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
-	for index, header := range corrupted.Headers {
-		if header.Key == ParentHeader {
-			corrupted.Headers[index].Value = []byte("")
-		}
-	}
+	corrupted.Headers[ParentHeader] = []byte("")
 
 	err = event.Populate(&corrupted)
 	if err == nil {
@@ -120,11 +108,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 	}
 
 	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
-	for index, header := range corrupted.Headers {
-		if header.Key == VersionHeader {
-			corrupted.Headers[index].Value = []byte("")
-		}
-	}
+	corrupted.Headers[VersionHeader] = []byte("")
 
 	err = event.Populate(&corrupted)
 	if err == nil {

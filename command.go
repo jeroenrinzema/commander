@@ -66,16 +66,15 @@ func (command *Command) Populate(message *Message) error {
 	var throw error
 
 headers:
-	for _, header := range message.Headers {
-		key := header.Key
-		value := string(header.Value)
+	for key, value := range message.Headers {
+		str := string(value)
 
 		switch key {
 		case ActionHeader:
-			command.Action = value
+			command.Action = str
 			continue headers
 		case IDHeader:
-			id, err := uuid.FromString(value)
+			id, err := uuid.FromString(str)
 
 			if err != nil {
 				throw = err
@@ -84,7 +83,7 @@ headers:
 			command.ID = id
 			continue headers
 		case VersionHeader:
-			version, err := strconv.ParseInt(string(header.Value), 10, 8)
+			version, err := strconv.ParseInt(str, 10, 8)
 			if err != nil {
 				return err
 			}
@@ -93,7 +92,7 @@ headers:
 			continue headers
 		}
 
-		command.Headers[key] = value
+		command.Headers[key] = str
 	}
 
 	id, err := uuid.FromString(string(message.Key))

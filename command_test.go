@@ -109,11 +109,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 	}
 
 	corrupted = NewMockCommandMessage(action, key.String(), id.String(), value, Topic{Name: "testing"})
-	for index, header := range corrupted.Headers {
-		if header.Key == IDHeader {
-			corrupted.Headers[index].Value = []byte("")
-		}
-	}
+	corrupted.Headers[IDHeader] = []byte("")
 
 	err = command.Populate(&corrupted)
 	if err == nil {
@@ -121,11 +117,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 	}
 
 	corrupted = NewMockCommandMessage(action, key.String(), id.String(), value, Topic{Name: "testing"})
-	for index, header := range corrupted.Headers {
-		if header.Key == ActionHeader {
-			corrupted.Headers[index].Value = []byte("")
-		}
-	}
+	corrupted.Headers[ActionHeader] = []byte("")
 
 	err = command.Populate(&corrupted)
 	if err == nil {

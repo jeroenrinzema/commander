@@ -64,13 +64,15 @@ func (event *Event) Populate(message *Message) error {
 	var throw error
 
 headers:
-	for _, header := range message.Headers {
-		switch string(header.Key) {
+	for key, value := range message.Headers {
+		str := string(value)
+
+		switch key {
 		case ActionHeader:
-			event.Action = string(header.Value)
+			event.Action = str
 			continue headers
 		case ParentHeader:
-			parent, err := uuid.FromString(string(header.Value))
+			parent, err := uuid.FromString(str)
 
 			if err != nil {
 				throw = err
@@ -79,7 +81,7 @@ headers:
 			event.Parent = parent
 			continue headers
 		case IDHeader:
-			id, err := uuid.FromString(string(header.Value))
+			id, err := uuid.FromString(str)
 
 			if err != nil {
 				throw = err
@@ -88,7 +90,7 @@ headers:
 			event.ID = id
 			continue headers
 		case StatusHeader:
-			status, err := strconv.ParseInt(string(header.Value), 10, 16)
+			status, err := strconv.ParseInt(str, 10, 16)
 
 			if err != nil {
 				throw = err
@@ -97,7 +99,7 @@ headers:
 			event.Status = int16(status)
 			continue headers
 		case VersionHeader:
-			version, err := strconv.ParseInt(string(header.Value), 10, 8)
+			version, err := strconv.ParseInt(str, 10, 8)
 			if err != nil {
 				throw = err
 			}
@@ -106,7 +108,7 @@ headers:
 			continue headers
 		}
 
-		event.Headers[string(header.Key)] = string(header.Value)
+		event.Headers[key] = str
 	}
 
 	id, err := uuid.FromString(string(message.Key))

@@ -3,7 +3,6 @@ package kafka
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"sync"
 
 	"github.com/Shopify/sarama"
@@ -56,8 +55,12 @@ type Consumer struct {
 // Connect initializes a new Sarama consumer group and awaits till the consumer
 // group is set up and ready to consume messages.
 func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config) error {
-	err := consumer.client.Close()
-	log.Println(err)
+	if consumer.client != nil {
+		err := consumer.client.Close()
+		if err != nil {
+			return err
+		}
+	}
 
 	consumer.ready = make(chan bool, 0)
 

@@ -11,19 +11,6 @@ import (
 )
 
 const (
-	// ParentHeader kafka message parent header
-	ParentHeader = "parent"
-	// ActionHeader kafka message action header
-	ActionHeader = "action"
-	// IDHeader kafka message id header
-	IDHeader = "id"
-	// StatusHeader kafka message status header
-	StatusHeader = "status"
-	// VersionHeader kafka message version header
-	VersionHeader = "version"
-	// MetaHeader kafka message meta header
-	MetaHeader = "meta"
-
 	// DefaultAttempts represents the default ammount of retry attempts
 	DefaultAttempts = 5
 )

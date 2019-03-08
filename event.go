@@ -1,7 +1,6 @@
 package commander
 
 import (
-	"encoding/json"
 	"errors"
 	"strconv"
 
@@ -49,7 +48,7 @@ type Event struct {
 	Headers map[string]string `json:"headers"`
 	ID      uuid.UUID         `json:"id"`
 	Action  string            `json:"action"`
-	Data    json.RawMessage   `json:"data"`
+	Data    []byte            `json:"data"`
 	Key     uuid.UUID         `json:"key"`
 	Status  int16             `json:"status"`
 	Version int8              `json:"version"`

@@ -1,7 +1,6 @@
 package commander
 
 import (
-	"encoding/json"
 	"errors"
 	"strconv"
 
@@ -39,7 +38,7 @@ type Command struct {
 	Headers map[string]string `json:"headers"`
 	ID      uuid.UUID         `json:"id"`
 	Action  string            `json:"action"`
-	Data    json.RawMessage   `json:"data"`
+	Data    []byte            `json:"data"`
 	Version int8              `json:"version"`
 	Origin  Topic             `json:"-"`
 }

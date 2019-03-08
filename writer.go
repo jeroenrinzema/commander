@@ -39,13 +39,16 @@ func (writer *writer) ProduceError(action string, err error) (*Event, error) {
 	var event *Event
 
 	if writer.Command != nil {
-		event = writer.Command.NewError(action, nil)
+		event = writer.Command.NewError(action, err)
 	}
 
 	if event == nil {
 		event = NewEvent(action, 0, uuid.Nil, uuid.Nil, nil)
 		event.Status = StatusInternalServerError
-		event.Meta = err.Error()
+
+		if err != nil {
+			event.Meta = err.Error()
+		}
 	}
 
 	err = writer.Group.ProduceEvent(event)

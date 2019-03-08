@@ -8,9 +8,20 @@ import (
 // Dialect represents the kafka dialect
 type Dialect struct {
 	Groups []commander.Group
+	Config *sarama.Config
 
 	consumer *Consumer
 	producer *Producer
+}
+
+// New initializes and constructs a new Kafka dialect
+func New() Dialect {
+	config := sarama.NewConfig()
+	dialect := Dialect{
+		Config: config,
+	}
+
+	return dialect
 }
 
 // Open opens a kafka consumer and producer
@@ -28,18 +39,21 @@ func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group
 		return nil, nil, err
 	}
 
-	config := sarama.NewConfig()
-	config.Version = connection.Version
-	config.Producer.Return.Successes = true
+	if dialect.Config == nil {
+		dialect.Config = sarama.NewConfig()
+	}
+
+	dialect.Config.Version = connection.Version
+	dialect.Config.Producer.Return.Successes = true
 
 	commander.Logger.Println("Constructing consumer/producer")
 
-	consumer, err := NewConsumer(connection, config, groups...)
+	consumer, err := NewConsumer(connection, dialect.Config, groups...)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	producer, err := NewProducer(connection, config)
+	producer, err := NewProducer(connection, dialect.Config)
 	if err != nil {
 		return nil, nil, err
 	}

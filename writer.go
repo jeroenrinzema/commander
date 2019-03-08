@@ -23,7 +23,7 @@ type ResponseWriter interface {
 	ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (*Event, error)
 
 	// ProduceError produces a new error event
-	ProduceError(action string, data []byte) (*Event, error)
+	ProduceError(action string, err error) (*Event, error)
 
 	// ProduceCommand produces a new command
 	ProduceCommand(action string, version int8, key uuid.UUID, data []byte) (*Command, error)
@@ -35,19 +35,20 @@ type writer struct {
 	Command *Command
 }
 
-func (writer *writer) ProduceError(action string, data []byte) (*Event, error) {
+func (writer *writer) ProduceError(action string, err error) (*Event, error) {
 	var event *Event
 
 	if writer.Command != nil {
-		event = writer.Command.NewError(action, data)
+		event = writer.Command.NewError(action, nil)
 	}
 
 	if event == nil {
-		event = NewEvent(action, 0, uuid.Nil, uuid.Nil, data)
+		event = NewEvent(action, 0, uuid.Nil, uuid.Nil, nil)
 		event.Status = StatusInternalServerError
+		event.Meta = err.Error()
 	}
 
-	err := writer.Group.ProduceEvent(event)
+	err = writer.Group.ProduceEvent(event)
 	return event, err
 }
 

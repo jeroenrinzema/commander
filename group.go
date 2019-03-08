@@ -21,6 +21,8 @@ const (
 	StatusHeader = "status"
 	// VersionHeader kafka message version header
 	VersionHeader = "version"
+	// MetaHeader kafka message meta header
+	MetaHeader = "meta"
 
 	// DefaultAttempts represents the default ammount of retry attempts
 	DefaultAttempts = 5
@@ -203,6 +205,7 @@ func (group *Group) ProduceEvent(event *Event) error {
 			IDHeader:      []byte(event.ID.String()),
 			StatusHeader:  []byte(strconv.Itoa(int(event.Status))),
 			VersionHeader: []byte(strconv.Itoa(int(event.Version))),
+			MetaHeader:    []byte(event.Meta),
 		}
 
 		message := &Message{

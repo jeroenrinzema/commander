@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/gofrs/uuid"
@@ -54,7 +55,7 @@ func TestCommandEventConstruction(t *testing.T) {
 // TestCommandErrorEventConstruction tests if able to construct a error event
 func TestCommandErrorEventConstruction(t *testing.T) {
 	command := NewMockCommand("action")
-	event := command.NewError("event", []byte("{}"))
+	event := command.NewError("event", errors.New("test error"))
 
 	if event.Parent != command.ID {
 		t.Error("Event does not have id of command")

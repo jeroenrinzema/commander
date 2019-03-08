@@ -54,6 +54,7 @@ type Event struct {
 	Status  int16             `json:"status"`
 	Version int8              `json:"version"`
 	Origin  Topic             `json:"-"`
+	Meta    string            `json:"meta"`
 }
 
 // Populate the event with the data from the given message
@@ -105,6 +106,9 @@ headers:
 			}
 
 			event.Version = int8(version)
+			continue headers
+		case MetaHeader:
+			event.Meta = str
 			continue headers
 		}
 

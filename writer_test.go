@@ -2,6 +2,7 @@ package commander
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -107,7 +108,7 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 	NewTestClient(group)
 
 	action := "testing"
-	data := []byte("{}")
+	data := errors.New("test error")
 
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)

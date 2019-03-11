@@ -2,17 +2,17 @@ package commander
 
 const (
 	// ParentHeader kafka message parent header
-	ParentHeader = "parent"
+	ParentHeader = "cmdr_parent"
 	// ActionHeader kafka message action header
-	ActionHeader = "action"
+	ActionHeader = "cmdr_action"
 	// IDHeader kafka message id header
-	IDHeader = "id"
+	IDHeader = "cmdr_id"
 	// StatusHeader kafka message status header
-	StatusHeader = "status"
+	StatusHeader = "cmdr_status"
 	// VersionHeader kafka message version header
-	VersionHeader = "version"
+	VersionHeader = "cmdr_version"
 	// MetaHeader kafka message meta header
-	MetaHeader = "meta"
+	MetaHeader = "cmdr_meta"
 )
 
 // Message contains all the nessasery information

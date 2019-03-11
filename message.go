@@ -1,7 +1,5 @@
 package commander
 
-import "encoding/json"
-
 const (
 	// ParentHeader kafka message parent header
 	ParentHeader = "parent"
@@ -19,9 +17,9 @@ const (
 
 // Message contains all the nessasery information
 type Message struct {
-	Topic   Topic                      `json:"topic"`
-	Headers map[string]json.RawMessage `json:"headers"`
-	Value   []byte                     `json:"value"`
-	Key     []byte                     `json:"key"`
-	Retries int                        `json:"retries"`
+	Topic   Topic             `json:"topic"`
+	Headers map[string]string `json:"headers"`
+	Value   []byte            `json:"value"`
+	Key     []byte            `json:"key"`
+	Retries int               `json:"retries"`
 }

@@ -43,6 +43,7 @@ func main() {
 	log.Println("Connecting to Kafka:", connectionstring)
 
 	dialect := &kafka.Dialect{}
+	commander.Logger.SetOutput(os.Stdout)
 
 	/**
 	 * When constrcuting a new commander instance do you have to construct a commander.Dialect as well.
@@ -60,7 +61,7 @@ func main() {
 	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
 		key, err := uuid.NewV4()
 		if err != nil {
-			writer.ProduceError("UUIDGenErr", []byte(err.Error()))
+			writer.ProduceError("UUIDGenErr", err)
 			return
 		}
 

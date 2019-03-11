@@ -2,7 +2,6 @@ package commander
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
@@ -133,10 +132,9 @@ func (group *Group) ProduceCommand(command *Command) error {
 			continue
 		}
 
-		headers := map[string]json.RawMessage{
-			ActionHeader: []byte(command.Action),
-			IDHeader:     []byte(command.ID.String()),
-		}
+		headers := command.Headers
+		headers[ActionHeader] = command.Action
+		headers[IDHeader] = command.ID.String()
 
 		message := &Message{
 			Headers: headers,
@@ -186,14 +184,13 @@ func (group *Group) ProduceEvent(event *Event) error {
 			continue
 		}
 
-		headers := map[string]json.RawMessage{
-			ActionHeader:  []byte(event.Action),
-			ParentHeader:  []byte(event.Parent.String()),
-			IDHeader:      []byte(event.ID.String()),
-			StatusHeader:  []byte(strconv.Itoa(int(event.Status))),
-			VersionHeader: []byte(strconv.Itoa(int(event.Version))),
-			MetaHeader:    []byte(event.Meta),
-		}
+		headers := event.Headers
+		headers[ActionHeader] = event.Action
+		headers[ParentHeader] = event.Parent.String()
+		headers[IDHeader] = event.ID.String()
+		headers[StatusHeader] = strconv.Itoa(int(event.Status))
+		headers[VersionHeader] = strconv.Itoa(int(event.Version))
+		headers[MetaHeader] = event.Meta
 
 		message := &Message{
 			Headers: headers,

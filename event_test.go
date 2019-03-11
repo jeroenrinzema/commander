@@ -84,7 +84,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 	}
 
 	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
-	corrupted.Headers[IDHeader] = []byte("")
+	corrupted.Headers[IDHeader] = ""
 
 	err = event.Populate(&corrupted)
 	if err == nil {
@@ -92,7 +92,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 	}
 
 	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
-	corrupted.Headers[ActionHeader] = []byte("")
+	corrupted.Headers[ActionHeader] = ""
 
 	err = event.Populate(&corrupted)
 	if err == nil {
@@ -100,7 +100,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 	}
 
 	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
-	corrupted.Headers[ParentHeader] = []byte("")
+	corrupted.Headers[ParentHeader] = ""
 
 	err = event.Populate(&corrupted)
 	if err == nil {
@@ -108,7 +108,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 	}
 
 	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
-	corrupted.Headers[VersionHeader] = []byte("")
+	corrupted.Headers[VersionHeader] = ""
 
 	err = event.Populate(&corrupted)
 	if err == nil {

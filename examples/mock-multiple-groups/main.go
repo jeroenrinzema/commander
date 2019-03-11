@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -67,7 +68,7 @@ func main() {
 	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
 		command, ok := message.(*commander.Command)
 		if !ok {
-			writer.ProduceError("ParseError", []byte("unable to parse the command"))
+			writer.ProduceError("ParseError", errors.New("unable to parse the command"))
 			return
 		}
 
@@ -94,12 +95,12 @@ func main() {
 		command := commander.NewCommand("Available", 1, key, []byte(item.String()))
 		event, err := warehouse.SyncCommand(command)
 		if err != nil {
-			writer.ProduceError("WarehouseNotAvailable", []byte(err.Error()))
+			writer.ProduceError("WarehouseNotAvailable", err)
 			return
 		}
 
 		if event.Status != commander.StatusOK {
-			writer.ProduceError("NotAvailable", []byte(err.Error()))
+			writer.ProduceError("NotAvailable", err)
 			return
 		}
 

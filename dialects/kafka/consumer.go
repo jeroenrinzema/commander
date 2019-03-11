@@ -2,9 +2,7 @@ package kafka
 
 import (
 	"context"
-	"log"
 	"sync"
-	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander"
@@ -70,12 +68,6 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 	if err != nil {
 		return err
 	}
-
-	go func() {
-		time.Sleep(5 * time.Second)
-		client.Close()
-		go client.Consume(ctx, []string{"commands", "events"}, consumer)
-	}()
 
 	go client.Consume(ctx, consumer.topics, consumer)
 
@@ -156,13 +148,11 @@ func (consumer *Consumer) Setup(sarama.ConsumerGroupSession) error {
 
 // Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
 func (consumer *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
-	log.Println("cleanup!")
 	return nil
 }
 
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	log.Println("consume claim!")
 	for message := range claim.Messages() {
 		commander.Logger.Println("Message claimed")
 		consumer.consumptions.Add(1)

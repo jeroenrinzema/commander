@@ -49,7 +49,7 @@ func (producer *Producer) Publish(message *commander.Message) error {
 	for key, value := range message.Headers {
 		headers = append(headers, sarama.RecordHeader{
 			Key:   []byte(key),
-			Value: value,
+			Value: []byte(value),
 		})
 	}
 

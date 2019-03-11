@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"sync"
 	"time"
@@ -170,9 +169,9 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 
 		subscriptions := consumer.subscriptions[message.Topic]
 		if len(subscriptions) > 0 {
-			headers := map[string]json.RawMessage{}
+			headers := map[string]string{}
 			for _, record := range message.Headers {
-				headers[string(record.Key)] = record.Value
+				headers[string(record.Key)] = string(record.Value)
 			}
 
 			message := &commander.Message{

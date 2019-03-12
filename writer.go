@@ -1,6 +1,8 @@
 package commander
 
 import (
+	"time"
+
 	"github.com/gofrs/uuid"
 )
 
@@ -42,6 +44,7 @@ func (writer *writer) ProduceError(action string, err error) (*Event, error) {
 		event = writer.Command.NewError(action, err)
 	}
 
+	// Final check if event is not populated
 	if event == nil {
 		event = NewEvent(action, 0, uuid.Nil, uuid.Nil, nil)
 		event.Status = StatusInternalServerError
@@ -56,10 +59,12 @@ func (writer *writer) ProduceError(action string, err error) (*Event, error) {
 }
 
 func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (*Event, error) {
-	parent := uuid.Nil
+	var parent uuid.UUID
+	var timestamp time.Time
 
 	if writer.Command != nil {
 		parent = writer.Command.ID
+		timestamp = writer.Command.Timestamp
 	}
 
 	if key == uuid.Nil && writer.Command != nil {
@@ -67,8 +72,9 @@ func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, d
 	}
 
 	event := NewEvent(action, version, parent, key, data)
-	err := writer.Group.ProduceEvent(event)
+	event.CommandTimestamp = timestamp
 
+	err := writer.Group.ProduceEvent(event)
 	return event, err
 }
 

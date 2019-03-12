@@ -1,5 +1,7 @@
 package commander
 
+import "time"
+
 const (
 	// ParentHeader kafka message parent header
 	ParentHeader = "cmdr_parent"
@@ -13,13 +15,16 @@ const (
 	VersionHeader = "cmdr_version"
 	// MetaHeader kafka message meta header
 	MetaHeader = "cmdr_meta"
+	// CommandTimestampHeader kafka message command timestamp header as UNIX
+	CommandTimestampHeader = "cmdr_command_timestamp"
 )
 
 // Message contains all the nessasery information
 type Message struct {
-	Topic   Topic             `json:"topic"`
-	Headers map[string]string `json:"headers"`
-	Value   []byte            `json:"value"`
-	Key     []byte            `json:"key"`
-	Retries int               `json:"retries"`
+	Topic     Topic             `json:"topic"`
+	Headers   map[string]string `json:"headers"`
+	Value     []byte            `json:"value"`
+	Key       []byte            `json:"key"`
+	Retries   int               `json:"retries"`
+	Timestamp time.Time         `json:"timestamp"`
 }

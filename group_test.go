@@ -299,3 +299,45 @@ func TestActionCommandHandle(t *testing.T) {
 		t.Error("the events handle was not called within the deadline")
 	}
 }
+
+// TestCommandTimestampPassed tests if the command timestamp is passed to the produced event
+func TestCommandTimestampPassed(t *testing.T) {
+	var timestamp time.Time
+
+	// Command object to be checked upon
+	key, _ := uuid.NewV4()
+	command := NewCommand("command", 1, key, []byte("{}"))
+
+	group := NewTestGroup()
+	NewTestClient(group)
+
+	delivered := make(chan interface{}, 1)
+	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) {
+		command := message.(*Command)
+		timestamp = command.Timestamp
+
+		writer.ProduceEvent("event", 1, uuid.Nil, nil)
+	})
+
+	group.HandleFunc(EventTopic, "event", func(writer ResponseWriter, message interface{}) {
+		event := message.(*Event)
+		if event.CommandTimestamp.Unix() != timestamp.Unix() {
+			t.Fatal("the event timestamp does not match the command timestamp")
+		}
+
+		delivered <- message
+	})
+
+	group.ProduceCommand(command)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	select {
+	case <-delivered:
+	case <-ctx.Done():
+		t.Error("the events handle was not called within the deadline")
+	}
+}

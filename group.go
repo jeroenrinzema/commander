@@ -191,6 +191,7 @@ func (group *Group) ProduceEvent(event *Event) error {
 		headers[StatusHeader] = strconv.Itoa(int(event.Status))
 		headers[VersionHeader] = strconv.Itoa(int(event.Version))
 		headers[MetaHeader] = event.Meta
+		headers[CommandTimestampHeader] = strconv.Itoa(int(event.CommandTimestamp.Unix()))
 
 		message := &Message{
 			Headers: headers,

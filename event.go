@@ -3,6 +3,7 @@ package commander
 import (
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/gofrs/uuid"
 )
@@ -44,19 +45,23 @@ func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data
 // Event contains the information of a consumed event.
 // A event is produced as the result of a command.
 type Event struct {
-	Parent  uuid.UUID         `json:"parent"`
-	Headers map[string]string `json:"headers"`
-	ID      uuid.UUID         `json:"id"`
-	Action  string            `json:"action"`
-	Data    []byte            `json:"data"`
-	Key     uuid.UUID         `json:"key"`
-	Status  int16             `json:"status"`
-	Version int8              `json:"version"`
-	Origin  Topic             `json:"-"`
-	Meta    string            `json:"meta"`
+	Parent           uuid.UUID         `json:"parent"`            // Event command parent id
+	Headers          map[string]string `json:"headers"`           // Additional event headers
+	ID               uuid.UUID         `json:"id"`                // Unique event id
+	Action           string            `json:"action"`            // Event representing action
+	Data             []byte            `json:"data"`              // Passed event data as bytes
+	Key              uuid.UUID         `json:"key"`               // Event partition key
+	Status           int16             `json:"status"`            // Event status code (commander.Status*)
+	Version          int8              `json:"version"`           // Event data schema version
+	Origin           Topic             `json:"-"`                 // Event topic origin
+	Meta             string            `json:"meta"`              // Additional event meta message
+	CommandTimestamp time.Time         `json:"command_timestamp"` // Timestamp of parent command append
+	Timestamp        time.Time         `json:"timestamp"`         // Timestamp of event append
 }
 
-// Populate the event with the data from the given message
+// Populate the event with the data from the given message.
+// If a error occures during the parsing of the message is the error silently thrown and returned.
+// When a error is thrown is will also a log be logged if an output writer is given to the commander logger.
 func (event *Event) Populate(message *Message) error {
 	Logger.Println("Populating a event from a message")
 
@@ -76,6 +81,7 @@ headers:
 
 			if err != nil {
 				throw = err
+				continue
 			}
 
 			event.Parent = parent
@@ -85,6 +91,7 @@ headers:
 
 			if err != nil {
 				throw = err
+				continue
 			}
 
 			event.ID = id
@@ -94,6 +101,7 @@ headers:
 
 			if err != nil {
 				throw = err
+				continue
 			}
 
 			event.Status = int16(status)
@@ -102,12 +110,23 @@ headers:
 			version, err := strconv.ParseInt(str, 10, 8)
 			if err != nil {
 				throw = err
+				continue
 			}
 
 			event.Version = int8(version)
 			continue headers
 		case MetaHeader:
 			event.Meta = str
+			continue headers
+		case CommandTimestampHeader:
+			unix, err := strconv.ParseInt(str, 10, 64)
+			if err != nil {
+				throw = err
+				continue
+			}
+
+			time := time.Unix(unix, 0)
+			event.CommandTimestamp = time
 			continue headers
 		}
 
@@ -127,6 +146,7 @@ headers:
 	event.Key = id
 	event.Data = message.Value
 	event.Origin = message.Topic
+	event.Timestamp = message.Timestamp
 
 	if throw != nil {
 		Logger.Println("A error was thrown when populating the command message:", throw)

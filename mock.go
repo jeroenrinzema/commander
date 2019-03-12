@@ -2,6 +2,7 @@ package commander
 
 import (
 	"sync"
+	"time"
 )
 
 // MockDialect represents the mock dialect
@@ -106,6 +107,7 @@ type MockProducer struct {
 
 // Publish publishes the given message
 func (producer *MockProducer) Publish(message *Message) error {
+	message.Timestamp = time.Now()
 	producer.consumer.Emit(message)
 	return nil
 }

@@ -169,8 +169,9 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 				Topic: commander.Topic{
 					Name: message.Topic,
 				},
-				Value: message.Value,
-				Key:   message.Key,
+				Value:     message.Value,
+				Key:       message.Key,
+				Timestamp: message.Timestamp,
 			}
 
 			for _, subscription := range subscriptions {

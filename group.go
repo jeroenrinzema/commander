@@ -38,6 +38,15 @@ type Handler interface {
 	Process(writer ResponseWriter, message interface{})
 }
 
+// IsAttached checks if the given group is attached to a commander instance
+func (group *Group) IsAttached() error {
+	if group.Client == nil {
+		return errors.New("The commander group for the topics [%+v] is not attached to a commander instance")
+	}
+
+	return nil
+}
+
 // AsyncCommand creates a command message to the given group command topic
 // and does not await for the responding event. If no command key is set will the command id be used.
 func (group *Group) AsyncCommand(command *Command) error {

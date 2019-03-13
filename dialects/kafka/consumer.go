@@ -30,7 +30,7 @@ func NewConsumer(connectionstring Config, config *sarama.Config, groups ...*comm
 
 	consumer := &Consumer{
 		topics:        topics,
-		subscriptions: make(map[string][]chan *Subscription),
+		subscriptions: make(map[string][]*Subscription),
 		ready:         make(chan bool, 0),
 	}
 

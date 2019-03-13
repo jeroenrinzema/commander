@@ -66,10 +66,10 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 		return err
 	}
 
+	consumer.ready = make(chan bool, 0)
+
 	go func() {
 		for {
-			consumer.ready = make(chan bool, 0)
-
 			ctx := context.Background()
 			err := client.Consume(ctx, consumer.topics, consumer)
 			if err != nil {

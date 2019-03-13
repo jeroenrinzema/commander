@@ -51,10 +51,14 @@ func main() {
 	 * HandleFunc handles an "example" command. Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	group.HandleFunc(commander.CommandTopic, "example", func(writer commander.ResponseWriter, message interface{}) {
-		key, _ := uuid.NewV4()
+	group.HandleFunc(commander.CommandTopic, "example", func(writer commander.ResponseWriter, message interface{}) error {
+		key, err := uuid.NewV4()
+		if err != nil {
+			return err
+		}
 
-		writer.ProduceEvent("created", 1, key, nil)
+		_, err = writer.ProduceEvent("created", 1, key, nil)
+		return err
 	})
 
 	/**
@@ -81,5 +85,8 @@ func main() {
 	fmt.Println("Http server running at :8080")
 	fmt.Println("Send a http request to / to simulate a 'sync' command")
 
-	http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe(":8080", nil)
+	if err != nil {
+		panic(err)
+	}
 }

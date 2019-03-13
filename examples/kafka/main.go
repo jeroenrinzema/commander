@@ -63,17 +63,15 @@ func main() {
 	 * HandleFunc handles an "Available" command. Once a command with the action "Available" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
+	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) error {
 		key, err := uuid.NewV4()
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		// Event: name, version, key, data
 		_, err = writer.ProduceEvent("Available", 1, key, nil)
-		if err != nil {
-			panic(err)
-		}
+		return err
 	})
 
 	/**
@@ -90,7 +88,7 @@ func main() {
 		}
 
 		command := commander.NewCommand("Available", 1, key, nil)
-		event, err := warehouse.SyncCommand(command)
+		err = warehouse.AsyncCommand(command)
 
 		if err != nil {
 			w.WriteHeader(500)
@@ -99,7 +97,7 @@ func main() {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(event)
+		json.NewEncoder(w).Encode(command)
 	})
 
 	log.Println("Http server running at :8080")
@@ -113,7 +111,10 @@ func main() {
 	}
 
 	go func() {
-		server.ListenAndServe()
+		err := server.ListenAndServe()
+		if err != nil {
+			panic(err)
+		}
 	}()
 
 	sigterm := make(chan os.Signal, 1)

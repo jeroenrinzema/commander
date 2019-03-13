@@ -66,45 +66,51 @@ func main() {
 	 * HandleFunc handles commands with the action "available". Once a available command is received
 	 * will a available event be produced.
 	 */
-	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
+	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) error {
 		command := message.(*commander.Command)
 
 		id, err := uuid.FromString(string(command.Data))
 		if err != nil {
-			writer.ProduceError("ParseDataError", nil)
-			return
+			_, err := writer.ProduceError("ParseDataError", nil)
+			return err
 		}
 
 		// ... validate if the item is available
 
-		key, _ := uuid.NewV4()
-		writer.ProduceEvent("Available", 1, key, []byte(id.String()))
+		key, err := uuid.NewV4()
+		if err != nil {
+			return err
+		}
+
+		_, err := writer.ProduceEvent("Available", 1, key, []byte(id.String()))
+		return err
 	})
 
 	/**
 	 * HandleFunc handles command with the action "example". Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	cart.HandleFunc(commander.CommandTopic, "Purchase", func(writer commander.ResponseWriter, message interface{}) {
+	cart.HandleFunc(commander.CommandTopic, "Purchase", func(writer commander.ResponseWriter, message interface{}) error {
 		item, _ := uuid.NewV4()
 		key, _ := uuid.NewV4()
 
 		command := commander.NewCommand("Available", 1, key, []byte(item.String()))
 		event, err := warehouse.SyncCommand(command)
 		if err != nil {
-			writer.ProduceError("WarehouseNotAvailable", err)
-			return
+			_, err := writer.ProduceError("WarehouseNotAvailable", err)
+			return err
 		}
 
 		if event.Status != commander.StatusOK {
-			writer.ProduceError("NotAvailable", err)
-			return
+			_, err := writer.ProduceError("NotAvailable", err)
+			return err
 		}
 
 		items := []string{item.String()}
 		response, _ := json.Marshal(items)
 
-		writer.ProduceEvent("Purchased", 1, key, response)
+		_, err := writer.ProduceEvent("Purchased", 1, key, response)
+		return err
 	})
 
 	/**

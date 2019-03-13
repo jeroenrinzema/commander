@@ -61,15 +61,22 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 		}
 	}
 
-	consumer.ready = make(chan bool, 0)
-
-	ctx := context.Background()
 	client, err := sarama.NewConsumerGroup(connectionstring.Brokers, connectionstring.Group, config)
 	if err != nil {
 		return err
 	}
 
-	go client.Consume(ctx, consumer.topics, consumer)
+	go func() {
+		for {
+			consumer.ready = make(chan bool, 0)
+
+			ctx := context.Background()
+			err := client.Consume(ctx, consumer.topics, consumer)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
 
 	select {
 	case err := <-client.Errors():
@@ -147,7 +154,7 @@ func (consumer *Consumer) Setup(sarama.ConsumerGroupSession) error {
 }
 
 // Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
-func (consumer *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
+func (consumer *Consumer) Cleanup(session sarama.ConsumerGroupSession) error {
 	return nil
 }
 

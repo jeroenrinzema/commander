@@ -17,3 +17,11 @@ An connection string could consist out of the following flags:
 ```
 brokers=192.168.2.1,192.168.2.2 group=example version=1.1.0
 ```
+
+## Retry on panic
+
+This dialect supports the retry on panic configuration and could be enabled by setting the `retry-panic` key in the connection string:
+
+```
+brokers=... group=... version=... retry-panic
+```

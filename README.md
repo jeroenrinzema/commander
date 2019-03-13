@@ -28,3 +28,7 @@ group.HandleFunc("example", commander.CommandTopic, func(writer commander.Respon
 This example consumes commands with the action `example` and produces at once a event with the action `created` to the event topic.
 The CQRS pattern is used in this example but commander is not limited only to it. Commander allowes applications to be written in many different ways.
 Checkout the [multiple groups](https://github.com/jeroenrinzema/commander/tree/master/examples/multiple-groups) example.
+
+## Retry on panic
+
+Retry on panic is supported by some dialects and allowes a event/command to be consumed again on a system error.

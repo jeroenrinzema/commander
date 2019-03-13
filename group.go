@@ -3,6 +3,7 @@ package commander
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -41,7 +42,12 @@ type Handler interface {
 // IsAttached checks if the given group is attached to a commander instance
 func (group *Group) IsAttached() error {
 	if group.Client == nil {
-		return errors.New("The commander group for the topics [%+v] is not attached to a commander instance")
+		topics := []string{}
+		for _, topic := range group.Topics {
+			topics = append(topics, topic.Name)
+		}
+
+		return fmt.Errorf("The commander group for the topics: %+v is not attached to a commander instance", topics)
 	}
 
 	return nil
@@ -128,6 +134,11 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 func (group *Group) ProduceCommand(command *Command) error {
 	Logger.Println("Producing command")
 
+	err := group.IsAttached()
+	if err != nil {
+		panic(err)
+	}
+
 	if command.Key == uuid.Nil {
 		command.Key = command.ID
 	}
@@ -179,6 +190,11 @@ func (group *Group) ProduceCommand(command *Command) error {
 // A error is returned if anything went wrong in the process.
 func (group *Group) ProduceEvent(event *Event) error {
 	Logger.Println("Producing event")
+
+	err := group.IsAttached()
+	if err != nil {
+		panic(err)
+	}
 
 	if event.Key == uuid.Nil {
 		event.Key = event.ID
@@ -236,6 +252,11 @@ func (group *Group) ProduceEvent(event *Event) error {
 // All received messages are published over the returned messages channel.
 func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, Close, error) {
 	Logger.Println("New topic consumer")
+
+	err := group.IsAttached()
+	if err != nil {
+		panic(err)
+	}
 
 	topics := []Topic{}
 	for _, topic := range group.Topics {

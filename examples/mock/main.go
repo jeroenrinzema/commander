@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -33,6 +34,7 @@ var group = &commander.Group{
 }
 
 func main() {
+	commander.Logger.SetOutput(os.Stdout)
 	connectionstring := ""
 	dialect := &commander.MockDialect{}
 
@@ -51,6 +53,7 @@ func main() {
 	 */
 	group.HandleFunc(commander.CommandTopic, "example", func(writer commander.ResponseWriter, message interface{}) {
 		key, _ := uuid.NewV4()
+
 		writer.ProduceEvent("created", 1, key, nil)
 	})
 

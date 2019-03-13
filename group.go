@@ -32,11 +32,11 @@ type Close func()
 // Handle represents a message handle method
 // The interface could contain a *Event or *Command struct
 // regarding to the topic type that is being consumed.
-type Handle func(ResponseWriter, interface{}) error
+type Handle func(ResponseWriter, interface{})
 
 // Handler prodvides a interface to handle Messages
 type Handler interface {
-	Process(writer ResponseWriter, message interface{}) error
+	Process(writer ResponseWriter, message interface{})
 }
 
 // IsAttached checks if the given group is attached to a commander instance
@@ -118,6 +118,7 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 				event.Populate(message)
 
 				if event.Parent != parent {
+					marked <- nil
 					continue await
 				}
 
@@ -280,6 +281,41 @@ func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, chan<- error, 
 	return messages, marked, func() { group.Consumer.Unsubscribe(messages) }, err
 }
 
+func (group *Group) handle(action string, sort TopicType, messages <-chan *Message, marked chan<- error, callback Handle) {
+	// On panic mark message as not consumed and restart the handle
+	defer func() {
+		if err := recover(); err != nil {
+			marked <- errors.New("panic")
+			group.handle(action, sort, messages, marked, callback)
+		}
+	}()
+
+	for message := range messages {
+		var value interface{}
+
+		a := string(message.Headers[ActionHeader])
+		if a != action {
+			continue
+		}
+
+		switch sort {
+		case EventTopic:
+			event := &Event{}
+			event.Populate(message)
+
+			value = event
+		case CommandTopic:
+			command := &Command{}
+			command.Populate(message)
+
+			value = command
+		}
+
+		writer := NewResponseWriter(group, value)
+		callback(writer, value)
+	}
+}
+
 // HandleFunc awaits messages from the given TopicType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
@@ -289,35 +325,7 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 		return nil, err
 	}
 
-	go func() {
-		for message := range messages {
-			var value interface{}
-
-			a := string(message.Headers[ActionHeader])
-			if a != action {
-				continue
-			}
-
-			switch sort {
-			case EventTopic:
-				event := &Event{}
-				event.Populate(message)
-
-				value = event
-			case CommandTopic:
-				command := &Command{}
-				command.Populate(message)
-
-				value = command
-			}
-
-			writer := NewResponseWriter(group, value)
-			err := callback(writer, value)
-
-			marked <- err
-		}
-	}()
-
+	go group.handle(action, sort, messages, marked, callback)
 	return closing, nil
 }
 

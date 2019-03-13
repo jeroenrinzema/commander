@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -49,6 +49,7 @@ var warehouse = &commander.Group{
 }
 
 func main() {
+	commander.Logger.SetOutput(os.Stdout)
 	connectionstring := ""
 	dialect := &commander.MockDialect{}
 
@@ -66,11 +67,7 @@ func main() {
 	 * will a available event be produced.
 	 */
 	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
-		command, ok := message.(*commander.Command)
-		if !ok {
-			writer.ProduceError("ParseError", errors.New("unable to parse the command"))
-			return
-		}
+		command := message.(*commander.Command)
 
 		id, err := uuid.FromString(string(command.Data))
 		if err != nil {

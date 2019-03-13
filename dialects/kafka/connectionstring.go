@@ -10,9 +10,10 @@ type ConnectionMap map[string]string
 
 // These const's contain the connection string keys to different values
 const (
-	BrokersKey = "brokers"
-	GroupKey   = "group"
-	VersionKey = "version"
+	BrokersKey      = "brokers"
+	GroupKey        = "group"
+	VersionKey      = "version"
+	RetryOnPanicKey = "retry-panic"
 )
 
 // ParseConnectionstring parses the given connectionstring and returns a map with all key/values
@@ -47,6 +48,10 @@ func ValidateConnectionKeyVal(values ConnectionMap) error {
 
 	if len(values[VersionKey]) == 0 {
 		return errors.New("No kafka version is defined in the connectionstring")
+	}
+
+	if len(values[RetryOnPanicKey]) == 0 {
+		values[RetryOnPanicKey] = "false"
 	}
 
 	return nil

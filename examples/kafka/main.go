@@ -35,11 +35,16 @@ var warehouse = &commander.Group{
 }
 
 func main() {
+	commander.Logger.SetOutput(os.Stdout)
 	brokers := flag.String("brokers", "127.0.0.1", "Kafka brokers seperated by a ,")
-	version := flag.String("version", "1.1.0", "Kafka cluster version")
+	version := flag.String("version", "2.1.1", "Kafka cluster version")
 	flag.Parse()
 
-	connectionstring := fmt.Sprintf("brokers=%s group=example version=%s", *brokers, *version)
+	/**
+	 * Enable retry on panic:
+	 * Preform a panic on a system error, commander will mark the message as failed and could be reconsumed if supported by the dialect
+	 */
+	connectionstring := fmt.Sprintf("brokers=%s group=example version=%s retry-panic", *brokers, *version)
 	log.Println("Connecting to Kafka:", connectionstring)
 
 	dialect := &kafka.Dialect{}
@@ -61,12 +66,14 @@ func main() {
 	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
 		key, err := uuid.NewV4()
 		if err != nil {
-			writer.ProduceError("UUIDGenErr", err)
-			return
+			panic(err)
 		}
 
 		// Event: name, version, key, data
-		writer.ProduceEvent("Available", 1, key, nil)
+		_, err = writer.ProduceEvent("Available", 1, key, nil)
+		if err != nil {
+			panic(err)
+		}
 	})
 
 	/**

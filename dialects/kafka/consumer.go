@@ -55,6 +55,7 @@ type Consumer struct {
 	consumptions     sync.WaitGroup
 	mutex            sync.RWMutex
 	ready            chan bool
+	closing          bool
 }
 
 // Connect initializes a new Sarama consumer group and awaits till the consumer
@@ -76,6 +77,10 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 
 	go func() {
 		for {
+			if consumer.closing {
+				break
+			}
+
 			ctx := context.Background()
 			err := client.Consume(ctx, consumer.topics, consumer)
 			if err != nil {
@@ -127,7 +132,6 @@ func (consumer *Consumer) Unsubscribe(channel <-chan *commander.Message) error {
 			if subscription.messages == channel {
 				consumer.subscriptions[topic] = append(consumer.subscriptions[topic][:index], consumer.subscriptions[topic][index+1:]...)
 				close(subscription.messages)
-				close(subscription.marked)
 				break
 			}
 		}
@@ -138,6 +142,8 @@ func (consumer *Consumer) Unsubscribe(channel <-chan *commander.Message) error {
 
 // Close closes the kafka consumer
 func (consumer *Consumer) Close() error {
+	consumer.closing = true
+
 	consumer.client.Close()
 	consumer.consumptions.Wait()
 
@@ -171,10 +177,11 @@ func (consumer *Consumer) Cleanup(session sarama.ConsumerGroupSession) error {
 
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-claim:
 	for message := range claim.Messages() {
-		commander.Logger.Println("Message claimed")
+		commander.Logger.Println("Message claimed:", message.Topic, message.Partition, message.Offset)
 		consumer.consumptions.Add(1)
+
+		var err error
 
 		subscriptions := consumer.subscriptions[message.Topic]
 		if len(subscriptions) > 0 {
@@ -195,16 +202,24 @@ claim:
 
 			for _, subscription := range subscriptions {
 				subscription.messages <- message
-				err := <-subscription.marked
+				err = <-subscription.marked
 				if err != nil {
-					session.MarkOffset(message.Topic, message.Partition, message.Offset, "")
-					continue claim
+					break
 				}
 			}
 		}
 
-		session.MarkMessage(message, "")
 		consumer.consumptions.Done()
+
+		if err != nil && consumer.connectionstring.RetryOnPanic {
+			// Mark the message to be consumed again
+			commander.Logger.Println("Marking a message as not consumed:", message.Topic, message.Partition, message.Offset)
+			session.MarkOffset(message.Topic, message.Partition, message.Offset, "")
+			break
+		}
+
+		commander.Logger.Println("Marking message as consumed")
+		session.MarkMessage(message, "")
 	}
 
 	return nil

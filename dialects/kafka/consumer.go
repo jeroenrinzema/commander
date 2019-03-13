@@ -76,7 +76,7 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 				panic(err)
 			}
 		}
-	}
+	}()
 
 	select {
 	case err := <-client.Errors():

@@ -99,7 +99,7 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
-func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commander.Message, error) {
+func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commander.Message, chan<- error, error) {
 	commander.Logger.Println("Subscribing to topics:", topics)
 
 	subscription := Subscription{
@@ -114,7 +114,7 @@ func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commande
 		consumer.subscriptions[topic.Name] = append(consumer.subscriptions[topic.Name], subscription)
 	}
 
-	return subscription, nil
+	return subscription.messages, subscription.marked, nil
 }
 
 // Unsubscribe unsubscribes the given topic from the subscription list

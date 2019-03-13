@@ -8,6 +8,12 @@ import (
 	"github.com/jeroenrinzema/commander"
 )
 
+// Subscription represents a consumer topic(s) subscription
+type Subscription struct {
+	messages chan *commander.Message
+	marked   chan error
+}
+
 // NewConsumer constructs a new kafka dialect consumer
 func NewConsumer(connectionstring Config, config *sarama.Config, groups ...*commander.Group) (*Consumer, error) {
 	topics := []string{}
@@ -45,7 +51,7 @@ type Consumer struct {
 	connectionstring Config
 	config           *sarama.Config
 	topics           []string
-	subscriptions    map[string][]chan *commander.Message
+	subscriptions    map[string][]*Subscription
 	consumptions     sync.WaitGroup
 	mutex            sync.RWMutex
 	ready            chan bool
@@ -96,7 +102,10 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commander.Message, error) {
 	commander.Logger.Println("Subscribing to topics:", topics)
 
-	subscription := make(chan *commander.Message, 1)
+	subscription := Subscription{
+		marked:   make(chan error, 1),
+		messages: make(chan *commander.Message, 1),
+	}
 
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
@@ -182,7 +191,8 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 			}
 
 			for _, subscription := range subscriptions {
-				subscription <- message
+				subscription.messages <- message
+				err := <-subscription.marked
 			}
 		}
 

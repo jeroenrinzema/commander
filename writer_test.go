@@ -32,7 +32,7 @@ func TestWriterProduceCommand(t *testing.T) {
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
 
-	messages, closing, err := group.NewConsumer(CommandTopic)
+	messages, marked, closing, err := group.NewConsumer(CommandTopic)
 	if err != nil {
 		t.Error(err)
 		return
@@ -52,6 +52,7 @@ func TestWriterProduceCommand(t *testing.T) {
 
 	select {
 	case <-messages:
+		marked <- nil
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -70,7 +71,7 @@ func TestWriterProduceEvent(t *testing.T) {
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
 
-	messages, closing, err := group.NewConsumer(EventTopic)
+	messages, marked, closing, err := group.NewConsumer(EventTopic)
 	if err != nil {
 		t.Error(err)
 		return
@@ -96,6 +97,8 @@ func TestWriterProduceEvent(t *testing.T) {
 		if event.Parent != command.ID {
 			t.Error("The event parent does not match the command id")
 		}
+
+		marked <- nil
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -113,7 +116,7 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
 
-	messages, closing, err := group.NewConsumer(EventTopic)
+	messages, marked, closing, err := group.NewConsumer(EventTopic)
 	if err != nil {
 		t.Error(err)
 		return
@@ -133,6 +136,7 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 
 	select {
 	case <-messages:
+		marked <- nil
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}

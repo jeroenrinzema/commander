@@ -32,11 +32,11 @@ type Close func()
 // Handle represents a message handle method
 // The interface could contain a *Event or *Command struct
 // regarding to the topic type that is being consumed.
-type Handle func(ResponseWriter, interface{})
+type Handle func(ResponseWriter, interface{}) error
 
 // Handler prodvides a interface to handle Messages
 type Handler interface {
-	Process(writer ResponseWriter, message interface{})
+	Process(writer ResponseWriter, message interface{}) error
 }
 
 // IsAttached checks if the given group is attached to a commander instance
@@ -68,7 +68,7 @@ func (group *Group) AsyncCommand(command *Command) error {
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
 func (group *Group) SyncCommand(command *Command) (*Event, error) {
-	sink, erro := group.AwaitEvent(group.Timeout, command.ID)
+	sink, marked, erro := group.AwaitEvent(group.Timeout, command.ID)
 	err := group.AsyncCommand(command)
 	if err != nil {
 		return nil, err
@@ -76,6 +76,7 @@ func (group *Group) SyncCommand(command *Command) (*Event, error) {
 
 	select {
 	case event := <-sink:
+		marked <- nil
 		return event, nil
 	case err := <-erro:
 		return nil, err
@@ -88,17 +89,17 @@ func (group *Group) SyncCommand(command *Command) (*Event, error) {
 // If not the expected events are returned within the given timeout period
 // will a error be returned. The timeout channel is closed when all
 // expected events are received or after a timeout is thrown.
-func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan *Event, <-chan error) {
+func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan *Event, chan<- error, <-chan error) {
 	Logger.Println("Awaiting child event")
 
 	sink := make(chan *Event, 1)
 	erro := make(chan error, 1)
 
-	messages, closing, err := group.NewConsumer(EventTopic)
+	messages, marked, closing, err := group.NewConsumer(EventTopic)
 	if err != nil {
 		closing()
 		erro <- err
-		return sink, erro
+		return sink, marked, erro
 	}
 
 	go func() {
@@ -126,7 +127,7 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 		}
 	}()
 
-	return sink, erro
+	return sink, marked, erro
 }
 
 // ProduceCommand constructs and produces a command message to the set command topic.
@@ -250,7 +251,7 @@ func (group *Group) ProduceEvent(event *Event) error {
 
 // NewConsumer starts consuming events of topics from the same topic type.
 // All received messages are published over the returned messages channel.
-func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, Close, error) {
+func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, chan<- error, Close, error) {
 	Logger.Println("New topic consumer")
 
 	err := group.IsAttached()
@@ -272,18 +273,18 @@ func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, Close, error) 
 	}
 
 	if len(topics) == 0 {
-		return make(<-chan *Message, 0), func() {}, errors.New("no consumable topics are found for the topic type" + string(sort))
+		return make(<-chan *Message, 0), make(chan<- error, 0), func() {}, errors.New("no consumable topics are found for the topic type" + string(sort))
 	}
 
-	messages, err := group.Consumer.Subscribe(topics...)
-	return messages, func() { group.Consumer.Unsubscribe(messages) }, err
+	messages, marked, err := group.Consumer.Subscribe(topics...)
+	return messages, marked, func() { group.Consumer.Unsubscribe(messages) }, err
 }
 
 // HandleFunc awaits messages from the given TopicType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
 func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (Close, error) {
-	messages, closing, err := group.NewConsumer(sort)
+	messages, marked, closing, err := group.NewConsumer(sort)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +312,9 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 			}
 
 			writer := NewResponseWriter(group, value)
-			callback(writer, value)
+			err := callback(writer, value)
+
+			marked <- err
 		}
 	}()
 

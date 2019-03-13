@@ -12,8 +12,9 @@ type actionHandle struct {
 	messages chan interface{}
 }
 
-func (handle *actionHandle) Process(writer ResponseWriter, message interface{}) {
+func (handle *actionHandle) Process(writer ResponseWriter, message interface{}) error {
 	handle.messages <- message
+	return nil
 }
 
 // NewTestGroup initializes a new group used for testing
@@ -104,11 +105,12 @@ func TestAwaitEvent(t *testing.T) {
 	parent, _ := uuid.NewV4()
 
 	go func() {
-		sink, err := group.AwaitEvent(timeout, parent)
+		sink, marked, err := group.AwaitEvent(timeout, parent)
 		select {
 		case e := <-err:
 			t.Error(e)
 		case <-sink:
+			marked <- nil
 		}
 	}()
 
@@ -121,7 +123,7 @@ func TestEventConsumer(t *testing.T) {
 	group := NewTestGroup()
 	NewTestClient(group)
 
-	events, close, err := group.NewConsumer(EventTopic)
+	events, marked, close, err := group.NewConsumer(EventTopic)
 	if err != nil {
 		panic(err)
 	}
@@ -145,6 +147,8 @@ func TestEventConsumer(t *testing.T) {
 	case <-ctx.Done():
 		t.Error("no message was consumed within the deadline")
 	}
+
+	marked <- nil
 }
 
 // TestCommandConsumer tests if commands get consumed
@@ -152,7 +156,7 @@ func TestCommandConsumer(t *testing.T) {
 	group := NewTestGroup()
 	NewTestClient(group)
 
-	commands, close, err := group.NewConsumer(CommandTopic)
+	commands, marked, close, err := group.NewConsumer(CommandTopic)
 	if err != nil {
 		panic(err)
 	}
@@ -173,6 +177,8 @@ func TestCommandConsumer(t *testing.T) {
 	case <-ctx.Done():
 		t.Error("no message was consumed within the deadline")
 	}
+
+	marked <- nil
 }
 
 // TestEventHandleFunc tests if a event handle func get's called
@@ -183,13 +189,14 @@ func TestEventHandleFunc(t *testing.T) {
 	action := "testing"
 	delivered := make(chan *Event, 1)
 
-	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) {
+	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) error {
 		event, ok := message.(*Event)
 		if !ok {
 			t.Error("the received message is not a event")
 		}
 
 		delivered <- event
+		return nil
 	})
 
 	parent, _ := uuid.NewV4()
@@ -312,20 +319,22 @@ func TestCommandTimestampPassed(t *testing.T) {
 	NewTestClient(group)
 
 	delivered := make(chan interface{}, 1)
-	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) {
+	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) error {
 		command := message.(*Command)
 		timestamp = command.Timestamp
 
 		writer.ProduceEvent("event", 1, uuid.Nil, nil)
+		return nil
 	})
 
-	group.HandleFunc(EventTopic, "event", func(writer ResponseWriter, message interface{}) {
+	group.HandleFunc(EventTopic, "event", func(writer ResponseWriter, message interface{}) error {
 		event := message.(*Event)
 		if event.CommandTimestamp.Unix() != timestamp.Unix() {
 			t.Fatal("the event timestamp does not match the command timestamp")
 		}
 
 		delivered <- message
+		return nil
 	})
 
 	group.ProduceCommand(command)
@@ -339,5 +348,39 @@ func TestCommandTimestampPassed(t *testing.T) {
 	case <-delivered:
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
+	}
+}
+
+// TestCommandTimestampPassed tests if the command timestamp is passed to the produced event
+func TestMessageMarked(t *testing.T) {
+	id := func() uuid.UUID { id, _ := uuid.NewV4(); return id }
+
+	first := NewCommand("command", 1, id(), []byte("{}"))
+	second := NewCommand("command", 1, id(), []byte("{}"))
+
+	group := NewTestGroup()
+	NewTestClient(group)
+
+	delivered := make(chan interface{}, 2)
+
+	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) error {
+		time.Sleep(100 * time.Millisecond)
+		delivered <- message
+		return nil
+	})
+
+	group.ProduceCommand(first)
+	group.ProduceCommand(second)
+
+	deadline := time.Now().Add(100 * time.Millisecond)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	select {
+	case <-ctx.Done():
+		if len(delivered) == 2 {
+			t.Fatal("the events are unexpectedly consumed before marked")
+		}
 	}
 }

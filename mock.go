@@ -62,11 +62,13 @@ func (consumer *MockConsumer) Emit(message *Message) {
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
-func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, error) {
+func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, chan<- error, error) {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
+	marked := make(chan error, 1)
 	subscription := make(chan *Message, 1)
+
 	for _, topic := range topics {
 		if consumer.subscriptions[topic.Name] == nil {
 			consumer.subscriptions[topic.Name] = []chan *Message{}
@@ -75,7 +77,7 @@ func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, error
 		consumer.subscriptions[topic.Name] = append(consumer.subscriptions[topic.Name], subscription)
 	}
 
-	return subscription, nil
+	return subscription, marked, nil
 }
 
 // Unsubscribe unsubscribes the given topic from the subscription list

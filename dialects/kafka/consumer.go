@@ -30,7 +30,7 @@ func NewConsumer(connectionstring Config, config *sarama.Config, groups ...*comm
 
 	consumer := &Consumer{
 		topics:        topics,
-		subscriptions: make(map[string][]chan *commander.Message),
+		subscriptions: make(map[string][]chan *Subscription),
 		ready:         make(chan bool, 0),
 	}
 
@@ -102,7 +102,7 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commander.Message, chan<- error, error) {
 	commander.Logger.Println("Subscribing to topics:", topics)
 
-	subscription := Subscription{
+	subscription := &Subscription{
 		marked:   make(chan error, 1),
 		messages: make(chan *commander.Message, 1),
 	}
@@ -124,9 +124,10 @@ func (consumer *Consumer) Unsubscribe(channel <-chan *commander.Message) error {
 
 	for topic, subscriptions := range consumer.subscriptions {
 		for index, subscription := range subscriptions {
-			if subscription == channel {
+			if subscription.messages == channel {
 				consumer.subscriptions[topic] = append(consumer.subscriptions[topic][:index], consumer.subscriptions[topic][index+1:]...)
-				close(subscription)
+				close(subscription.messages)
+				close(subscription.marked)
 				break
 			}
 		}
@@ -145,7 +146,8 @@ func (consumer *Consumer) Close() error {
 
 	for topic, subscriptions := range consumer.subscriptions {
 		for _, subscription := range subscriptions {
-			close(subscription)
+			close(subscription.messages)
+			close(subscription.marked)
 		}
 
 		consumer.subscriptions[topic] = nil

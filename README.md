@@ -20,6 +20,13 @@ var group = commander.Group{
 			Name: "commands",
 			Type: commander.CommandTopic,
 			Produce: true,
+			Consume: true,
+		},
+		commander.Topic{
+			Name: "events",
+			Type: commander.EventTopic,
+			Produce: true,
+			Consume: true,
 		},
 	},
 	Timeout: 5*time.Second,

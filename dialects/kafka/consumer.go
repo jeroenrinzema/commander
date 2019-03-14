@@ -81,6 +81,7 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 				break
 			}
 
+			commander.Logger.Println("Opening consumer for:", consumer.topics, "on:" connectionstring.Brokers)
 			ctx := context.Background()
 			err := client.Consume(ctx, consumer.topics, consumer)
 			commander.Logger.Println("Consumer closed:", err)

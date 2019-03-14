@@ -180,45 +180,47 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 		commander.Logger.Println("Message claimed:", message.Topic, message.Partition, message.Offset)
 		consumer.consumptions.Add(1)
 
-		var err error
+		go func() {
+			var err error
 
-		subscriptions := consumer.subscriptions[message.Topic]
-		if len(subscriptions) > 0 {
-			headers := map[string]string{}
-			for _, record := range message.Headers {
-				headers[string(record.Key)] = string(record.Value)
-			}
+			subscriptions := consumer.subscriptions[message.Topic]
+			if len(subscriptions) > 0 {
+				headers := map[string]string{}
+				for _, record := range message.Headers {
+					headers[string(record.Key)] = string(record.Value)
+				}
 
-			message := &commander.Message{
-				Headers: headers,
-				Topic: commander.Topic{
-					Name: message.Topic,
-				},
-				Value:     message.Value,
-				Key:       message.Key,
-				Timestamp: message.Timestamp,
-			}
+				message := &commander.Message{
+					Headers: headers,
+					Topic: commander.Topic{
+						Name: message.Topic,
+					},
+					Value:     message.Value,
+					Key:       message.Key,
+					Timestamp: message.Timestamp,
+				}
 
-			for _, subscription := range subscriptions {
-				subscription.messages <- message
-				err = <-subscription.marked
-				if err != nil {
-					break
+				for _, subscription := range subscriptions {
+					subscription.messages <- message
+					err = <-subscription.marked
+					if err != nil {
+						break
+					}
 				}
 			}
-		}
 
-		consumer.consumptions.Done()
+			if err != nil {
+				// Mark the message to be consumed again
+				commander.Logger.Println("Marking a message as not consumed:", message.Topic, message.Partition, message.Offset)
+				session.MarkOffset(message.Topic, message.Partition, message.Offset, "")
+				break
+			}
 
-		if err != nil {
-			// Mark the message to be consumed again
-			commander.Logger.Println("Marking a message as not consumed:", message.Topic, message.Partition, message.Offset)
-			session.MarkOffset(message.Topic, message.Partition, message.Offset, "")
-			break
-		}
+			commander.Logger.Println("Marking message as consumed")
+			session.MarkMessage(message, "")
 
-		commander.Logger.Println("Marking message as consumed")
-		session.MarkMessage(message, "")
+			consumer.consumptions.Done()
+		}()
 	}
 
 	return nil

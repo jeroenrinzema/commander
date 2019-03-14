@@ -83,9 +83,7 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 
 			ctx := context.Background()
 			err := client.Consume(ctx, consumer.topics, consumer)
-			if err != nil {
-				panic(err)
-			}
+			Logger.Println("Consumer closed:", err)
 		}
 	}()
 

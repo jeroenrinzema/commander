@@ -66,51 +66,51 @@ func main() {
 	 * HandleFunc handles commands with the action "available". Once a available command is received
 	 * will a available event be produced.
 	 */
-	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) error {
+	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
 		command := message.(*commander.Command)
 
 		id, err := uuid.FromString(string(command.Data))
 		if err != nil {
-			_, err := writer.ProduceError("ParseDataError", nil)
-			return err
+			writer.ProduceError("ParseDataError", nil)
+			return
 		}
 
 		// ... validate if the item is available
 
 		key, err := uuid.NewV4()
 		if err != nil {
-			return err
+			return
 		}
 
-		_, err := writer.ProduceEvent("Available", 1, key, []byte(id.String()))
-		return err
+		writer.ProduceEvent("Available", 1, key, []byte(id.String()))
+		return
 	})
 
 	/**
 	 * HandleFunc handles command with the action "example". Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	cart.HandleFunc(commander.CommandTopic, "Purchase", func(writer commander.ResponseWriter, message interface{}) error {
+	cart.HandleFunc(commander.CommandTopic, "Purchase", func(writer commander.ResponseWriter, message interface{}) {
 		item, _ := uuid.NewV4()
 		key, _ := uuid.NewV4()
 
 		command := commander.NewCommand("Available", 1, key, []byte(item.String()))
 		event, err := warehouse.SyncCommand(command)
 		if err != nil {
-			_, err := writer.ProduceError("WarehouseNotAvailable", err)
-			return err
+			writer.ProduceError("WarehouseNotAvailable", err)
+			return
 		}
 
 		if event.Status != commander.StatusOK {
-			_, err := writer.ProduceError("NotAvailable", err)
-			return err
+			writer.ProduceError("NotAvailable", err)
+			return
 		}
 
 		items := []string{item.String()}
 		response, _ := json.Marshal(items)
 
-		_, err := writer.ProduceEvent("Purchased", 1, key, response)
-		return err
+		writer.ProduceEvent("Purchased", 1, key, response)
+		return
 	})
 
 	/**
@@ -137,5 +137,8 @@ func main() {
 	fmt.Println("Http server running at :8080")
 	fmt.Println("Send a http request to /purchase to simulate a 'sync' purchase command")
 
-	http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		panic(err)
+	}
 }

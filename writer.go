@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"errors"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -19,6 +20,11 @@ func NewResponseWriter(group *Group, value interface{}) ResponseWriter {
 	return writer
 }
 
+var (
+	// ErrDefaultRetry represents the default retry error message
+	ErrDefaultRetry = errors.New("message marked to be retried")
+)
+
 // ResponseWriter writes events or commands back to the assigned group.
 type ResponseWriter interface {
 	// ProduceEvent creates and produces a new event to the assigned group.
@@ -29,12 +35,19 @@ type ResponseWriter interface {
 
 	// ProduceCommand produces a new command
 	ProduceCommand(action string, version int8, key uuid.UUID, data []byte) (*Command, error)
+
+	// Retry marks the message to be retried. An error could be given to be passed to the dialect
+	Retry(err error)
+
+	// ShouldRetry returns if the writer has marked the message to be retried
+	ShouldRetry() error
 }
 
 // Writer is a struct representing the ResponseWriter interface
 type writer struct {
 	Group   *Group
 	Command *Command
+	retry   error
 }
 
 func (writer *writer) ProduceError(action string, err error) (*Event, error) {
@@ -83,4 +96,16 @@ func (writer *writer) ProduceCommand(action string, version int8, key uuid.UUID,
 	err := writer.Group.ProduceCommand(command)
 
 	return command, err
+}
+
+func (writer *writer) Retry(err error) {
+	if err != nil {
+		err = ErrDefaultRetry
+	}
+
+	writer.retry = err
+}
+
+func (writer *writer) ShouldRetry() error {
+	return writer.retry
 }

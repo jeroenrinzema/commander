@@ -40,11 +40,7 @@ func main() {
 	version := flag.String("version", "2.1.1", "Kafka cluster version")
 	flag.Parse()
 
-	/**
-	 * Enable retry on panic:
-	 * Preform a panic on a system error, commander will mark the message as failed and could be reconsumed if supported by the dialect
-	 */
-	connectionstring := fmt.Sprintf("brokers=%s group=example version=%s retry-panic", *brokers, *version)
+	connectionstring := fmt.Sprintf("brokers=%s group=example version=%s", *brokers, *version)
 	log.Println("Connecting to Kafka:", connectionstring)
 
 	dialect := &kafka.Dialect{}
@@ -63,15 +59,16 @@ func main() {
 	 * HandleFunc handles an "Available" command. Once a command with the action "Available" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) error {
+	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
 		key, err := uuid.NewV4()
 		if err != nil {
-			return err
+			// Mark the message to be retried, this will reset the offset of the message topic, parition to the original message offset
+			writer.Retry(err)
+			return
 		}
 
 		// Event: name, version, key, data
-		_, err = writer.ProduceEvent("Available", 1, key, nil)
-		return err
+		writer.ProduceEvent("Available", 1, key, nil)
 	})
 
 	/**

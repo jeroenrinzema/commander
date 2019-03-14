@@ -12,9 +12,8 @@ type actionHandle struct {
 	messages chan interface{}
 }
 
-func (handle *actionHandle) Process(writer ResponseWriter, message interface{}) error {
+func (handle *actionHandle) Process(writer ResponseWriter, message interface{}) {
 	handle.messages <- message
-	return nil
 }
 
 // NewTestGroup initializes a new group used for testing
@@ -194,14 +193,13 @@ func TestEventHandleFunc(t *testing.T) {
 	action := "testing"
 	delivered := make(chan *Event, 1)
 
-	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) error {
+	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) {
 		event, ok := message.(*Event)
 		if !ok {
 			t.Error("the received message is not a event")
 		}
 
 		delivered <- event
-		return nil
 	})
 
 	parent, _ := uuid.NewV4()
@@ -327,22 +325,20 @@ func TestCommandTimestampPassed(t *testing.T) {
 	NewTestClient(group)
 
 	delivered := make(chan interface{}, 1)
-	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) error {
+	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) {
 		command := message.(*Command)
 		timestamp = command.Timestamp
 
 		writer.ProduceEvent("event", 1, uuid.Nil, nil)
-		return nil
 	})
 
-	group.HandleFunc(EventTopic, "event", func(writer ResponseWriter, message interface{}) error {
+	group.HandleFunc(EventTopic, "event", func(writer ResponseWriter, message interface{}) {
 		event := message.(*Event)
 		if event.CommandTimestamp.Unix() != timestamp.Unix() {
 			t.Fatal("the event timestamp does not match the command timestamp")
 		}
 
 		delivered <- message
-		return nil
 	})
 
 	group.ProduceCommand(command)
@@ -371,10 +367,9 @@ func TestMessageMarked(t *testing.T) {
 
 	delivered := make(chan interface{}, 2)
 
-	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) error {
+	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) {
 		time.Sleep(100 * time.Millisecond)
 		delivered <- message
-		return nil
 	})
 
 	group.ProduceCommand(first)

@@ -28,7 +28,7 @@ func TestClosingConsumptions(t *testing.T) {
 	version := int8(1)
 	delivered := make(chan *Event, 1)
 
-	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) error {
+	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) {
 		event, ok := message.(*Event)
 		if !ok {
 			t.Error("the received message is not a event")
@@ -36,7 +36,6 @@ func TestClosingConsumptions(t *testing.T) {
 
 		time.Sleep(1 * time.Second)
 		delivered <- event
-		return nil
 	})
 
 	parent, _ := uuid.NewV4()

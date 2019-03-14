@@ -211,7 +211,7 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 
 		consumer.consumptions.Done()
 
-		if err != nil && consumer.connectionstring.RetryOnPanic {
+		if err != nil {
 			// Mark the message to be consumed again
 			commander.Logger.Println("Marking a message as not consumed:", message.Topic, message.Partition, message.Offset)
 			session.MarkOffset(message.Topic, message.Partition, message.Offset, "")

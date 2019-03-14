@@ -32,11 +32,11 @@ type Close func()
 // Handle represents a message handle method
 // The interface could contain a *Event or *Command struct
 // regarding to the topic type that is being consumed.
-type Handle func(ResponseWriter, interface{}) error
+type Handle func(ResponseWriter, interface{})
 
 // Handler prodvides a interface to handle Messages
 type Handler interface {
-	Process(writer ResponseWriter, message interface{}) error
+	Process(writer ResponseWriter, message interface{})
 }
 
 // IsAttached checks if the given group is attached to a commander instance
@@ -316,7 +316,10 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 			}
 
 			writer := NewResponseWriter(group, value)
-			err := callback(writer, value)
+			callback(writer, value)
+
+			// Check if the message is marked to be retried
+			err := writer.ShouldRetry()
 			marked <- err
 		}
 	}()

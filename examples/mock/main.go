@@ -51,14 +51,13 @@ func main() {
 	 * HandleFunc handles an "example" command. Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	group.HandleFunc(commander.CommandTopic, "example", func(writer commander.ResponseWriter, message interface{}) error {
+	group.HandleFunc(commander.CommandTopic, "example", func(writer commander.ResponseWriter, message interface{}) {
 		key, err := uuid.NewV4()
 		if err != nil {
-			return err
+			return
 		}
 
-		_, err = writer.ProduceEvent("created", 1, key, nil)
-		return err
+		writer.ProduceEvent("created", 1, key, nil)
 	})
 
 	/**

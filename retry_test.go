@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// TestRetry tries to retry a method x ammount of times
+// TestRetry tries to retry a method x amount of times
 func TestRetry(t *testing.T) {
 	retry := Retry{
-		Ammount: 10,
+		Amount: 10,
 	}
 
 	err := retry.Attempt(func() error {
@@ -23,7 +23,7 @@ func TestRetry(t *testing.T) {
 // TestRetryFail tests if a retry attempt is failing
 func TestRetryFail(t *testing.T) {
 	retry := Retry{
-		Ammount: 1,
+		Amount: 1,
 	}
 
 	err := retry.Attempt(func() error {
@@ -38,7 +38,7 @@ func TestRetryFail(t *testing.T) {
 // TestRetryNotFail tests if a retry attempt is not failing after the second attempt
 func TestRetryNotFail(t *testing.T) {
 	retry := Retry{
-		Ammount: 5,
+		Amount: 5,
 	}
 
 	count := 0

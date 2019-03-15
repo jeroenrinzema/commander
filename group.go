@@ -165,13 +165,13 @@ func (group *Group) ProduceCommand(command *Command) error {
 			Topic:   topic,
 		}
 
-		ammount := group.Retries
-		if ammount == 0 {
-			ammount = DefaultAttempts
+		amount := group.Retries
+		if amount == 0 {
+			amount = DefaultAttempts
 		}
 
 		retry := Retry{
-			Ammount: ammount,
+			Amount: amount,
 		}
 
 		err := retry.Attempt(func() error {
@@ -227,13 +227,13 @@ func (group *Group) ProduceEvent(event *Event) error {
 			Topic:   topic,
 		}
 
-		ammount := group.Retries
-		if ammount == 0 {
-			ammount = DefaultAttempts
+		amount := group.Retries
+		if amount == 0 {
+			amount = DefaultAttempts
 		}
 
 		retry := Retry{
-			Ammount: ammount,
+			Amount: amount,
 		}
 
 		err := retry.Attempt(func() error {

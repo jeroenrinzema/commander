@@ -62,7 +62,7 @@ func main() {
 
 	/**
 	 * Handle creates a new "example" command that is produced to the groups writable command topic.
-	 * Once the command is written is a responding event awaited. The responsing event has a header
+	 * Once the command is written is a responding event awaited. The responding event has a header
 	 * with the parent id set to the id of the received command.
 	 */
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -2,7 +2,7 @@ package commander
 
 // Retry allowes a given method to be retried x ammount of times.
 type Retry struct {
-	Ammount int `json:"ammount"`
+	Amount  int `json:"amount"`
 	Retries int
 }
 
@@ -15,7 +15,7 @@ func (retry *Retry) Attempt(method func() error) error {
 		return nil
 	}
 
-	if retry.Retries >= retry.Ammount {
+	if retry.Retries >= retry.Amount {
 		return err
 	}
 

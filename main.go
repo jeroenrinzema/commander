@@ -72,7 +72,7 @@ func (client *Client) CloseOnSIGTERM() {
 	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigterm
-	Logger.Println("Recieved SIGTERM signal")
+	Logger.Println("Received SIGTERM signal")
 
 	client.Close()
 }

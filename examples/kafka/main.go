@@ -36,7 +36,7 @@ var warehouse = &commander.Group{
 
 func main() {
 	commander.Logger.SetOutput(os.Stdout)
-	brokers := flag.String("brokers", "127.0.0.1", "Kafka brokers seperated by a ,")
+	brokers := flag.String("brokers", "127.0.0.1", "Kafka brokers separated by a ,")
 	version := flag.String("version", "2.1.1", "Kafka cluster version")
 	flag.Parse()
 
@@ -73,7 +73,7 @@ func main() {
 
 	/**
 	 * Handle creates a new "Available" command that is produced to the warehouse group command topic.
-	 * Once the command is written is a responding event awaited. The responsing event has a header
+	 * Once the command is written is a responding event awaited. The responding event has a header
 	 * with the parent id set to the id of the received command.
 	 */
 	http.HandleFunc("/available", func(w http.ResponseWriter, r *http.Request) {

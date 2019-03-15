@@ -8,27 +8,47 @@ Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for det
 
 ## Getting started
 
-Commander mainly exists out of dialects and groups that connect and communicate with one another.
+- **Dialects**: A dialect is responsible for the production/consumption of events.
+- **Groups**: A group contains the configuration of where the commands/events should be produced or consumed from. Also are group wide configurations such as timeout's defined ina group configuration.
 
-- **Dialects**: A dialect is responsible for it's consumers and producers. It creates a connector to a piece of infastructure that supports some form of event streaming.
-- **Groups**: A group contains all the information for commander to setup it's consumers and producers. Commands and Events are consumed/written from/to groups.
+Let's first set up a simple commander group.
 
-Multiple groups/dialects could be defined and work together. Commander tries to not restrict the ways that you could produce/consume your event streams.
-An good example is to create a commander instance with a mock dialect.
+```go
+var group = commander.Group{
+	Topics: []commander.Topic{
+		commander.Topic{
+			Name: "commands",
+			Type: commander.CommandTopic,
+			Produce: true,
+			Consume: true,
+		},
+		commander.Topic{
+			Name: "events",
+			Type: commander.EventTopic,
+			Produce: true,
+			Consume: true,
+		},
+	},
+	Timeout: 5*time.Second,
+}
+```
+
+Topics and other various configurations get defined inside a commander group. A group get's attached to a commander instance. Multiple groups/dialects could be defined and work together. Commander tries to not restrict the ways that you could produce/consume your event streams.
+
+Once the event groups are defined should the communication dialect be set up and commander be initialized. Notice that the configured commander groups have to be passed as arguments when initializing the commander instance.
 
 ```go
 dialect := &commander.MockDialect{}
 commander.New(dialect, "", group)
 
 group.HandleFunc("example", commander.CommandTopic, func(writer commander.ResponseWriter, message interface{}) {
-	writer.ProduceEvent("created", 1, uuid.NewV4(), nil)
+	writer.ProduceEvent("created", 1, uuid.Nil, nil)
 })
+
+command := commander.NewCommand("example", 1, uuid.Nil, nil)
+group.ProduceCommand(command)
 ```
 
-This example consumes commands with the action `example` and produces at once a event with the action `created` to the event topic.
-The CQRS pattern is used in this example but commander is not limited only to it. Commander allowes applications to be written in many different ways.
-Checkout the [multiple groups](https://github.com/jeroenrinzema/commander/tree/master/examples/multiple-groups) example.
+This example consumes commands with the action `example` and produces at once a event with the action `created` to the event topic. In this example is the [CQRS](https://martinfowler.com/bliki/CQRS.html) pattern used but commander is not limited by it. Commander tries to be flexible and allowes applications to be written in many different ways.
 
-## Retry on panic
-
-Retry on panic is supported by some dialects and allowes a event/command to be consumed again on a system error.
+Check out the available examples on [Github](https://github.com/jeroenrinzema/commander/tree/master/examples).

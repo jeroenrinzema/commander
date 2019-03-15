@@ -1,4 +1,4 @@
-# Commander [![Coverage Report](https://goreportcard.com/badge/github.com/jeroenrinzema/commander)](https://goreportcard.com/badge/github.com/jeroenrinzema/commander)
+# Commander [![Coverage Report](https://goreportcard.com/badge/github.com/jeroenrinzema/commander)](https://goreportcard.com/badge/github.com/jeroenrinzema/commander) [![MIT](https://img.shields.io/github/license/jeroenrinzema/commander.svg)](https://img.shields.io/github/license/jeroenrinzema/commander.svg)
 
 Commander is a toolset for writing event driven applications, aims to be developer friendly. Commander supports event driven patterns such as CQRS and has support for different infastructure "dialects".
 

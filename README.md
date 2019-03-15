@@ -9,6 +9,10 @@ Commander is a toolset for writing event driven applications, aims to be develop
 
 Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for detailed usage docs. Or check out the [examples](https://github.com/jeroenrinzema/commander/tree/master/examples).
 
+## Official dialects
+
+- **[Kafka](https://github.com/jeroenrinzema/commander/dialects/kafka)** - Commander Kafka consumer/producer build upon the Sarama go Kafka client.
+
 ## Getting started
 
 - **Dialects**: A dialect is responsible for the production/consumption of events.

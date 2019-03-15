@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	// DefaultAttempts represents the default ammount of retry attempts
+	// DefaultAttempts represents the default amount of retry attempts
 	DefaultAttempts = 5
 )
 
 // Group contains information about a commander group.
 // A commander group could contain a events and commands topic where
-// commands and events could be consumed and produced to. The ammount of retries
+// commands and events could be consumed and produced to. The amount of retries
 // attempted before a error is thrown could also be defined in a group.
 type Group struct {
 	*Client

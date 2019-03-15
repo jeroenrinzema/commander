@@ -16,13 +16,13 @@ Let's first set up a simple commander group.
 ```go
 var group = commander.Group{
 	Topics: []commander.Topic{
-		commander.Topic{
+		{
 			Name: "commands",
 			Type: commander.CommandTopic,
 			Produce: true,
 			Consume: true,
 		},
-		commander.Topic{
+		{
 			Name: "events",
 			Type: commander.EventTopic,
 			Produce: true,

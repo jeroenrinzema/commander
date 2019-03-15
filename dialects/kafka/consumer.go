@@ -176,6 +176,7 @@ func (consumer *Consumer) Cleanup(session sarama.ConsumerGroupSession) error {
 
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+claims:
 	for message := range claim.Messages() {
 		commander.Logger.Println("Message claimed:", message.Topic, message.Partition, message.Offset)
 		consumer.consumptions.Add(1)
@@ -213,7 +214,7 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 				// Mark the message to be consumed again
 				commander.Logger.Println("Marking a message as not consumed:", message.Topic, message.Partition, message.Offset)
 				session.MarkOffset(message.Topic, message.Partition, message.Offset, "")
-				break
+				break claims
 			}
 
 			commander.Logger.Println("Marking message as consumed")

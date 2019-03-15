@@ -14,13 +14,13 @@ import (
 // Constructing the commander groups
 var cart = &commander.Group{
 	Topics: []commander.Topic{
-		commander.Topic{
+		{
 			Name:    "cart-commands",
 			Type:    commander.CommandTopic,
 			Consume: true,
 			Produce: true,
 		},
-		commander.Topic{
+		{
 			Name:    "cart-events",
 			Type:    commander.EventTopic,
 			Consume: true,
@@ -32,13 +32,13 @@ var cart = &commander.Group{
 
 var warehouse = &commander.Group{
 	Topics: []commander.Topic{
-		commander.Topic{
+		{
 			Name:    "warehouse-commands",
 			Type:    commander.CommandTopic,
 			Consume: true,
 			Produce: true,
 		},
-		commander.Topic{
+		{
 			Name:    "warehouse-events",
 			Type:    commander.EventTopic,
 			Consume: true,

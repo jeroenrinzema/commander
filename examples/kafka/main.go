@@ -18,13 +18,13 @@ import (
 
 var warehouse = &commander.Group{
 	Topics: []commander.Topic{
-		commander.Topic{
+		{
 			Name:    "commands",
 			Type:    commander.CommandTopic,
 			Consume: true,
 			Produce: true,
 		},
-		commander.Topic{
+		{
 			Name:    "events",
 			Type:    commander.EventTopic,
 			Consume: true,

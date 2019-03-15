@@ -21,13 +21,13 @@ func NewTestGroup() *Group {
 	group := &Group{
 		Timeout: 5 * time.Second,
 		Topics: []Topic{
-			Topic{
+			{
 				Name:    "events",
 				Type:    EventTopic,
 				Consume: true,
 				Produce: true,
 			},
-			Topic{
+			{
 				Name:    "commands",
 				Type:    CommandTopic,
 				Consume: true,

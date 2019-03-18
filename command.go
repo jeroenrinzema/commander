@@ -127,3 +127,19 @@ headers:
 
 	return throw
 }
+
+// Message constructs a new commander message for the given command
+func (command *Command) Message(topic Topic) *Message {
+	headers := command.Headers
+	headers[ActionHeader] = command.Action
+	headers[IDHeader] = command.ID.String()
+
+	message := &Message{
+		Headers: headers,
+		Key:     []byte(command.Key.String()),
+		Value:   command.Data,
+		Topic:   topic,
+	}
+
+	return message
+}

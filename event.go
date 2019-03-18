@@ -154,3 +154,24 @@ headers:
 
 	return throw
 }
+
+// Message constructs a new commander message for the given event
+func (event *Event) Message(topic Topic) *Message {
+	headers := event.Headers
+	headers[ActionHeader] = event.Action
+	headers[ParentHeader] = event.Parent.String()
+	headers[IDHeader] = event.ID.String()
+	headers[StatusHeader] = strconv.Itoa(int(event.Status))
+	headers[VersionHeader] = strconv.Itoa(int(event.Version))
+	headers[MetaHeader] = event.Meta
+	headers[CommandTimestampHeader] = strconv.Itoa(int(event.CommandTimestamp.Unix()))
+
+	message := &Message{
+		Headers: headers,
+		Key:     []byte(event.Key.String()),
+		Value:   event.Data,
+		Topic:   topic,
+	}
+
+	return message
+}

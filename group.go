@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -131,6 +130,40 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 	return sink, marked, erro
 }
 
+// FetchConsumeTopic returns the active consume/produce topic of the given type
+func (group *Group) FetchConsumeTopic(sType TopicType) (Topic, error) {
+	for _, topic := range group.Topics {
+		if topic.Type != sType {
+			continue
+		}
+
+		if topic.Consume != true {
+			continue
+		}
+
+		return topic, nil
+	}
+
+	return Topic{}, errors.New("No topic is found that is marked for consumption")
+}
+
+// FetchProduceTopic returns the active consume/produce topic of the given type
+func (group *Group) FetchProduceTopic(sType TopicType) (Topic, error) {
+	for _, topic := range group.Topics {
+		if topic.Type != sType {
+			continue
+		}
+
+		if topic.Produce != true {
+			continue
+		}
+
+		return topic, nil
+	}
+
+	return Topic{}, errors.New("No topic is found that is marked for producing")
+}
+
 // ProduceCommand constructs and produces a command message to the set command topic.
 // A error is returned if anything went wrong in the process. If no command key is set will the command id be used.
 func (group *Group) ProduceCommand(command *Command) error {
@@ -145,47 +178,30 @@ func (group *Group) ProduceCommand(command *Command) error {
 		command.Key = command.ID
 	}
 
-	for _, topic := range group.Topics {
-		if topic.Type != CommandTopic {
-			continue
-		}
-
-		if topic.Produce == false {
-			continue
-		}
-
-		headers := command.Headers
-		headers[ActionHeader] = command.Action
-		headers[IDHeader] = command.ID.String()
-
-		message := &Message{
-			Headers: headers,
-			Key:     []byte(command.Key.String()),
-			Value:   command.Data,
-			Topic:   topic,
-		}
-
-		amount := group.Retries
-		if amount == 0 {
-			amount = DefaultAttempts
-		}
-
-		retry := Retry{
-			Amount: amount,
-		}
-
-		err := retry.Attempt(func() error {
-			return group.Producer.Publish(message)
-		})
-
-		if err != nil {
-			return err
-		}
-
-		return nil
+	topic, err := group.FetchProduceTopic(CommandTopic)
+	if err != nil {
+		return err
 	}
 
-	return errors.New("No command topic is found that could be produced to")
+	message := command.Message(topic)
+	amount := group.Retries
+	if amount == 0 {
+		amount = DefaultAttempts
+	}
+
+	retry := Retry{
+		Amount: amount,
+	}
+
+	err = retry.Attempt(func() error {
+		return group.Producer.Publish(message)
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ProduceEvent produces a event kafka message to the set event topic.
@@ -202,52 +218,30 @@ func (group *Group) ProduceEvent(event *Event) error {
 		event.Key = event.ID
 	}
 
-	for _, topic := range group.Topics {
-		if topic.Type != EventTopic {
-			continue
-		}
-
-		if topic.Produce == false {
-			continue
-		}
-
-		headers := event.Headers
-		headers[ActionHeader] = event.Action
-		headers[ParentHeader] = event.Parent.String()
-		headers[IDHeader] = event.ID.String()
-		headers[StatusHeader] = strconv.Itoa(int(event.Status))
-		headers[VersionHeader] = strconv.Itoa(int(event.Version))
-		headers[MetaHeader] = event.Meta
-		headers[CommandTimestampHeader] = strconv.Itoa(int(event.CommandTimestamp.Unix()))
-
-		message := &Message{
-			Headers: headers,
-			Key:     []byte(event.Key.String()),
-			Value:   event.Data,
-			Topic:   topic,
-		}
-
-		amount := group.Retries
-		if amount == 0 {
-			amount = DefaultAttempts
-		}
-
-		retry := Retry{
-			Amount: amount,
-		}
-
-		err := retry.Attempt(func() error {
-			return group.Producer.Publish(message)
-		})
-
-		if err != nil {
-			return err
-		}
-
-		return nil
+	topic, err := group.FetchProduceTopic(EventTopic)
+	if err != nil {
+		return err
 	}
 
-	return errors.New("No event topic is found that could be produced to")
+	message := event.Message(topic)
+	amount := group.Retries
+	if amount == 0 {
+		amount = DefaultAttempts
+	}
+
+	retry := Retry{
+		Amount: amount,
+	}
+
+	err = retry.Attempt(func() error {
+		return group.Producer.Publish(message)
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // NewConsumer starts consuming events of topics from the same topic type.

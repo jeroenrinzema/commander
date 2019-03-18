@@ -29,9 +29,9 @@ func NewConsumer(connectionstring Config, config *sarama.Config, groups ...*comm
 	}
 
 	consumer := &Consumer{
-		topics:        topics,
-		subscriptions: make(map[string][]*Subscription),
-		ready:         make(chan bool, 0),
+		topics:   topics,
+		channels: make(map[string]*Channel),
+		ready:    make(chan bool, 0),
 	}
 
 	commander.Logger.Println("Awaiting consumer setup")
@@ -45,13 +45,19 @@ func NewConsumer(connectionstring Config, config *sarama.Config, groups ...*comm
 	return consumer, nil
 }
 
+// Channel represents a thread safe list of subscriptions
+type Channel struct {
+	subscriptions []*Subscription
+	mutex         sync.RWMutex
+}
+
 // Consumer consumes kafka messages
 type Consumer struct {
 	client           sarama.ConsumerGroup
 	connectionstring Config
 	config           *sarama.Config
 	topics           []string
-	subscriptions    map[string][]*Subscription
+	channels         map[string]*Channel
 	consumptions     sync.WaitGroup
 	mutex            sync.RWMutex
 	ready            chan bool
@@ -111,29 +117,40 @@ func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commande
 		messages: make(chan *commander.Message, 1),
 	}
 
-	consumer.mutex.RLock()
-	defer consumer.mutex.RUnlock()
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
 
 	for _, topic := range topics {
-		consumer.subscriptions[topic.Name] = append(consumer.subscriptions[topic.Name], subscription)
+		if consumer.channels[topic.Name] == nil {
+			consumer.channels[topic.Name] = &Channel{}
+		}
+
+		consumer.channels[topic.Name].mutex.Lock()
+		consumer.channels[topic.Name].subscriptions = append(consumer.channels[topic.Name].subscriptions, subscription)
+		consumer.channels[topic.Name].mutex.Unlock()
 	}
 
 	return subscription.messages, subscription.marked, nil
 }
 
 // Unsubscribe unsubscribes the given topic from the subscription list
-func (consumer *Consumer) Unsubscribe(channel <-chan *commander.Message) error {
+func (consumer *Consumer) Unsubscribe(sub <-chan *commander.Message) error {
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
 
-	for topic, subscriptions := range consumer.subscriptions {
+	for topic, channel := range consumer.channels {
+		subscriptions := channel.subscriptions
+
 		for index, subscription := range subscriptions {
-			if subscription.messages == channel {
-				consumer.subscriptions[topic] = append(consumer.subscriptions[topic][:index], consumer.subscriptions[topic][index+1:]...)
+			if subscription.messages == sub {
+				channel.mutex.Lock()
+				consumer.channels[topic].subscriptions = append(consumer.channels[topic].subscriptions[:index], consumer.channels[topic].subscriptions[index+1:]...)
 				close(subscription.messages)
+				channel.mutex.Unlock()
 				break
 			}
 		}
+
 	}
 
 	return nil
@@ -149,13 +166,13 @@ func (consumer *Consumer) Close() error {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
-	for topic, subscriptions := range consumer.subscriptions {
-		for _, subscription := range subscriptions {
+	for topic, channel := range consumer.channels {
+		for _, subscription := range channel.subscriptions {
 			close(subscription.messages)
 			close(subscription.marked)
 		}
 
-		consumer.subscriptions[topic] = nil
+		consumer.channels[topic] = nil
 	}
 
 	return nil
@@ -180,11 +197,12 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 		commander.Logger.Println("Message claimed:", message.Topic, message.Partition, message.Offset)
 		consumer.consumptions.Add(1)
 
-		go func() {
+		go func(message *sarama.ConsumerMessage) {
 			var err error
 
-			subscriptions := consumer.subscriptions[message.Topic]
-			if len(subscriptions) > 0 {
+			channel := consumer.channels[message.Topic]
+			if channel != nil {
+				subscriptions := channel.subscriptions
 				headers := map[string]string{}
 				for _, record := range message.Headers {
 					headers[string(record.Key)] = string(record.Value)
@@ -200,6 +218,8 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 					Timestamp: message.Timestamp,
 				}
 
+				channel.mutex.RLock()
+
 				for _, subscription := range subscriptions {
 					subscription.messages <- message
 					err = <-subscription.marked
@@ -207,6 +227,8 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 						break
 					}
 				}
+
+				channel.mutex.RUnlock()
 			}
 
 			if err != nil {
@@ -220,7 +242,7 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 			session.MarkMessage(message, "")
 
 			consumer.consumptions.Done()
-		}()
+		}(message)
 	}
 
 	return nil

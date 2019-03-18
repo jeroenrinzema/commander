@@ -13,8 +13,8 @@ type MockSubscription struct {
 
 // MockDialect represents the mock dialect
 type MockDialect struct {
-	consumer *MockConsumer
-	producer *MockProducer
+	Consumer *MockConsumer
+	Producer *MockProducer
 }
 
 // Open opens a mock consumer and producer
@@ -27,8 +27,8 @@ func (dialect *MockDialect) Open(connectionstring string, groups ...*Group) (Con
 		consumer,
 	}
 
-	dialect.consumer = consumer
-	dialect.producer = producer
+	dialect.Consumer = consumer
+	dialect.Producer = producer
 
 	return consumer, producer, nil
 }
@@ -40,8 +40,8 @@ func (dialect *MockDialect) Healthy() bool {
 
 // Close closes the mock dialect
 func (dialect *MockDialect) Close() error {
-	dialect.consumer.Close()
-	dialect.producer.Close()
+	dialect.Consumer.Close()
+	dialect.Producer.Close()
 
 	return nil
 }

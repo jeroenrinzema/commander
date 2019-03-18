@@ -16,7 +16,7 @@ const (
 )
 
 // NewEvent constructs a new event
-func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data []byte) *Event {
+func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data []byte) Event {
 	id, err := uuid.NewV4()
 	if err != nil {
 		Logger.Println("Unable to generate a new uuid!")
@@ -28,7 +28,7 @@ func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data
 		data = []byte("null")
 	}
 
-	event := &Event{
+	event := Event{
 		Parent:  parent,
 		ID:      id,
 		Headers: make(map[string]string),
@@ -157,7 +157,11 @@ headers:
 
 // Message constructs a new commander message for the given event
 func (event *Event) Message(topic Topic) *Message {
-	headers := event.Headers
+	headers := make(map[string]string)
+	for key, value := range event.Headers {
+		headers[key] = value
+	}
+
 	headers[ActionHeader] = event.Action
 	headers[ParentHeader] = event.Parent.String()
 	headers[IDHeader] = event.ID.String()

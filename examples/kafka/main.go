@@ -85,6 +85,30 @@ func main() {
 		}
 
 		command := commander.NewCommand("Available", 1, key, nil)
+		event, err := warehouse.SyncCommand(command)
+
+		if err != nil {
+			w.WriteHeader(500)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(event)
+	})
+
+	/**
+	 * Async command example
+	 */
+	http.HandleFunc("/async/available", func(w http.ResponseWriter, r *http.Request) {
+		key, err := uuid.NewV4()
+		if err != nil {
+			w.WriteHeader(500)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		command := commander.NewCommand("Available", 1, key, nil)
 		err = warehouse.AsyncCommand(command)
 
 		if err != nil {
@@ -98,7 +122,9 @@ func main() {
 	})
 
 	log.Println("Http server running at :8080")
-	log.Println("Send a http request to /available to simulate a 'sync' available command")
+	log.Println("Available endpoints:")
+	log.Println("GET /available to simulate a 'sync' available command")
+	log.Println("GET /async/available to simulate a 'async' available command")
 
 	/**
 	 * Setup a http server and close it once a SIGTERM signal is received

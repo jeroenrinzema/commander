@@ -26,10 +26,10 @@ func TestClosingConsumptions(t *testing.T) {
 
 	action := "testing"
 	version := int8(1)
-	delivered := make(chan *Event, 1)
+	delivered := make(chan Event, 1)
 
 	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) {
-		event, ok := message.(*Event)
+		event, ok := message.(Event)
 		if !ok {
 			t.Error("the received message is not a event")
 		}

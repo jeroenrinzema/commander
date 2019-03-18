@@ -91,7 +91,7 @@ func TestWriterProduceEvent(t *testing.T) {
 
 	select {
 	case message := <-messages:
-		event := &Event{}
+		event := Event{}
 		event.Populate(message)
 
 		if event.Parent != command.ID {

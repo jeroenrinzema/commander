@@ -9,7 +9,7 @@ import (
 )
 
 // NewCommand constructs a new command
-func NewCommand(action string, version int8, key uuid.UUID, data []byte) *Command {
+func NewCommand(action string, version int8, key uuid.UUID, data []byte) Command {
 	id, err := uuid.NewV4()
 	if err != nil {
 		Logger.Println("Unable to generate a new uuid!")
@@ -21,13 +21,14 @@ func NewCommand(action string, version int8, key uuid.UUID, data []byte) *Comman
 		data = []byte("null")
 	}
 
-	command := &Command{
-		Key:     key,
-		Headers: make(map[string]string),
-		ID:      id,
-		Action:  action,
-		Version: version,
-		Data:    data,
+	command := Command{
+		Key:       key,
+		Headers:   make(map[string]string),
+		ID:        id,
+		Action:    action,
+		Version:   version,
+		Data:      data,
+		Timestamp: time.Now(),
 	}
 
 	return command
@@ -46,7 +47,7 @@ type Command struct {
 }
 
 // NewEvent creates a new acknowledged event as a response to this command.
-func (command *Command) NewEvent(action string, version int8, data []byte) *Event {
+func (command *Command) NewEvent(action string, version int8, data []byte) Event {
 	event := NewEvent(action, version, command.ID, command.Key, data)
 	event.CommandTimestamp = command.Timestamp
 
@@ -54,7 +55,7 @@ func (command *Command) NewEvent(action string, version int8, data []byte) *Even
 }
 
 // NewError creates a error event as a response to this command.
-func (command *Command) NewError(action string, err error) *Event {
+func (command *Command) NewError(action string, err error) Event {
 	event := NewEvent(action, 0, command.ID, command.Key, nil)
 	event.Status = StatusInternalServerError
 	event.CommandTimestamp = command.Timestamp
@@ -130,9 +131,14 @@ headers:
 
 // Message constructs a new commander message for the given command
 func (command *Command) Message(topic Topic) *Message {
-	headers := command.Headers
+	headers := make(map[string]string)
+	for key, value := range command.Headers {
+		headers[key] = value
+	}
+
 	headers[ActionHeader] = command.Action
 	headers[IDHeader] = command.ID.String()
+	headers[CommandTimestampHeader] = strconv.Itoa(int(command.Timestamp.Unix()))
 
 	message := &Message{
 		Headers: headers,

@@ -8,13 +8,13 @@ import (
 )
 
 // NewMockCommand produces a new mock command with the given action
-func NewMockCommand(action string) *Command {
+func NewMockCommand(action string) Command {
 	headers := make(map[string]string)
 
 	key, _ := uuid.NewV4()
 	id, _ := uuid.NewV4()
 
-	command := &Command{
+	command := Command{
 		Origin:  Topic{Name: "topic"},
 		Key:     key,
 		Headers: headers,

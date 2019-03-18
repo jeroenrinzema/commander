@@ -67,13 +67,6 @@ type Consumer struct {
 // Connect initializes a new Sarama consumer group and awaits till the consumer
 // group is set up and ready to consume messages.
 func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config) error {
-	if consumer.client != nil {
-		err := consumer.client.Close()
-		if err != nil {
-			return err
-		}
-	}
-
 	client, err := sarama.NewConsumerGroup(connectionstring.Brokers, connectionstring.Group, config)
 	if err != nil {
 		return err

@@ -54,7 +54,7 @@ func (group *Group) IsAttached() error {
 
 // AsyncCommand creates a command message to the given group command topic
 // and does not await for the responding event. If no command key is set will the command id be used.
-func (group *Group) AsyncCommand(command *Command) error {
+func (group *Group) AsyncCommand(command Command) error {
 	err := group.ProduceCommand(command)
 	if err != nil {
 		return err
@@ -66,11 +66,11 @@ func (group *Group) AsyncCommand(command *Command) error {
 // SyncCommand creates a command message to the given group and awaits
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
-func (group *Group) SyncCommand(command *Command) (*Event, error) {
+func (group *Group) SyncCommand(command Command) (Event, error) {
 	sink, marked, erro := group.AwaitEvent(group.Timeout, command.ID)
 	err := group.AsyncCommand(command)
 	if err != nil {
-		return nil, err
+		return Event{}, err
 	}
 
 	select {
@@ -78,7 +78,7 @@ func (group *Group) SyncCommand(command *Command) (*Event, error) {
 		marked <- nil
 		return event, nil
 	case err := <-erro:
-		return nil, err
+		return Event{}, err
 	}
 }
 
@@ -88,10 +88,10 @@ func (group *Group) SyncCommand(command *Command) (*Event, error) {
 // If not the expected events are returned within the given timeout period
 // will a error be returned. The timeout channel is closed when all
 // expected events are received or after a timeout is thrown.
-func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan *Event, chan<- error, <-chan error) {
+func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan Event, chan<- error, <-chan error) {
 	Logger.Println("Awaiting child event")
 
-	sink := make(chan *Event, 1)
+	sink := make(chan Event, 1)
 	erro := make(chan error, 1)
 
 	messages, marked, closing, err := group.NewConsumer(EventTopic)
@@ -113,7 +113,7 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 				erro <- ErrTimeout
 				break await
 			case message := <-messages:
-				event := &Event{}
+				event := Event{}
 				event.Populate(message)
 
 				if event.Parent != parent {
@@ -166,7 +166,7 @@ func (group *Group) FetchProduceTopic(sType TopicType) (Topic, error) {
 
 // ProduceCommand constructs and produces a command message to the set command topic.
 // A error is returned if anything went wrong in the process. If no command key is set will the command id be used.
-func (group *Group) ProduceCommand(command *Command) error {
+func (group *Group) ProduceCommand(command Command) error {
 	Logger.Println("Producing command")
 
 	err := group.IsAttached()
@@ -206,7 +206,7 @@ func (group *Group) ProduceCommand(command *Command) error {
 
 // ProduceEvent produces a event kafka message to the set event topic.
 // A error is returned if anything went wrong in the process.
-func (group *Group) ProduceEvent(event *Event) error {
+func (group *Group) ProduceEvent(event Event) error {
 	Logger.Println("Producing event")
 
 	err := group.IsAttached()
@@ -298,12 +298,12 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 
 			switch sort {
 			case EventTopic:
-				event := &Event{}
+				event := Event{}
 				event.Populate(message)
 
 				value = event
 			case CommandTopic:
-				command := &Command{}
+				command := Command{}
 				command.Populate(message)
 
 				value = command

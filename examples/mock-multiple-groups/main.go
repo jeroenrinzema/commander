@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -45,7 +46,7 @@ var warehouse = &commander.Group{
 			Produce: true,
 		},
 	},
-	Timeout: 5 * time.Second,
+	Timeout: 2 * time.Second,
 }
 
 func main() {
@@ -67,7 +68,8 @@ func main() {
 	 * will a available event be produced.
 	 */
 	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
-		command := message.(*commander.Command)
+		command := message.(commander.Command)
+		log.Println("> Available")
 
 		id, err := uuid.FromString(string(command.Data))
 		if err != nil {
@@ -82,6 +84,7 @@ func main() {
 			return
 		}
 
+		log.Println("< Available")
 		writer.ProduceEvent("Available", 1, key, []byte(id.String()))
 		return
 	})
@@ -93,6 +96,7 @@ func main() {
 	cart.HandleFunc(commander.CommandTopic, "Purchase", func(writer commander.ResponseWriter, message interface{}) {
 		item, _ := uuid.NewV4()
 		key, _ := uuid.NewV4()
+		log.Println("> Purchase")
 
 		command := commander.NewCommand("Available", 1, key, []byte(item.String()))
 		event, err := warehouse.SyncCommand(command)
@@ -109,6 +113,7 @@ func main() {
 		items := []string{item.String()}
 		response, _ := json.Marshal(items)
 
+		log.Println("< Purchased")
 		writer.ProduceEvent("Purchased", 1, key, response)
 		return
 	})
@@ -137,7 +142,7 @@ func main() {
 	fmt.Println("Http server running at :8080")
 	fmt.Println("Send a http request to /purchase to simulate a 'sync' purchase command")
 
-	err := http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic(err)
 	}

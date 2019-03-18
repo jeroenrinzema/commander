@@ -63,6 +63,7 @@ func (consumer *MockConsumer) Emit(message *Message) {
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
 
+	message.Timestamp = time.Now()
 	topic := message.Topic.Name
 	for _, subscription := range consumer.subscriptions[topic] {
 		subscription.messages <- message
@@ -74,8 +75,9 @@ func (consumer *MockConsumer) Emit(message *Message) {
 
 // Subscribe subscribes to the given topics and returs a message channel
 func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, chan<- error, error) {
-	consumer.mutex.Lock()
-	defer consumer.mutex.Unlock()
+	// We are only appending therefor could we only read-lock the mutex (otherwise could we end up in a deadlock)
+	consumer.mutex.RLock()
+	defer consumer.mutex.RUnlock()
 
 	subscription := &MockSubscription{
 		messages: make(chan *Message, 1),
@@ -122,7 +124,6 @@ type MockProducer struct {
 
 // Publish publishes the given message
 func (producer *MockProducer) Publish(message *Message) error {
-	message.Timestamp = time.Now()
 	go producer.consumer.Emit(message)
 	return nil
 }

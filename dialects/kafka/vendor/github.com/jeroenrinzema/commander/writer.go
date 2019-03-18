@@ -1,6 +1,9 @@
 package commander
 
 import (
+	"errors"
+	"time"
+
 	"github.com/gofrs/uuid"
 )
 
@@ -10,52 +13,68 @@ func NewResponseWriter(group *Group, value interface{}) ResponseWriter {
 		Group: group,
 	}
 
-	if command, ok := value.(*Command); ok {
-		writer.Command = command
+	if command, ok := value.(Command); ok {
+		writer.Command = &command
 	}
 
 	return writer
 }
 
+var (
+	// ErrDefaultRetry represents the default retry error message
+	ErrDefaultRetry = errors.New("message marked to be retried")
+)
+
 // ResponseWriter writes events or commands back to the assigned group.
 type ResponseWriter interface {
 	// ProduceEvent creates and produces a new event to the assigned group.
-	ProduceEvent(action string, version int, key uuid.UUID, data []byte) (*Event, error)
+	ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (Event, error)
 
 	// ProduceError produces a new error event
-	ProduceError(action string, data []byte) (*Event, error)
+	ProduceError(action string, err error) (Event, error)
 
 	// ProduceCommand produces a new command
-	ProduceCommand(action string, key uuid.UUID, data []byte) (*Command, error)
+	ProduceCommand(action string, version int8, key uuid.UUID, data []byte) (Command, error)
+
+	// Retry marks the message to be retried. An error could be given to be passed to the dialect
+	Retry(err error)
+
+	// ShouldRetry returns if the writer has marked the message to be retried
+	ShouldRetry() error
 }
 
 // Writer is a struct representing the ResponseWriter interface
 type writer struct {
 	Group   *Group
 	Command *Command
+	retry   error
 }
 
-func (writer *writer) ProduceError(action string, data []byte) (*Event, error) {
-	var event *Event
+func (writer *writer) ProduceError(action string, err error) (Event, error) {
+	var event Event
 
 	if writer.Command != nil {
-		event = writer.Command.NewError(action, data)
-	}
-
-	if event == nil {
-		event = NewEvent(action, 0, uuid.Nil, uuid.Nil, data)
+		event = writer.Command.NewError(action, err)
+	} else {
+		event = NewEvent(action, 0, uuid.Nil, uuid.Nil, nil)
 		event.Status = StatusInternalServerError
+
+		if err != nil {
+			event.Meta = err.Error()
+		}
 	}
 
-	err := writer.Group.ProduceEvent(event)
+	err = writer.Group.ProduceEvent(event)
 	return event, err
 }
 
-func (writer *writer) ProduceEvent(action string, version int, key uuid.UUID, data []byte) (*Event, error) {
-	parent := uuid.Nil
+func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (Event, error) {
+	var parent uuid.UUID
+	var timestamp time.Time
 
 	if writer.Command != nil {
 		parent = writer.Command.ID
+		timestamp = writer.Command.Timestamp
 	}
 
 	if key == uuid.Nil && writer.Command != nil {
@@ -63,14 +82,27 @@ func (writer *writer) ProduceEvent(action string, version int, key uuid.UUID, da
 	}
 
 	event := NewEvent(action, version, parent, key, data)
-	err := writer.Group.ProduceEvent(event)
+	event.CommandTimestamp = timestamp
 
+	err := writer.Group.ProduceEvent(event)
 	return event, err
 }
 
-func (writer *writer) ProduceCommand(action string, key uuid.UUID, data []byte) (*Command, error) {
-	command := NewCommand(action, key, data)
+func (writer *writer) ProduceCommand(action string, version int8, key uuid.UUID, data []byte) (Command, error) {
+	command := NewCommand(action, version, key, data)
 	err := writer.Group.ProduceCommand(command)
 
 	return command, err
+}
+
+func (writer *writer) Retry(err error) {
+	if err != nil {
+		err = ErrDefaultRetry
+	}
+
+	writer.retry = err
+}
+
+func (writer *writer) ShouldRetry() error {
+	return writer.retry
 }

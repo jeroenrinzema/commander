@@ -191,10 +191,10 @@ func TestEventHandleFunc(t *testing.T) {
 	defer client.Close()
 
 	action := "testing"
-	delivered := make(chan *Event, 1)
+	delivered := make(chan Event, 1)
 
 	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) {
-		event, ok := message.(*Event)
+		event, ok := message.(Event)
 		if !ok {
 			t.Error("the received message is not a event")
 		}
@@ -326,19 +326,19 @@ func TestCommandTimestampPassed(t *testing.T) {
 
 	delivered := make(chan interface{}, 1)
 	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) {
-		command := message.(*Command)
+		command := message.(Command)
 		timestamp = command.Timestamp
 
 		writer.ProduceEvent("event", 1, uuid.Nil, nil)
 	})
 
 	group.HandleFunc(EventTopic, "event", func(writer ResponseWriter, message interface{}) {
-		event := message.(*Event)
+		event := message.(Event)
+		delivered <- message
+
 		if event.CommandTimestamp.Unix() != timestamp.Unix() {
 			t.Fatal("the event timestamp does not match the command timestamp")
 		}
-
-		delivered <- message
 	})
 
 	group.ProduceCommand(command)

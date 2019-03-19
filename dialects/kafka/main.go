@@ -3,6 +3,8 @@ package kafka
 import (
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/dialects/kafka/consumer"
+	"github.com/jeroenrinzema/commander/dialects/kafka/producer"
 )
 
 // Dialect represents the kafka dialect
@@ -10,8 +12,8 @@ type Dialect struct {
 	Groups []commander.Group
 	Config *sarama.Config
 
-	consumer *Consumer
-	producer *Producer
+	consumer *consumer.Client
+	producer *producer.Client
 }
 
 // New initializes and constructs a new Kafka dialect
@@ -48,12 +50,12 @@ func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group
 
 	commander.Logger.Println("Constructing consumer/producer")
 
-	consumer, err := NewConsumer(connection.Brokers, connection.Group, dialect.Config, groups...)
+	consumer, err := consumer.NewClient(connection.Brokers, connection.Group, dialect.Config, groups...)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	producer, err := NewProducer(connection.Brokers, dialect.Config)
+	producer, err := producer.NewClient(connection.Brokers, dialect.Config)
 	if err != nil {
 		return nil, nil, err
 	}

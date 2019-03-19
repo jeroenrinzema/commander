@@ -40,7 +40,7 @@ func main() {
 	version := flag.String("version", "2.1.1", "Kafka cluster version")
 	flag.Parse()
 
-	connectionstring := fmt.Sprintf("brokers=%s group=example version=%s", *brokers, *version)
+	connectionstring := fmt.Sprintf("brokers=%s version=%s", *brokers, *version)
 	log.Println("Connecting to Kafka:", connectionstring)
 
 	dialect := &kafka.Dialect{}

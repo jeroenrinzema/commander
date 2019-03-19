@@ -48,12 +48,12 @@ func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group
 
 	commander.Logger.Println("Constructing consumer/producer")
 
-	consumer, err := NewConsumer(connection, dialect.Config, groups...)
+	consumer, err := NewConsumer(connection.Brokers, connection.Group, dialect.Config, groups...)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	producer, err := NewProducer(connection, dialect.Config)
+	producer, err := NewProducer(connection.Brokers, dialect.Config)
 	if err != nil {
 		return nil, nil, err
 	}

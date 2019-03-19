@@ -15,7 +15,7 @@ type Subscription struct {
 }
 
 // NewConsumer constructs a new kafka dialect consumer
-func NewConsumer(connectionstring Config, config *sarama.Config, groups ...*commander.Group) (*Consumer, error) {
+func NewConsumer(brokers []string, group string, config *sarama.Config, groups ...*commander.Group) (*Consumer, error) {
 	topics := []string{}
 
 	for _, group := range groups {
@@ -36,7 +36,7 @@ func NewConsumer(connectionstring Config, config *sarama.Config, groups ...*comm
 
 	commander.Logger.Println("Awaiting consumer setup")
 
-	err := consumer.Connect(connectionstring, config)
+	err := consumer.Connect(brokers, group, config)
 	if err != nil {
 		commander.Logger.Println(err)
 		return nil, err
@@ -53,21 +53,22 @@ type Channel struct {
 
 // Consumer consumes kafka messages
 type Consumer struct {
-	client           sarama.ConsumerGroup
-	connectionstring Config
-	config           *sarama.Config
-	topics           []string
-	channels         map[string]*Channel
-	consumptions     sync.WaitGroup
-	mutex            sync.RWMutex
-	ready            chan bool
-	closing          bool
+	client       sarama.ConsumerGroup
+	brokers      []string
+	group        string
+	config       *sarama.Config
+	topics       []string
+	channels     map[string]*Channel
+	consumptions sync.WaitGroup
+	mutex        sync.RWMutex
+	ready        chan bool
+	closing      bool
 }
 
 // Connect initializes a new Sarama consumer group and awaits till the consumer
 // group is set up and ready to consume messages.
-func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config) error {
-	client, err := sarama.NewConsumerGroup(connectionstring.Brokers, connectionstring.Group, config)
+func (consumer *Consumer) Connect(brokers []string, group string, config *sarama.Config) error {
+	client, err := sarama.NewConsumerGroup(brokers, group, config)
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 				break
 			}
 
-			commander.Logger.Println("Opening consumer for:", consumer.topics, "on:", connectionstring.Brokers)
+			commander.Logger.Println("Opening consumer for:", consumer.topics, "on:", brokers)
 			ctx := context.Background()
 			err := client.Consume(ctx, consumer.topics, consumer)
 			commander.Logger.Println("Consumer closed:", err)
@@ -95,7 +96,8 @@ func (consumer *Consumer) Connect(connectionstring Config, config *sarama.Config
 	}
 
 	consumer.client = client
-	consumer.connectionstring = connectionstring
+	consumer.brokers = brokers
+	consumer.group = group
 	consumer.config = config
 
 	return nil

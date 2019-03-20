@@ -28,10 +28,7 @@ func NewClient(brokers []string, group string, config *sarama.Config, groups ...
 	}
 
 	if group != "" {
-		handle := &GroupHandle{
-			client: client,
-		}
-
+		handle := NewGroupHandle(client)
 		err := handle.Connect(brokers, group, config)
 		if err != nil {
 			return nil, err

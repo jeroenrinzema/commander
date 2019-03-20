@@ -8,6 +8,16 @@ import (
 	"github.com/jeroenrinzema/commander"
 )
 
+// NewGroupHandle initializes a new GroupHandle
+func NewGroupHandle(client *Client) *GroupHandle {
+	handle := &GroupHandle{
+		client: client,
+		ready:  make(chan bool, 0),
+	}
+
+	return handle
+}
+
 // GroupHandle represents a Sarama consumer group consumer handle
 type GroupHandle struct {
 	client       *Client
@@ -27,8 +37,6 @@ func (handle *GroupHandle) Connect(brokers []string, group string, config *saram
 		return err
 	}
 
-	handle.ready = make(chan bool, 0)
-
 	go func() {
 		for {
 			if handle.closing {
@@ -39,7 +47,6 @@ func (handle *GroupHandle) Connect(brokers []string, group string, config *saram
 			ctx := context.Background()
 			err := consumer.Consume(ctx, handle.client.Topics, handle)
 			commander.Logger.Println("Consumer closed:", err)
-			handle.ready = make(chan bool, 0)
 		}
 	}()
 
@@ -59,8 +66,8 @@ func (handle *GroupHandle) Connect(brokers []string, group string, config *saram
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
 func (handle *GroupHandle) Setup(sarama.ConsumerGroupSession) error {
-	// Mark the handle as ready
-	close(handle.ready)
+	close(handle.ready) // Mark the handle as ready
+	handle.ready = make(chan bool, 0)
 	return nil
 }
 

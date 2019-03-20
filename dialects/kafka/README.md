@@ -9,19 +9,16 @@ The string is build out of key's and value's in a linux like flag syntax: "-`key
 An connection string could consist out of the following flags:
 
 - **brokers**: should contain the ip addresses of the brokers in the Kafka cluster seperated by a `,`
-- **group**: the Kafka consumer used to consume messages, the consumer group offset stored in kafka is used
+- **group** *optional*: the Kafka consumer group used to consume messages, when defined is a new consumer group set-up and is the latest marked offset stored. When no group is defined/given is a partition consumer created.
 - **version**: the Kafka version of the cluster
+- **initial-offset**: the initial offset used when setting up a partition consumer. The initial offset could be one of the following values: (int)0.../"newest"/"oldest"
 
 **Example:**
 
 ```
-brokers=192.168.2.1,192.168.2.2 group=example version=1.1.0
+brokers=192.168.2.1,192.168.2.2 group=example version=2.1.1
 ```
 
-## Retry on panic
-
-This dialect supports the retry on panic configuration and could be enabled by setting the `retry-panic` key in the connection string:
-
 ```
-brokers=... group=... version=... retry-panic
+brokers=192.168.2.1,192.168.2.2 initial-offset=oldest version=2.1.1
 ```

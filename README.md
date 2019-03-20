@@ -11,7 +11,7 @@ Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for det
 
 ## Official dialects
 
-- **[Kafka](https://github.com/jeroenrinzema/commander/dialects/kafka)** - Commander Kafka consumer/producer build upon the Sarama go Kafka client.
+- **[Kafka](https://github.com/jeroenrinzema/commander/tree/master/dialects/kafka)** - Commander Kafka consumer/producer build upon the Sarama go Kafka client.
 
 ## Getting started
 

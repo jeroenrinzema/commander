@@ -31,7 +31,7 @@ type GroupHandle struct {
 
 // Connect initializes a new Sarama consumer group and awaits till the consumer
 // group is set up and ready to consume messages.
-func (handle *GroupHandle) Connect(brokers []string, group string, config *sarama.Config) error {
+func (handle *GroupHandle) Connect(brokers []string, topics []string, group string, config *sarama.Config) error {
 	consumer, err := sarama.NewConsumerGroup(brokers, group, config)
 	if err != nil {
 		return err
@@ -43,9 +43,9 @@ func (handle *GroupHandle) Connect(brokers []string, group string, config *saram
 				break
 			}
 
-			commander.Logger.Println("Opening consumer for:", handle.client.Topics, "on:", brokers)
+			commander.Logger.Println("Opening consumer for:", topics, "on:", brokers)
 			ctx := context.Background()
-			err := consumer.Consume(ctx, handle.client.Topics, handle)
+			err := consumer.Consume(ctx, topics, handle)
 			commander.Logger.Println("Consumer closed:", err)
 		}
 	}()

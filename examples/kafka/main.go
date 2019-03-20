@@ -38,9 +38,10 @@ func main() {
 	commander.Logger.SetOutput(os.Stdout)
 	brokers := flag.String("brokers", "127.0.0.1", "Kafka brokers separated by a ,")
 	version := flag.String("version", "2.1.1", "Kafka cluster version")
+	group := flag.String("group", "", "Optional kafka consumer group")
 	flag.Parse()
 
-	connectionstring := fmt.Sprintf("brokers=%s group=example version=%s", *brokers, *version)
+	connectionstring := fmt.Sprintf("brokers=%s group=%s initial-offset=newest version=%s", *brokers, *group, *version)
 	log.Println("Connecting to Kafka:", connectionstring)
 
 	dialect := &kafka.Dialect{}

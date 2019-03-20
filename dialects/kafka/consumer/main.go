@@ -8,7 +8,7 @@ import (
 )
 
 // NewClient initializes a new consumer client and a Kafka consumer
-func NewClient(brokers []string, group string, config *sarama.Config, groups ...*commander.Group) (*Client, error) {
+func NewClient(brokers []string, group string, initialOffset int64, config *sarama.Config, groups ...*commander.Group) (*Client, error) {
 	topics := []string{}
 
 	for _, group := range groups {
@@ -22,14 +22,22 @@ func NewClient(brokers []string, group string, config *sarama.Config, groups ...
 	}
 
 	client := &Client{
-		Brokers:  brokers,
-		Topics:   topics,
+		brokers:  brokers,
+		topics:   topics,
 		channels: make(map[string]*Channel),
 	}
 
 	if group != "" {
 		handle := NewGroupHandle(client)
-		err := handle.Connect(brokers, group, config)
+		err := handle.Connect(brokers, topics, group, config)
+		if err != nil {
+			return nil, err
+		}
+
+		client.handle = handle
+	} else {
+		handle := NewPartitionHandle(client)
+		err := handle.Connect(brokers, topics, initialOffset, config)
 		if err != nil {
 			return nil, err
 		}
@@ -65,8 +73,8 @@ type Channel struct {
 // Client consumes kafka messages
 type Client struct {
 	handle   Handle
-	Brokers  []string
-	Topics   []string
+	brokers  []string
+	topics   []string
 	channels map[string]*Channel
 	mutex    sync.RWMutex
 	ready    chan bool

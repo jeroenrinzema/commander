@@ -10,9 +10,10 @@ type ConnectionMap map[string]string
 
 // These const's contain the connection string keys to different values
 const (
-	BrokersKey = "brokers"
-	GroupKey   = "group"
-	VersionKey = "version"
+	BrokersKey       = "brokers"
+	GroupKey         = "group"
+	VersionKey       = "version"
+	InitialOffsetKey = "initial-offset"
 )
 
 // ParseConnectionstring parses the given connectionstring and returns a map with all key/values
@@ -39,10 +40,6 @@ func ParseConnectionstring(connectionstring string) ConnectionMap {
 func ValidateConnectionKeyVal(values ConnectionMap) error {
 	if len(values[BrokersKey]) == 0 {
 		return errors.New("No brokers are defined in the connectionstring")
-	}
-
-	if len(values[GroupKey]) == 0 {
-		return errors.New("No group is defined in the connectionstring")
 	}
 
 	if len(values[VersionKey]) == 0 {

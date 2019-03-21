@@ -99,6 +99,7 @@ func (handle *PartitionHandle) PartitionConsumer(topic string, partition int32) 
 	}
 	handle.mutex.Unlock()
 
+	// TODO: reopen partition consumer when cluster is unavailable
 	consumer, err := handle.consumer.ConsumePartition(topic, partition, handle.initialOffset)
 	if err != nil {
 		return err
@@ -113,16 +114,18 @@ func (handle *PartitionHandle) PartitionConsumer(topic string, partition int32) 
 	defer handle.partitions[topic].mutex.Unlock()
 
 	handle.partitions[topic].consumers = append(handle.partitions[topic].consumers, pc)
-	go handle.ClaimMessages(consumer)
+	go handle.ClaimMessages(topic, partition, consumer)
 
 	return nil
 }
 
 // ClaimMessages handles the claiming of consumed messages
-func (handle *PartitionHandle) ClaimMessages(consumer sarama.PartitionConsumer) {
+func (handle *PartitionHandle) ClaimMessages(topic string, partition int32, consumer sarama.PartitionConsumer) {
 	for message := range consumer.Messages() {
 		handle.client.Claim(message)
 	}
+
+	// TODO: reopen partition consumer when cluster is unavailable
 }
 
 // Rebalance pulls the latest available topics and starts new partition consumers when nessasery.

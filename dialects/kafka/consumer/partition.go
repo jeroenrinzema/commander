@@ -99,7 +99,6 @@ func (handle *PartitionHandle) PartitionConsumer(topic string, partition int32) 
 	}
 	handle.mutex.Unlock()
 
-	// TODO: reopen partition consumer when cluster is unavailable
 	consumer, err := handle.consumer.ConsumePartition(topic, partition, handle.initialOffset)
 	if err != nil {
 		return err
@@ -124,8 +123,6 @@ func (handle *PartitionHandle) ClaimMessages(topic string, partition int32, cons
 	for message := range consumer.Messages() {
 		handle.client.Claim(message)
 	}
-
-	// TODO: reopen partition consumer when cluster is unavailable
 }
 
 // Rebalance pulls the latest available topics and starts new partition consumers when nessasery.

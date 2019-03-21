@@ -67,7 +67,12 @@ func (consumer *MockConsumer) Emit(message *Message) {
 	topic := message.Topic.Name
 	for _, subscription := range consumer.subscriptions[topic] {
 		subscription.messages <- message
-		<-subscription.marked
+		err := <-subscription.marked
+		if err != nil {
+			// NOTE: should a panic really be thrown here?
+			// An error has to be returned to the client (usually testing) but a panic is not expected
+			panic(err)
+		}
 	}
 
 	Logger.Println("message marked")

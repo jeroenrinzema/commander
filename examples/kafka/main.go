@@ -45,7 +45,6 @@ func main() {
 	log.Println("Connecting to Kafka:", connectionstring)
 
 	dialect := &kafka.Dialect{}
-	commander.Logger.SetOutput(os.Stdout)
 
 	/**
 	 * When constrcuting a new commander instance do you have to construct a commander.Dialect as well.

@@ -13,8 +13,8 @@ type HandleType int8
 
 // Plausible consumer types
 const (
-	PartitionConsumer HandleType = 0
-	GroupConsumer     HandleType = 1
+	PartitionConsumerHandle HandleType = 0
+	GroupConsumerHandle     HandleType = 1
 )
 
 // NewClient initializes a new consumer client and a Kafka consumer
@@ -39,7 +39,7 @@ func NewClient(brokers []string, group string, initialOffset int64, config *sara
 
 	handle := MatchHandleType(brokers, group, config)
 	switch handle {
-	case GroupConsumer:
+	case GroupConsumerHandle:
 		handle := NewGroupHandle(client)
 		err := handle.Connect(brokers, topics, group, config)
 		if err != nil {
@@ -47,7 +47,7 @@ func NewClient(brokers []string, group string, initialOffset int64, config *sara
 		}
 
 		client.handle = handle
-	case PartitionConsumer:
+	case PartitionConsumerHandle:
 		handle := NewPartitionHandle(client)
 		err := handle.Connect(brokers, topics, initialOffset, config)
 		if err != nil {
@@ -67,10 +67,10 @@ func NewClient(brokers []string, group string, initialOffset int64, config *sara
 // MatchHandleType creates an advice of which handle type should be used for consumption
 func MatchHandleType(brokers []string, group string, config *sarama.Config) HandleType {
 	if group != "" {
-		return GroupConsumer
+		return GroupConsumerHandle
 	}
 
-	return PartitionConsumer
+	return PartitionConsumerHandle
 }
 
 // Handle represents a Kafka consumer handle

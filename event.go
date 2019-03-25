@@ -8,11 +8,20 @@ import (
 	"github.com/gofrs/uuid"
 )
 
+// StatusCode represents an message status code.
+// The status codes are base on the HTTP status code specifications.
+type StatusCode int16
+
 // Status codes that represents the status of a event
 const (
-	StatusOK                  = 200
-	StatusBadRequest          = 400
-	StatusInternalServerError = 500
+	StatusOK                  StatusCode = 200
+	StatusBadRequest          StatusCode = 400
+	StatusUnauthorized        StatusCode = 401
+	StatusForbidden           StatusCode = 403
+	StatusNotFound            StatusCode = 404
+	StatusConflict            StatusCode = 409
+	StatusImATeapot           StatusCode = 418
+	StatusInternalServerError StatusCode = 500
 )
 
 // NewEvent constructs a new event
@@ -51,7 +60,7 @@ type Event struct {
 	Action           string            `json:"action"`            // Event representing action
 	Data             []byte            `json:"data"`              // Passed event data as bytes
 	Key              uuid.UUID         `json:"key"`               // Event partition key
-	Status           int16             `json:"status"`            // Event status code (commander.Status*)
+	Status           StatusCode        `json:"status"`            // Event status code (commander.Status*)
 	Version          int8              `json:"version"`           // Event data schema version
 	Origin           Topic             `json:"-"`                 // Event topic origin
 	Meta             string            `json:"meta"`              // Additional event meta message
@@ -104,7 +113,7 @@ headers:
 				continue
 			}
 
-			event.Status = int16(status)
+			event.Status = StatusCode(int16(status))
 			continue headers
 		case VersionHeader:
 			version, err := strconv.ParseInt(str, 10, 8)

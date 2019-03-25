@@ -31,7 +31,7 @@ type ResponseWriter interface {
 	ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (Event, error)
 
 	// ProduceError produces a new error event
-	ProduceError(action string, err error) (Event, error)
+	ProduceError(action string, status StatusCode, err error) (Event, error)
 
 	// ProduceCommand produces a new command
 	ProduceCommand(action string, version int8, key uuid.UUID, data []byte) (Command, error)
@@ -50,11 +50,15 @@ type writer struct {
 	retry   error
 }
 
-func (writer *writer) ProduceError(action string, err error) (Event, error) {
+func (writer *writer) ProduceError(action string, status StatusCode, err error) (Event, error) {
 	var event Event
 
+	if status == 0 {
+		status = StatusInternalServerError
+	}
+
 	if writer.Command != nil {
-		event = writer.Command.NewError(action, err)
+		event = writer.Command.NewError(action, status, err)
 	} else {
 		event = NewEvent(action, 0, uuid.Nil, uuid.Nil, nil)
 		event.Status = StatusInternalServerError

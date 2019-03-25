@@ -55,9 +55,9 @@ func (command *Command) NewEvent(action string, version int8, data []byte) Event
 }
 
 // NewError creates a error event as a response to this command.
-func (command *Command) NewError(action string, err error) Event {
+func (command *Command) NewError(action string, status StatusCode, err error) Event {
 	event := NewEvent(action, 0, command.ID, command.Key, nil)
-	event.Status = StatusInternalServerError
+	event.Status = status
 	event.CommandTimestamp = command.Timestamp
 
 	if err != nil {

@@ -36,7 +36,7 @@ func TestCommandEventConstruction(t *testing.T) {
 	event := command.NewEvent(action, version, []byte("{}"))
 
 	if event.Action != action {
-		t.Error("Ecent action does not match")
+		t.Error("Event action does not match")
 	}
 
 	if event.Version != version {
@@ -55,7 +55,7 @@ func TestCommandEventConstruction(t *testing.T) {
 // TestCommandErrorEventConstruction tests if able to construct a error event
 func TestCommandErrorEventConstruction(t *testing.T) {
 	command := NewMockCommand("action")
-	event := command.NewError("event", errors.New("test error"))
+	event := command.NewError("event", StatusImATeapot, errors.New("test error"))
 
 	if event.Parent != command.ID {
 		t.Error("Event does not have id of command")

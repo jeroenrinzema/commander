@@ -124,7 +124,7 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 
 	defer closing()
 
-	if _, err := writer.ProduceError(action, data); err != nil {
+	if _, err := writer.ProduceError(action, StatusImATeapot, data); err != nil {
 		t.Error(err)
 		return
 	}

@@ -37,6 +37,10 @@ func NewClient(brokers []string, group string, initialOffset int64, config *sara
 		channels: make(map[string]*Channel),
 	}
 
+	if len(topics) == 0 {
+		return client, nil
+	}
+
 	handle := MatchHandleType(brokers, group, config)
 	switch handle {
 	case GroupConsumerHandle:

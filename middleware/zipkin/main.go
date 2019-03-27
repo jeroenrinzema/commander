@@ -3,6 +3,7 @@ package zipkin
 import (
 	"context"
 	"errors"
+	"log"
 	"strconv"
 
 	"github.com/jeroenrinzema/commander"
@@ -22,11 +23,10 @@ const (
 
 // Zipkin Kafka message header keys
 const (
-	HeaderTraceIDKey      = "HeaderTraceIDKey"
-	HeaderSpanIDKey       = "HeaderSpanIDKey"
-	HeaderParentSpanIDKey = "HeaderParentSpanIDKey"
-	HeaderSampledKey      = "HeaderSampledKey"
-	HeaderFlagsKey        = "HeaderFlagsKey"
+	HeaderTraceIDKey      = "trace_id"
+	HeaderSpanIDKey       = "span_id"
+	HeaderParentSpanIDKey = "parent_span_id"
+	HeaderSampledKey      = "trace_sampled"
 )
 
 // New initializes a new Zipkin commander middleware reporter
@@ -73,6 +73,7 @@ type Zipkin struct {
 func (middleware *Zipkin) Controller(subscribe commander.MiddlewareSubscribe) {
 	subscribe(commander.BeforeConsumption, middleware.StartSpan)
 	subscribe(commander.AfterConsumed, middleware.FinishSpan)
+	subscribe(commander.BeforePublish, middleware.PrepareMessage)
 }
 
 // Close closes the Zipkin reporter
@@ -115,11 +116,36 @@ func (middleware *Zipkin) FinishSpan(message *commander.Message) error {
 	return nil
 }
 
+// PrepareMessage prepares the given message span headers
+func (middleware *Zipkin) PrepareMessage(message *commander.Message) error {
+	if message.Ctx == nil {
+		return errors.New("message context is not set")
+	}
+
+	intrf := message.Ctx.Value(CtxSpanKey)
+	if intrf == nil {
+		return errors.New("message context contains no tracing span")
+	}
+
+	span, ok := intrf.(zipkin.Span)
+	if !ok {
+		return errors.New("interface is not a Zipkin span")
+	}
+
+	headers := ConstructMessageHeaders(span.Context())
+	for k, v := range headers {
+		message.Headers[k] = v
+	}
+
+	return nil
+}
+
 // ExtractContextFromMessage extracts the span context of a Commander message
 func ExtractContextFromMessage(message *commander.Message) (model.SpanContext, error) {
 	sc := model.SpanContext{}
 
 	id, err := model.TraceIDFromHex(message.Headers[HeaderTraceIDKey])
+	log.Println(message.Headers)
 	if err != nil {
 		return sc, err
 	}
@@ -132,15 +158,39 @@ func ExtractContextFromMessage(message *commander.Message) (model.SpanContext, e
 	}
 
 	sc.ID = model.ID(spanID)
+	parentID, err := strconv.ParseUint(message.Headers[HeaderParentSpanIDKey], 16, 64)
+	if err == nil {
+		id := model.ID(parentID)
+		sc.ParentID = &id
+	}
+
+	if message.Headers[HeaderSampledKey] == "1" {
+		b := true
+		sc.Sampled = &b
+	}
 
 	return sc, nil
 }
 
 // ConstructMessageHeaders construct message headers for a commander header
 func ConstructMessageHeaders(span model.SpanContext) map[string]string {
+	sampled := "0"
+	if span.Sampled != nil {
+		if *span.Sampled {
+			sampled = "1"
+		}
+	}
+
+	var parent string
+	if span.ParentID != nil {
+		parent = span.ParentID.String()
+	}
+
 	headers := map[string]string{
-		HeaderTraceIDKey: span.TraceID.String(),
-		HeaderSpanIDKey:  span.ID.String(),
+		HeaderTraceIDKey:      span.TraceID.String(),
+		HeaderSpanIDKey:       span.ID.String(),
+		HeaderParentSpanIDKey: parent,
+		HeaderSampledKey:      sampled,
 	}
 
 	return headers

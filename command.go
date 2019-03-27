@@ -150,7 +150,7 @@ func (command *Command) Message(topic Topic) *Message {
 		Key:     []byte(command.Key.String()),
 		Value:   command.Data,
 		Topic:   topic,
-		Ctx:     context.Background(),
+		Ctx:     command.Ctx,
 	}
 
 	return message

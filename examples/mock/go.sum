@@ -1,4 +1,2 @@
 github.com/gofrs/uuid v3.2.0+incompatible h1:y12jRkkFxsd7GpqdSZ+/KCs/fJbqpEXSGd4+jfEaewE=
 github.com/gofrs/uuid v3.2.0+incompatible/go.mod h1:b2aQJv3Z4Fp6yNu3cdSllBxTCLRxnplIgP/c0N/04lM=
-github.com/jeroenrinzema/commander v0.0.0-20181126160223-a09d37d1790b h1:4eAV3OvoVzKJ4hY+D2tZqskg1ZdDLkhlN2zVj9mG/0k=
-github.com/jeroenrinzema/commander v0.0.0-20181126160223-a09d37d1790b/go.mod h1:Io3mQGAA2UAktycKOxQOX/aemA1jvzU7ZQ3xOOJBab8=

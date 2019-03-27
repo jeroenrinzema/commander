@@ -319,12 +319,16 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 
 			switch sort {
 			case EventTopic:
-				event := Event{}
+				event := Event{
+					Ctx: message.Ctx,
+				}
 				event.Populate(message)
 
 				value = event
 			case CommandTopic:
-				command := Command{}
+				command := Command{
+					Ctx: message.Ctx,
+				}
 				command.Populate(message)
 
 				value = command

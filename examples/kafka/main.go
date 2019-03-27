@@ -14,7 +14,6 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/dialects/kafka"
-	"github.com/jeroenrinzema/commander/middleware/zipkin"
 )
 
 var warehouse = &commander.Group{
@@ -56,13 +55,6 @@ func main() {
 		panic(err)
 	}
 
-	tracing, err := zipkin.New("host=http://192.168.99.100:9411/api/v2/spans name=example")
-	if err != nil {
-		panic(err)
-	}
-
-	client.Middleware.Use(tracing.Controller)
-
 	/**
 	 * HandleFunc handles an "Available" command. Once a command with the action "Available" is
 	 * processed will a event with the action "created" be produced to the events topic.
@@ -85,9 +77,6 @@ func main() {
 	 * with the parent id set to the id of the received command.
 	 */
 	http.HandleFunc("/available", func(w http.ResponseWriter, r *http.Request) {
-		span := tracing.Tracer.StartSpan("SyncAwait")
-		defer span.Finish()
-
 		key, err := uuid.NewV4()
 		if err != nil {
 			w.WriteHeader(500)
@@ -96,7 +85,6 @@ func main() {
 		}
 
 		command := commander.NewCommand("Available", 1, key, nil)
-		command.Headers = zipkin.ConstructMessageHeaders(span.Context())
 		event, err := warehouse.SyncCommand(command)
 
 		if err != nil {
@@ -113,9 +101,6 @@ func main() {
 	 * Async command example
 	 */
 	http.HandleFunc("/async/available", func(w http.ResponseWriter, r *http.Request) {
-		span := tracing.Tracer.StartSpan("AsyncAwait")
-		defer span.Finish()
-
 		key, err := uuid.NewV4()
 		if err != nil {
 			w.WriteHeader(500)
@@ -124,7 +109,6 @@ func main() {
 		}
 
 		command := commander.NewCommand("Available", 1, key, nil)
-		command.Headers = zipkin.ConstructMessageHeaders(span.Context())
 		err = warehouse.AsyncCommand(command)
 
 		if err != nil {

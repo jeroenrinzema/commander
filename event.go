@@ -187,7 +187,7 @@ func (event *Event) Message(topic Topic) *Message {
 		Key:     []byte(event.Key.String()),
 		Value:   event.Data,
 		Topic:   topic,
-		Ctx:     context.Background(),
+		Ctx:     event.Ctx,
 	}
 
 	return message

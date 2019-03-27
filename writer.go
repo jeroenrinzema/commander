@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -75,10 +76,12 @@ func (writer *writer) ProduceError(action string, status StatusCode, err error) 
 func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (Event, error) {
 	var parent uuid.UUID
 	var timestamp time.Time
+	var ctx context.Context
 
 	if writer.Command != nil {
 		parent = writer.Command.ID
 		timestamp = writer.Command.Timestamp
+		ctx = writer.Command.Ctx
 	}
 
 	if key == uuid.Nil && writer.Command != nil {
@@ -87,6 +90,7 @@ func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, d
 
 	event := NewEvent(action, version, parent, key, data)
 	event.CommandTimestamp = timestamp
+	event.Ctx = ctx
 
 	err := writer.Group.ProduceEvent(event)
 	return event, err

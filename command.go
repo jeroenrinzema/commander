@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"time"
@@ -29,6 +30,7 @@ func NewCommand(action string, version int8, key uuid.UUID, data []byte) Command
 		Version:   version,
 		Data:      data,
 		Timestamp: time.Now(),
+		Ctx:       context.Background(),
 	}
 
 	return command
@@ -44,12 +46,14 @@ type Command struct {
 	Version   int8              `json:"version"`       // Command data schema version
 	Origin    Topic             `json:"-"`             // Command topic origin
 	Timestamp time.Time         `json:"timestamp"`     // Timestamp of command append
+	Ctx       context.Context   `json:"-"`
 }
 
 // NewEvent creates a new acknowledged event as a response to this command.
 func (command *Command) NewEvent(action string, version int8, data []byte) Event {
 	event := NewEvent(action, version, command.ID, command.Key, data)
 	event.CommandTimestamp = command.Timestamp
+	event.Ctx = command.Ctx
 
 	return event
 }
@@ -59,6 +63,7 @@ func (command *Command) NewError(action string, status StatusCode, err error) Ev
 	event := NewEvent(action, 0, command.ID, command.Key, nil)
 	event.Status = status
 	event.CommandTimestamp = command.Timestamp
+	event.Ctx = command.Ctx
 
 	if err != nil {
 		event.Meta = err.Error()
@@ -145,6 +150,7 @@ func (command *Command) Message(topic Topic) *Message {
 		Key:     []byte(command.Key.String()),
 		Value:   command.Data,
 		Topic:   topic,
+		Ctx:     context.Background(),
 	}
 
 	return message

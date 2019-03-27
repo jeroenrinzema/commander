@@ -21,7 +21,7 @@ var (
 	ErrTimeout = errors.New("timeout reached")
 
 	// LoggingPrefix holds the commander logging prefix
-	LoggingPrefix = "[commander] "
+	LoggingPrefix = "[Commander] "
 
 	// LoggingFlags holds the logging flag mode
 	LoggingFlags = log.Ldate | log.Ltime | log.Lshortfile
@@ -48,6 +48,9 @@ func New(dialect Dialect, connectionstring string, groups ...*Group) (*Client, e
 		Dialect:  dialect,
 		Consumer: consumer,
 		Producer: producer,
+		Middleware: &Middleware{
+			events: make(map[EventType]*MiddlewareSubscriptions),
+		},
 	}
 
 	for _, group := range groups {
@@ -63,6 +66,7 @@ type Client struct {
 	Dialect          Dialect
 	Consumer         Consumer
 	Producer         Producer
+	Middleware       *Middleware
 	Groups           []Group
 }
 

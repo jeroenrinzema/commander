@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Shopify/sarama"
 )
@@ -14,12 +15,18 @@ const (
 	OffsetOldest = "oldest"
 )
 
+// Default config value's
+var (
+	DefaultConnectionTimeout = 5 * time.Second
+)
+
 // Config contains all the plausible configuration options
 type Config struct {
-	Brokers       []string
-	Group         string
-	Version       sarama.KafkaVersion
-	InitialOffset int64
+	Brokers           []string
+	Group             string
+	Version           sarama.KafkaVersion
+	InitialOffset     int64
+	ConnectionTimeout time.Duration
 }
 
 // NewConfig constructs a Config from the given connection map
@@ -61,10 +68,16 @@ func NewConfig(values ConnectionMap) (Config, error) {
 		break
 	}
 
+	connectionTimeout, err := time.ParseDuration(values[ConnectionTimeout])
+	if err != nil {
+		connectionTimeout = DefaultConnectionTimeout
+	}
+
 	config.Brokers = strings.Split(values[BrokersKey], ",")
 	config.Group = values[GroupKey]
 	config.Version = version
 	config.InitialOffset = initialOffset
+	config.ConnectionTimeout = connectionTimeout
 
 	if len(config.Brokers) < 1 {
 		return config, errors.New("At least one broker needs to be specified")

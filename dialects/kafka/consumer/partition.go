@@ -88,7 +88,7 @@ func (tc *TopicPartitionConsumers) Close(consumer *PartitionConsumer) error {
 		if consumer == pc {
 			consumer.closing = true
 			tc.consumers = append(tc.consumers[:index], tc.consumers[index+1:]...)
-			pc.client.Close()
+			pc.client.AsyncClose()
 			break
 		}
 	}

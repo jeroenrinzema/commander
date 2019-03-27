@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"time"
@@ -46,6 +47,7 @@ func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data
 		Key:     key,
 		Status:  StatusOK,
 		Version: version,
+		Ctx:     context.Background(),
 	}
 
 	return event
@@ -66,6 +68,7 @@ type Event struct {
 	Meta             string            `json:"meta"`              // Additional event meta message
 	CommandTimestamp time.Time         `json:"command_timestamp"` // Timestamp of parent command append
 	Timestamp        time.Time         `json:"timestamp"`         // Timestamp of event append
+	Ctx              context.Context   `json:"-"`
 }
 
 // Populate the event with the data from the given message.
@@ -184,6 +187,7 @@ func (event *Event) Message(topic Topic) *Message {
 		Key:     []byte(event.Key.String()),
 		Value:   event.Data,
 		Topic:   topic,
+		Ctx:     context.Background(),
 	}
 
 	return message

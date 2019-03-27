@@ -1,4 +1,4 @@
-package kafka
+package zipkin
 
 import (
 	"errors"
@@ -10,11 +10,8 @@ type ConnectionMap map[string]string
 
 // These const's contain the connection string keys to different values
 const (
-	BrokersKey        = "brokers"
-	GroupKey          = "group"
-	VersionKey        = "version"
-	InitialOffsetKey  = "initial-offset"
-	ConnectionTimeout = "connection-timeout"
+	ZipkinHost  = "host"
+	ServiceName = "name"
 )
 
 // ParseConnectionstring parses the given connectionstring and returns a map with all key/values
@@ -39,12 +36,12 @@ func ParseConnectionstring(connectionstring string) ConnectionMap {
 
 // ValidateConnectionKeyVal validates if all required valyues are set in the given connectionmap
 func ValidateConnectionKeyVal(values ConnectionMap) error {
-	if len(values[BrokersKey]) == 0 {
-		return errors.New("No brokers are defined in the connectionstring")
+	if values[ZipkinHost] == "" {
+		return errors.New("no zipkin reporting host was given")
 	}
 
-	if len(values[VersionKey]) == 0 {
-		return errors.New("No kafka version is defined in the connectionstring")
+	if values[ServiceName] == "" {
+		return errors.New("no service name was defined")
 	}
 
 	return nil

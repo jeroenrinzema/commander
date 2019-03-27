@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -179,6 +180,7 @@ func (client *Client) Claim(message *sarama.ConsumerMessage) error {
 			Value:     message.Value,
 			Key:       message.Key,
 			Timestamp: message.Timestamp,
+			Ctx:       context.Background(),
 		}
 
 		channel.mutex.RLock()

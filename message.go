@@ -1,6 +1,9 @@
 package commander
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 const (
 	// ParentHeader kafka message parent header
@@ -27,4 +30,5 @@ type Message struct {
 	Key       []byte            `json:"key"`
 	Retries   int               `json:"retries"`
 	Timestamp time.Time         `json:"timestamp"`
+	Ctx       context.Context   `json:"-"`
 }

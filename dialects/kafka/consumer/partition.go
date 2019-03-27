@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/jeroenrinzema/commander"
 )
 
 // NewPartitionHandle initializes a new PartitionHandle
@@ -21,14 +22,79 @@ func NewPartitionHandle(client *Client) *PartitionHandle {
 // PartitionConsumer represents a single partition consumer
 type PartitionConsumer struct {
 	partition int32
-	consumer  sarama.PartitionConsumer
+	client    sarama.PartitionConsumer
+	closing   bool
 }
 
 // TopicPartitionConsumers represents a topic and it's partition consumers
 type TopicPartitionConsumers struct {
+	handle    *PartitionHandle
 	consumers []*PartitionConsumer
 	highest   int32
 	mutex     sync.RWMutex
+	topic     string
+}
+
+// Consume opens a new consumer for the given partition
+func (tc *TopicPartitionConsumers) Consume(partition int32) error {
+	consumer := &PartitionConsumer{
+		partition: partition,
+	}
+
+	if partition > tc.highest {
+		tc.highest = partition
+	}
+
+	tc.mutex.Lock()
+	tc.consumers = append(tc.consumers, consumer)
+	tc.mutex.Unlock()
+
+	for {
+		// If the closing boolean is set to true do not create new partition consumers
+		if consumer.closing {
+			break
+		}
+
+		commander.Logger.Println("opening partition consumer:", tc.topic, "consumer:", partition)
+
+		client, err := tc.handle.consumer.ConsumePartition(tc.topic, partition, tc.handle.initialOffset)
+		if err != nil {
+			commander.Logger.Println("err opening partition consumer", err)
+			continue
+		}
+
+		consumer.client = client
+
+		tc.ClaimMessages(tc.topic, partition, client)
+		tc.Close(consumer)
+	}
+
+	return nil
+}
+
+// ClaimMessages handles the claiming of consumed messages
+func (tc *TopicPartitionConsumers) ClaimMessages(topic string, partition int32, consumer sarama.PartitionConsumer) {
+	for message := range consumer.Messages() {
+		tc.handle.client.Claim(message)
+	}
+}
+
+// Close closes the given partition consumer and removes it from the available partition consumers
+func (tc *TopicPartitionConsumers) Close(consumer *PartitionConsumer) error {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+
+	for index, pc := range tc.consumers {
+		if consumer == pc {
+			consumer.closing = true
+			tc.consumers = append(tc.consumers[:index], tc.consumers[index+1:]...)
+			pc.client.Close()
+			break
+		}
+	}
+
+	commander.Logger.Println("partition consumer closed:", tc.topic, "consumer:", consumer.partition)
+	return nil
 }
 
 // PartitionHandle represents a Sarama partition consumer
@@ -63,8 +129,9 @@ func (handle *PartitionHandle) PullPartitions(topic string) ([]int32, error) {
 		return new, err
 	}
 
-	handle.mutex.RLock()
-	defer handle.mutex.RUnlock()
+	// need to lock the handle to avoid duplicate partition consumers
+	handle.mutex.Lock()
+	defer handle.mutex.Unlock()
 
 	if handle.partitions[topic] == nil {
 		new = append(new, partitions...)
@@ -93,36 +160,16 @@ func (handle *PartitionHandle) PartitionConsumer(topic string, partition int32) 
 	handle.mutex.Lock()
 	if handle.partitions[topic] == nil {
 		handle.partitions[topic] = &TopicPartitionConsumers{
+			handle:    handle,
 			consumers: []*PartitionConsumer{},
 			highest:   partition,
+			topic:     topic,
 		}
 	}
 	handle.mutex.Unlock()
 
-	consumer, err := handle.consumer.ConsumePartition(topic, partition, handle.initialOffset)
-	if err != nil {
-		return err
-	}
-
-	pc := &PartitionConsumer{
-		partition: partition,
-		consumer:  consumer,
-	}
-
-	handle.partitions[topic].mutex.Lock()
-	defer handle.partitions[topic].mutex.Unlock()
-
-	handle.partitions[topic].consumers = append(handle.partitions[topic].consumers, pc)
-	go handle.ClaimMessages(topic, partition, consumer)
-
+	go handle.partitions[topic].Consume(partition)
 	return nil
-}
-
-// ClaimMessages handles the claiming of consumed messages
-func (handle *PartitionHandle) ClaimMessages(topic string, partition int32, consumer sarama.PartitionConsumer) {
-	for message := range consumer.Messages() {
-		handle.client.Claim(message)
-	}
 }
 
 // Rebalance pulls the latest available topics and starts new partition consumers when nessasery.
@@ -162,21 +209,22 @@ func (handle *PartitionHandle) Connect(brokers []string, topics []string, initia
 // Close closes the given consumer and all topic partition consumers.
 // First are all partition consumers closed before the client consumer is closed.
 func (handle *PartitionHandle) Close() error {
-	handle.mutex.Lock()
-	defer handle.mutex.Unlock()
+	handle.mutex.RLock()
+	defer handle.mutex.RUnlock()
+
+	wg := sync.WaitGroup{}
 
 	for _, topic := range handle.partitions {
-		topic.mutex.Lock()
-
 		for _, partition := range topic.consumers {
-			err := partition.consumer.Close()
-			if err != nil {
-				return err
-			}
+			wg.Add(1)
+			go func(partition *PartitionConsumer) {
+				topic.Close(partition)
+				wg.Done()
+			}(partition)
 		}
-
-		topic.mutex.Unlock()
 	}
+
+	wg.Wait()
 
 	err := handle.consumer.Close()
 	if err != nil {

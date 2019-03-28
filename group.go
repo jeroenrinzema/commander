@@ -67,6 +67,16 @@ func (group *Group) AsyncCommand(command Command) error {
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
 func (group *Group) SyncCommand(command Command) (Event, error) {
+	group.Middleware.Emit(BeforeSync, &MiddlewareEvent{
+		Value: command,
+		Ctx:   command.Ctx,
+	})
+
+	defer group.Middleware.Emit(AfterSync, &MiddlewareEvent{
+		Value: command,
+		Ctx:   command.Ctx,
+	})
+
 	sink, marked, erro := group.AwaitEvent(group.Timeout, command.ID)
 	err := group.AsyncCommand(command)
 	if err != nil {
@@ -247,7 +257,11 @@ func (group *Group) ProduceEvent(event Event) error {
 // Publish publishes the given message to the group producer.
 // All middleware subscriptions are called before publishing the message.
 func (group *Group) Publish(message *Message) error {
-	group.Middleware.Emit(BeforePublish, message)
+	group.Middleware.Emit(BeforePublish, &MiddlewareEvent{
+		Value: message,
+		Ctx:   message.Ctx,
+	})
+
 	return group.Producer.Publish(message)
 }
 
@@ -286,10 +300,18 @@ func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, chan<- error, 
 
 	go func(messages <-chan *Message) {
 		for message := range messages {
-			group.Middleware.Emit(BeforeConsumption, message)
+			group.Middleware.Emit(BeforeConsumption, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
+
 			sink <- message
 			marked <- <-called // Await called and pipe into marked
-			group.Middleware.Emit(AfterConsumed, message)
+
+			group.Middleware.Emit(AfterConsumed, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
 		}
 	}(messages)
 

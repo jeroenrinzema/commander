@@ -3,7 +3,7 @@ package zipkin
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 	"strconv"
 
 	"github.com/jeroenrinzema/commander"
@@ -27,6 +27,12 @@ const (
 	HeaderSpanIDKey       = "span_id"
 	HeaderParentSpanIDKey = "parent_span_id"
 	HeaderSampledKey      = "trace_sampled"
+)
+
+// Zipkin span tags
+const (
+	StatusTag  = "commander.message.status"
+	VersionTag = "commander.message.version"
 )
 
 // New initializes a new Zipkin commander middleware reporter
@@ -82,27 +88,44 @@ func (middleware *Zipkin) Close() error {
 }
 
 // StartSpan starts a new span and stores it in the message context
-func (middleware *Zipkin) StartSpan(message *commander.Message) error {
-	options := []zipkin.SpanOption{zipkin.Kind(model.Consumer)}
+func (middleware *Zipkin) StartSpan(event *commander.MiddlewareEvent) error {
+	commander.Logger.Println("starting span")
+	message, ok := event.Value.(*commander.Message)
+	if !ok {
+		return errors.New("value is not a *message")
+	}
 
-	ctx, err := ExtractContextFromMessage(message)
+	options := []zipkin.SpanOption{zipkin.Kind(model.Consumer)}
+	sc, err := ExtractContextFromMessage(message)
 	if err == nil {
-		options = append(options, zipkin.Parent(ctx))
+		options = append(options, zipkin.Parent(sc))
 	}
 
 	action := message.Headers[commander.ActionHeader]
-	span := middleware.Tracer.StartSpan(action, options...)
+	parent := message.Headers[commander.ParentHeader]
+	sort := "message"
+
+	if parent != "" {
+		sort = "event"
+	} else {
+		sort = "command"
+	}
+
+	name := fmt.Sprintf("%s_%s", sort, action)
+	span := middleware.Tracer.StartSpan(name, options...)
 	message.Ctx = context.WithValue(message.Ctx, CtxSpanKey, span)
+
+	span.Tag(StatusTag, message.Headers[commander.StatusHeader])
+	span.Tag(VersionTag, message.Headers[commander.VersionHeader])
+
 	return nil
 }
 
 // FinishSpan finishes the stored span in the message context
-func (middleware *Zipkin) FinishSpan(message *commander.Message) error {
-	if message.Ctx == nil {
-		return errors.New("message context is not set")
-	}
+func (middleware *Zipkin) FinishSpan(event *commander.MiddlewareEvent) error {
+	commander.Logger.Println("finishing span")
 
-	intrf := message.Ctx.Value(CtxSpanKey)
+	intrf := event.Ctx.Value(CtxSpanKey)
 	if intrf == nil {
 		return errors.New("message context contains no tracing span")
 	}
@@ -117,12 +140,14 @@ func (middleware *Zipkin) FinishSpan(message *commander.Message) error {
 }
 
 // PrepareMessage prepares the given message span headers
-func (middleware *Zipkin) PrepareMessage(message *commander.Message) error {
-	if message.Ctx == nil {
-		return errors.New("message context is not set")
+func (middleware *Zipkin) PrepareMessage(event *commander.MiddlewareEvent) error {
+	commander.Logger.Println("injecting span into message")
+	message, ok := event.Value.(*commander.Message)
+	if !ok {
+		return errors.New("value is not a *message")
 	}
 
-	intrf := message.Ctx.Value(CtxSpanKey)
+	intrf := event.Ctx.Value(CtxSpanKey)
 	if intrf == nil {
 		return errors.New("message context contains no tracing span")
 	}
@@ -142,10 +167,10 @@ func (middleware *Zipkin) PrepareMessage(message *commander.Message) error {
 
 // ExtractContextFromMessage extracts the span context of a Commander message
 func ExtractContextFromMessage(message *commander.Message) (model.SpanContext, error) {
+	commander.Logger.Println("attempting span context extraction from message")
 	sc := model.SpanContext{}
 
 	id, err := model.TraceIDFromHex(message.Headers[HeaderTraceIDKey])
-	log.Println(message.Headers)
 	if err != nil {
 		return sc, err
 	}

@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"context"
 	"sync"
 )
 
@@ -9,13 +10,15 @@ type EventType string
 
 // Available events
 const (
+	BeforeSync        EventType = "BeforeSync"
+	AfterSync         EventType = "AfterSync"
 	BeforeConsumption EventType = "BeforeConsumption"
 	AfterConsumed     EventType = "AfterConsumed"
 	BeforePublish     EventType = "BeforePublish"
 )
 
 // MiddlewareHandle represents a middleware handle
-type MiddlewareHandle func(message *Message) error
+type MiddlewareHandle func(event *MiddlewareEvent) error
 
 // MiddlewareController represents a middleware controller to initialize the passed middleware
 type MiddlewareController func(subscribe MiddlewareSubscribe)
@@ -29,6 +32,13 @@ type MiddlewareSubscriptions struct {
 	mutex         sync.RWMutex
 }
 
+// MiddlewareEvent represents a middle ware event message.
+// The struct contains the given context and value
+type MiddlewareEvent struct {
+	Value interface{}
+	Ctx   context.Context
+}
+
 // Middleware handles all middleware event subscriptions.
 // If a event is emitted are the subscribed middleware methods called and awaited.
 type Middleware struct {
@@ -39,7 +49,7 @@ type Middleware struct {
 // Emit calls all the subscribed middleware handles on the given event type.
 // Each handle is called and awaited in order for it to manipulate or process a response.
 // If a handle returns a error message is the manipulated message ignored.
-func (middleware *Middleware) Emit(event EventType, message *Message) {
+func (middleware *Middleware) Emit(event EventType, message *MiddlewareEvent) {
 	middleware.mutex.RLock()
 	defer middleware.mutex.RUnlock()
 

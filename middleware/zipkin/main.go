@@ -31,6 +31,7 @@ const (
 
 // Zipkin span tags
 const (
+	ActionTag  = "commander.message.action"
 	StatusTag  = "commander.message.status"
 	VersionTag = "commander.message.version"
 )
@@ -115,6 +116,7 @@ func (middleware *Zipkin) StartSpan(event *commander.MiddlewareEvent) error {
 	span := middleware.Tracer.StartSpan(name, options...)
 	message.Ctx = context.WithValue(message.Ctx, CtxSpanKey, span)
 
+	span.Tag(ActionTag, message.Headers[commander.ActionHeader])
 	span.Tag(StatusTag, message.Headers[commander.StatusHeader])
 	span.Tag(VersionTag, message.Headers[commander.VersionHeader])
 

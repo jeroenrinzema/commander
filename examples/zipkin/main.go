@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -36,6 +38,10 @@ var group = &commander.Group{
 
 func main() {
 	commander.Logger.SetOutput(os.Stdout)
+	zipkinHost := flag.String("host", "http://127.0.0.1:9411/api/v2/spans", "Zipkin host")
+	serviceName := flag.String("name", "example", "Service name")
+	flag.Parse()
+
 	connectionstring := ""
 	dialect := &commander.MockDialect{}
 
@@ -48,11 +54,13 @@ func main() {
 		panic(err)
 	}
 
-	tracing, err := zipkin.New("host=http://192.168.99.100:9411/api/v2/spans name=example")
+	zconnect := fmt.Sprintf("host=%s name=%s", *zipkinHost, *serviceName)
+	tracing, err := zipkin.New(zconnect)
 	if err != nil {
 		panic(err)
 	}
 
+	log.Println("Injecting Zipkin tracer:", zconnect)
 	client.Middleware.Use(tracing.Controller)
 
 	/**

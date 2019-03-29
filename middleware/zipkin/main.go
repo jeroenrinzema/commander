@@ -78,8 +78,8 @@ type Zipkin struct {
 // Controller is a middleware controller that set's up the needed middleware
 // event subscriptions.
 func (middleware *Zipkin) Controller(subscribe commander.MiddlewareSubscribe) {
-	subscribe(commander.BeforeConsumption, middleware.BeforeConsume)
-	subscribe(commander.AfterConsumed, middleware.AfterConsume)
+	subscribe(commander.BeforeActionConsumption, middleware.BeforeConsume)
+	subscribe(commander.AfterActionConsumption, middleware.AfterConsume)
 	subscribe(commander.BeforePublish, middleware.BeforePublish)
 	subscribe(commander.AfterPublish, middleware.AfterPublish)
 }

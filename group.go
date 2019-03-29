@@ -295,7 +295,7 @@ func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, chan<- error, 
 
 	go func(messages <-chan *Message) {
 		for message := range messages {
-			group.Middleware.Emit(BeforeConsumption, &MiddlewareEvent{
+			group.Middleware.Emit(BeforeMessageConsumption, &MiddlewareEvent{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
@@ -303,7 +303,7 @@ func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, chan<- error, 
 			sink <- message
 			marked <- <-called // Await called and pipe into marked
 
-			group.Middleware.Emit(AfterConsumed, &MiddlewareEvent{
+			group.Middleware.Emit(AfterMessageConsumed, &MiddlewareEvent{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
@@ -334,6 +334,11 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 
 			Logger.Println("Processing action:", a)
 
+			group.Middleware.Emit(BeforeActionConsumption, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
+
 			switch sort {
 			case EventTopic:
 				event := Event{
@@ -357,6 +362,11 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 			// Check if the message is marked to be retried
 			err := writer.ShouldRetry()
 			marked <- err
+
+			group.Middleware.Emit(AfterActionConsumption, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
 		}
 	}()
 

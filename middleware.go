@@ -10,11 +10,10 @@ type EventType string
 
 // Available events
 const (
-	BeforeSync        EventType = "BeforeSync"
-	AfterSync         EventType = "AfterSync"
 	BeforeConsumption EventType = "BeforeConsumption"
 	AfterConsumed     EventType = "AfterConsumed"
 	BeforePublish     EventType = "BeforePublish"
+	AfterPublish      EventType = "AfterPublish"
 )
 
 // MiddlewareHandle represents a middleware handle

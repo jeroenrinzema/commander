@@ -67,16 +67,6 @@ func (group *Group) AsyncCommand(command Command) error {
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
 func (group *Group) SyncCommand(command Command) (Event, error) {
-	group.Middleware.Emit(BeforeSync, &MiddlewareEvent{
-		Value: command,
-		Ctx:   command.Ctx,
-	})
-
-	defer group.Middleware.Emit(AfterSync, &MiddlewareEvent{
-		Value: command,
-		Ctx:   command.Ctx,
-	})
-
 	sink, marked, erro := group.AwaitEvent(group.Timeout, command.ID)
 	err := group.AsyncCommand(command)
 	if err != nil {
@@ -258,6 +248,11 @@ func (group *Group) ProduceEvent(event Event) error {
 // All middleware subscriptions are called before publishing the message.
 func (group *Group) Publish(message *Message) error {
 	group.Middleware.Emit(BeforePublish, &MiddlewareEvent{
+		Value: message,
+		Ctx:   message.Ctx,
+	})
+
+	defer group.Middleware.Emit(AfterPublish, &MiddlewareEvent{
 		Value: message,
 		Ctx:   message.Ctx,
 	})

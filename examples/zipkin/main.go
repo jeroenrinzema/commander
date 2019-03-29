@@ -82,7 +82,7 @@ func main() {
 	 * with the parent id set to the id of the received command.
 	 */
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		span := tracing.Tracer.StartSpan("AsyncAwait")
+		span := tracing.Tracer.StartSpan("http.sync.example")
 		defer span.Finish()
 
 		key, _ := uuid.NewV4()

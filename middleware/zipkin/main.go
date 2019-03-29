@@ -3,7 +3,6 @@ package zipkin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/jeroenrinzema/commander"
@@ -18,7 +17,8 @@ type CtxKey string
 
 // Available Zipkin context keys
 const (
-	CtxSpanKey CtxKey = "ZipkinCtxSpan"
+	CtxSpanKeyConsume CtxKey = "ZipkinCtxSpanConsume"
+	CtxSpanKeyProduce CtxKey = "ZipkinCtxSpanProduce"
 )
 
 // Zipkin Kafka message header keys
@@ -78,9 +78,10 @@ type Zipkin struct {
 // Controller is a middleware controller that set's up the needed middleware
 // event subscriptions.
 func (middleware *Zipkin) Controller(subscribe commander.MiddlewareSubscribe) {
-	subscribe(commander.BeforeConsumption, middleware.StartSpan)
-	subscribe(commander.AfterConsumed, middleware.FinishSpan)
-	subscribe(commander.BeforePublish, middleware.PrepareMessage)
+	subscribe(commander.BeforeConsumption, middleware.BeforeConsume)
+	subscribe(commander.AfterConsumed, middleware.AfterConsume)
+	subscribe(commander.BeforePublish, middleware.BeforePublish)
+	subscribe(commander.AfterPublish, middleware.AfterPublish)
 }
 
 // Close closes the Zipkin reporter
@@ -88,8 +89,8 @@ func (middleware *Zipkin) Close() error {
 	return middleware.Reporter.Close()
 }
 
-// StartSpan starts a new span and stores it in the message context
-func (middleware *Zipkin) StartSpan(event *commander.MiddlewareEvent) error {
+// BeforeConsume starts a new span and stores it in the message context
+func (middleware *Zipkin) BeforeConsume(event *commander.MiddlewareEvent) error {
 	commander.Logger.Println("starting span")
 	message, ok := event.Value.(*commander.Message)
 	if !ok {
@@ -103,18 +104,9 @@ func (middleware *Zipkin) StartSpan(event *commander.MiddlewareEvent) error {
 	}
 
 	action := message.Headers[commander.ActionHeader]
-	parent := message.Headers[commander.ParentHeader]
-	sort := "message"
-
-	if parent != "" {
-		sort = "event"
-	} else {
-		sort = "command"
-	}
-
-	name := fmt.Sprintf("%s_%s", sort, action)
+	name := "commander.consume." + action
 	span := middleware.Tracer.StartSpan(name, options...)
-	message.Ctx = context.WithValue(message.Ctx, CtxSpanKey, span)
+	message.Ctx = context.WithValue(message.Ctx, CtxSpanKeyConsume, span)
 
 	span.Tag(ActionTag, message.Headers[commander.ActionHeader])
 	span.Tag(StatusTag, message.Headers[commander.StatusHeader])
@@ -123,11 +115,11 @@ func (middleware *Zipkin) StartSpan(event *commander.MiddlewareEvent) error {
 	return nil
 }
 
-// FinishSpan finishes the stored span in the message context
-func (middleware *Zipkin) FinishSpan(event *commander.MiddlewareEvent) error {
+// AfterConsume finishes the stored span in the message context
+func (middleware *Zipkin) AfterConsume(event *commander.MiddlewareEvent) error {
 	commander.Logger.Println("finishing span")
 
-	intrf := event.Ctx.Value(CtxSpanKey)
+	intrf := event.Ctx.Value(CtxSpanKeyConsume)
 	if intrf == nil {
 		return errors.New("message context contains no tracing span")
 	}
@@ -141,15 +133,41 @@ func (middleware *Zipkin) FinishSpan(event *commander.MiddlewareEvent) error {
 	return nil
 }
 
-// PrepareMessage prepares the given message span headers
-func (middleware *Zipkin) PrepareMessage(event *commander.MiddlewareEvent) error {
+// BeforePublish prepares the given message span headers
+func (middleware *Zipkin) BeforePublish(event *commander.MiddlewareEvent) error {
 	commander.Logger.Println("injecting span into message")
 	message, ok := event.Value.(*commander.Message)
 	if !ok {
 		return errors.New("value is not a *message")
 	}
 
-	intrf := event.Ctx.Value(CtxSpanKey)
+	intrf := event.Ctx.Value(CtxSpanKeyConsume)
+	if intrf == nil {
+		return errors.New("message context contains no tracing span")
+	}
+
+	msp, ok := intrf.(zipkin.Span)
+	if !ok {
+		return errors.New("interface is not a Zipkin span")
+	}
+
+	name := "commander.produce"
+	span := middleware.Tracer.StartSpan(name, zipkin.Kind(model.Consumer), zipkin.Parent(msp.Context()))
+	message.Ctx = context.WithValue(message.Ctx, CtxSpanKeyProduce, span)
+
+	headers := ConstructMessageHeaders(msp.Context())
+	for k, v := range headers {
+		message.Headers[k] = v
+	}
+
+	return nil
+}
+
+// AfterPublish closes the producing span
+func (middleware *Zipkin) AfterPublish(event *commander.MiddlewareEvent) error {
+	commander.Logger.Println("finishing span")
+
+	intrf := event.Ctx.Value(CtxSpanKeyProduce)
 	if intrf == nil {
 		return errors.New("message context contains no tracing span")
 	}
@@ -159,11 +177,7 @@ func (middleware *Zipkin) PrepareMessage(event *commander.MiddlewareEvent) error
 		return errors.New("interface is not a Zipkin span")
 	}
 
-	headers := ConstructMessageHeaders(span.Context())
-	for k, v := range headers {
-		message.Headers[k] = v
-	}
-
+	span.Finish()
 	return nil
 }
 

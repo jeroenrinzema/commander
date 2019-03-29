@@ -66,7 +66,7 @@ func (tc *TopicPartitionConsumers) Consume(partition int32) error {
 		consumer.client = client
 
 		tc.ClaimMessages(tc.topic, partition, client)
-		tc.Close(consumer)
+		tc.Delist(consumer)
 	}
 
 	return nil
@@ -79,16 +79,14 @@ func (tc *TopicPartitionConsumers) ClaimMessages(topic string, partition int32, 
 	}
 }
 
-// Close closes the given partition consumer and removes it from the available partition consumers
-func (tc *TopicPartitionConsumers) Close(consumer *PartitionConsumer) error {
+// Delist unlists the consumer as available
+func (tc *TopicPartitionConsumers) Delist(consumer *PartitionConsumer) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
 	for index, pc := range tc.consumers {
 		if consumer == pc {
-			consumer.closing = true
 			tc.consumers = append(tc.consumers[:index], tc.consumers[index+1:]...)
-			pc.client.AsyncClose()
 			break
 		}
 	}
@@ -209,6 +207,8 @@ func (handle *PartitionHandle) Connect(brokers []string, topics []string, initia
 // Close closes the given consumer and all topic partition consumers.
 // First are all partition consumers closed before the client consumer is closed.
 func (handle *PartitionHandle) Close() error {
+	commander.Logger.Println("closing partition consumer")
+
 	handle.mutex.RLock()
 	defer handle.mutex.RUnlock()
 
@@ -218,7 +218,9 @@ func (handle *PartitionHandle) Close() error {
 		for _, partition := range topic.consumers {
 			wg.Add(1)
 			go func(partition *PartitionConsumer) {
-				topic.Close(partition)
+				partition.closing = true
+				partition.client.Close()
+				topic.Delist(partition)
 				wg.Done()
 			}(partition)
 		}

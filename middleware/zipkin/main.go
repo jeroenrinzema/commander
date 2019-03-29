@@ -155,6 +155,10 @@ func (middleware *Zipkin) BeforePublish(event *commander.MiddlewareEvent) error 
 	span := middleware.Tracer.StartSpan(name, zipkin.Kind(model.Consumer), zipkin.Parent(msp.Context()))
 	message.Ctx = context.WithValue(message.Ctx, CtxSpanKeyProduce, span)
 
+	span.Tag(ActionTag, message.Headers[commander.ActionHeader])
+	span.Tag(StatusTag, message.Headers[commander.StatusHeader])
+	span.Tag(VersionTag, message.Headers[commander.VersionHeader])
+
 	headers := ConstructMessageHeaders(msp.Context())
 	for k, v := range headers {
 		message.Headers[k] = v

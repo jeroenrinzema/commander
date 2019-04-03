@@ -177,6 +177,8 @@ func (client *Client) Claim(message *sarama.ConsumerMessage) error {
 			Topic: commander.Topic{
 				Name: message.Topic,
 			},
+			Offset:    int(message.Offset),
+			Partition: int(message.Partition),
 			Value:     message.Value,
 			Key:       message.Key,
 			Timestamp: message.Timestamp,

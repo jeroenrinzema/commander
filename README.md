@@ -13,6 +13,10 @@ Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for det
 
 - **[Kafka](https://github.com/jeroenrinzema/commander/tree/master/dialects/kafka)** - Commander Kafka consumer/producer build upon the Sarama go Kafka client.
 
+## Examples
+
+For more advanced code check out the examples on [Github](https://github.com/jeroenrinzema/commander/tree/master/examples).
+
 ## Getting started
 
 - **Dialects**: A dialect is responsible for the production/consumption of events.
@@ -58,4 +62,10 @@ group.ProduceCommand(command)
 
 This example consumes commands with the action `example` and produces at once a event with the action `created` to the event topic. In this example is the [CQRS](https://martinfowler.com/bliki/CQRS.html) pattern used but commander is not limited by it. Commander tries to be flexible and allowes applications to be written in many different ways.
 
-Check out the available examples on [Github](https://github.com/jeroenrinzema/commander/tree/master/examples).
+## Dialects
+
+A dialect is the connector to a given protocol or infrastructure. A dialect needs to be defined when constructing a new commander instance. Commander comes shipped with a `mocking` dialect designed for testing purposes. Check out the dialects [directory](https://github.com/jeroenrinzema/commander/tree/master/dialects) for the available dialects.
+
+## Middleware
+
+Middleware allowes actions to be preformed on event(s) or messages to be manipulated. Check out the middleware [directory](https://github.com/jeroenrinzema/commander/tree/master/middleware) for the available middleware controllers.

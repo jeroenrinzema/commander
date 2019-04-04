@@ -34,9 +34,9 @@ var (
 // The dialect will be opened and a new logger will be set up that discards the logs by default.
 func New(dialect Dialect, connectionstring string, groups ...*Group) (*Client, error) {
 	if len(groups) == 0 {
-		return nil, errors.New("no commander group was given")
+		return nil, errors.New("no group was given to be attached")
 	}
-
+	
 	Logger.Println("Opening commander dialect...")
 
 	consumer, producer, err := dialect.Open(connectionstring, groups...)

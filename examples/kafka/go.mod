@@ -6,6 +6,6 @@ replace github.com/jeroenrinzema/commander/dialects/kafka => ../../dialects/kafk
 
 require (
 	github.com/gofrs/uuid v3.2.0+incompatible
-	github.com/jeroenrinzema/commander v0.0.0-20181126162507-b4d62c7740ef
+	github.com/jeroenrinzema/commander v1.0.0-rc.25
 	github.com/jeroenrinzema/commander/dialects/kafka v0.0.0-20181217103823-01d74b882250
 )

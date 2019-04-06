@@ -194,7 +194,7 @@ func (group *Group) ProduceCommand(command Command) error {
 	}
 
 	err = retry.Attempt(func() error {
-		return group.Producer.Publish(message)
+		return group.Publish(message)
 	})
 
 	if err != nil {
@@ -234,7 +234,7 @@ func (group *Group) ProduceEvent(event Event) error {
 	}
 
 	err = retry.Attempt(func() error {
-		return group.Producer.Publish(message)
+		return group.Publish(message)
 	})
 
 	if err != nil {
@@ -244,8 +244,25 @@ func (group *Group) ProduceEvent(event Event) error {
 	return nil
 }
 
+// Publish publishes the given message to the group producer.
+// All middleware subscriptions are called before publishing the message.
+func (group *Group) Publish(message *Message) error {
+	group.Middleware.Emit(BeforePublish, &MiddlewareEvent{
+		Value: message,
+		Ctx:   message.Ctx,
+	})
+
+	defer group.Middleware.Emit(AfterPublish, &MiddlewareEvent{
+		Value: message,
+		Ctx:   message.Ctx,
+	})
+
+	return group.Producer.Publish(message)
+}
+
 // NewConsumer starts consuming events of topics from the same topic type.
 // All received messages are published over the returned messages channel.
+// All middleware subscriptions are called before consuming the message.
 func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, chan<- error, Close, error) {
 	Logger.Println("New topic consumer")
 
@@ -271,8 +288,29 @@ func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, chan<- error, 
 		return make(<-chan *Message, 0), make(chan<- error, 0), func() {}, errors.New("no consumable topics are found for the topic type" + string(sort))
 	}
 
+	sink := make(chan *Message, 1)
+	called := make(chan error, 1)
+
 	messages, marked, err := group.Consumer.Subscribe(topics...)
-	return messages, marked, func() { group.Consumer.Unsubscribe(messages) }, err
+
+	go func(messages <-chan *Message) {
+		for message := range messages {
+			group.Middleware.Emit(BeforeMessageConsumption, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
+
+			sink <- message
+			marked <- <-called // Await called and pipe into marked
+
+			group.Middleware.Emit(AfterMessageConsumed, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
+		}
+	}(messages)
+
+	return sink, called, func() { group.Consumer.Unsubscribe(messages) }, err
 }
 
 // HandleFunc awaits messages from the given TopicType and action.
@@ -296,14 +334,23 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 
 			Logger.Println("Processing action:", a)
 
+			group.Middleware.Emit(BeforeActionConsumption, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
+
 			switch sort {
 			case EventTopic:
-				event := Event{}
+				event := Event{
+					Ctx: message.Ctx,
+				}
 				event.Populate(message)
 
 				value = event
 			case CommandTopic:
-				command := Command{}
+				command := Command{
+					Ctx: message.Ctx,
+				}
 				command.Populate(message)
 
 				value = command
@@ -315,6 +362,11 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 			// Check if the message is marked to be retried
 			err := writer.ShouldRetry()
 			marked <- err
+
+			group.Middleware.Emit(AfterActionConsumption, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
 		}
 	}()
 

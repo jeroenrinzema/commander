@@ -5,19 +5,19 @@ import (
 	"time"
 )
 
-// MockSubscription represents a mock subscription
+// MockSubscription mock message subscription
 type MockSubscription struct {
 	messages chan *Message
 	marked   chan error
 }
 
-// MockDialect represents the mock dialect
+// MockDialect a in-memory mocking dialect
 type MockDialect struct {
 	Consumer *MockConsumer
 	Producer *MockProducer
 }
 
-// Open opens a mock consumer and producer
+// Open opens the mocking consumer and producer
 func (dialect *MockDialect) Open(connectionstring string, groups ...*Group) (Consumer, Producer, error) {
 	consumer := &MockConsumer{
 		subscriptions: make(map[string][]*MockSubscription),
@@ -46,7 +46,7 @@ func (dialect *MockDialect) Close() error {
 	return nil
 }
 
-// MockConsumer consumes kafka messages
+// MockConsumer consumes messages and emits them to the subscribed channels
 type MockConsumer struct {
 	subscriptions map[string][]*MockSubscription
 	mutex         sync.RWMutex
@@ -67,7 +67,12 @@ func (consumer *MockConsumer) Emit(message *Message) {
 	topic := message.Topic.Name
 	for _, subscription := range consumer.subscriptions[topic] {
 		subscription.messages <- message
-		<-subscription.marked
+		err := <-subscription.marked
+		if err != nil {
+			// NOTE: should a panic really be thrown here?
+			// An error has to be returned to the client (usually testing) but a panic is not expected
+			panic(err)
+		}
 	}
 
 	Logger.Println("message marked")
@@ -75,14 +80,12 @@ func (consumer *MockConsumer) Emit(message *Message) {
 
 // Subscribe subscribes to the given topics and returs a message channel
 func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, chan<- error, error) {
-	// We are only appending therefor could we only read-lock the mutex (otherwise could we end up in a deadlock)
-	consumer.mutex.RLock()
-	defer consumer.mutex.RUnlock()
-
 	subscription := &MockSubscription{
 		messages: make(chan *Message, 1),
 		marked:   make(chan error, 1),
 	}
+
+	consumer.mutex.Lock()
 
 	for _, topic := range topics {
 		if consumer.subscriptions[topic.Name] == nil {
@@ -92,10 +95,12 @@ func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, chan<
 		consumer.subscriptions[topic.Name] = append(consumer.subscriptions[topic.Name], subscription)
 	}
 
+	consumer.mutex.Unlock()
+
 	return subscription.messages, subscription.marked, nil
 }
 
-// Unsubscribe unsubscribes the given topic from the subscription list
+// Unsubscribe unsubscribes the given consumer channel (if found) from the subscription list
 func (consumer *MockConsumer) Unsubscribe(channel <-chan *Message) error {
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
@@ -117,7 +122,7 @@ func (consumer *MockConsumer) Close() error {
 	return nil
 }
 
-// MockProducer produces kafka messages
+// MockProducer emits messages to the attached consumer
 type MockProducer struct {
 	consumer *MockConsumer
 }

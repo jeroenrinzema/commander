@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"time"
@@ -8,11 +9,20 @@ import (
 	"github.com/gofrs/uuid"
 )
 
+// StatusCode represents an message status code.
+// The status codes are base on the HTTP status code specifications.
+type StatusCode int16
+
 // Status codes that represents the status of a event
 const (
-	StatusOK                  = 200
-	StatusBadRequest          = 400
-	StatusInternalServerError = 500
+	StatusOK                  StatusCode = 200
+	StatusBadRequest          StatusCode = 400
+	StatusUnauthorized        StatusCode = 401
+	StatusForbidden           StatusCode = 403
+	StatusNotFound            StatusCode = 404
+	StatusConflict            StatusCode = 409
+	StatusImATeapot           StatusCode = 418
+	StatusInternalServerError StatusCode = 500
 )
 
 // NewEvent constructs a new event
@@ -37,6 +47,7 @@ func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data
 		Key:     key,
 		Status:  StatusOK,
 		Version: version,
+		Ctx:     context.Background(),
 	}
 
 	return event
@@ -51,12 +62,15 @@ type Event struct {
 	Action           string            `json:"action"`            // Event representing action
 	Data             []byte            `json:"data"`              // Passed event data as bytes
 	Key              uuid.UUID         `json:"key"`               // Event partition key
-	Status           int16             `json:"status"`            // Event status code (commander.Status*)
+	Status           StatusCode        `json:"status"`            // Event status code (commander.Status*)
 	Version          int8              `json:"version"`           // Event data schema version
 	Origin           Topic             `json:"-"`                 // Event topic origin
+	Offset           int               `json:"-"`                 // Event message offset
+	Partition        int               `json:"-"`                 // Event message partition
 	Meta             string            `json:"meta"`              // Additional event meta message
 	CommandTimestamp time.Time         `json:"command_timestamp"` // Timestamp of parent command append
 	Timestamp        time.Time         `json:"timestamp"`         // Timestamp of event append
+	Ctx              context.Context   `json:"-"`
 }
 
 // Populate the event with the data from the given message.
@@ -104,7 +118,7 @@ headers:
 				continue
 			}
 
-			event.Status = int16(status)
+			event.Status = StatusCode(int16(status))
 			continue headers
 		case VersionHeader:
 			version, err := strconv.ParseInt(str, 10, 8)
@@ -146,6 +160,8 @@ headers:
 	event.Key = id
 	event.Data = message.Value
 	event.Origin = message.Topic
+	event.Offset = message.Offset
+	event.Partition = message.Partition
 	event.Timestamp = message.Timestamp
 
 	if throw != nil {
@@ -171,10 +187,13 @@ func (event *Event) Message(topic Topic) *Message {
 	headers[CommandTimestampHeader] = strconv.Itoa(int(event.CommandTimestamp.Unix()))
 
 	message := &Message{
-		Headers: headers,
-		Key:     []byte(event.Key.String()),
-		Value:   event.Data,
-		Topic:   topic,
+		Headers:   headers,
+		Key:       []byte(event.Key.String()),
+		Value:     event.Data,
+		Topic:     topic,
+		Offset:    event.Offset,
+		Partition: event.Partition,
+		Ctx:       event.Ctx,
 	}
 
 	return message

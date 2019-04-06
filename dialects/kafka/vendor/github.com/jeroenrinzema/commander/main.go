@@ -21,7 +21,7 @@ var (
 	ErrTimeout = errors.New("timeout reached")
 
 	// LoggingPrefix holds the commander logging prefix
-	LoggingPrefix = "[commander] "
+	LoggingPrefix = "[Commander] "
 
 	// LoggingFlags holds the logging flag mode
 	LoggingFlags = log.Ldate | log.Ltime | log.Lshortfile
@@ -34,9 +34,9 @@ var (
 // The dialect will be opened and a new logger will be set up that discards the logs by default.
 func New(dialect Dialect, connectionstring string, groups ...*Group) (*Client, error) {
 	if len(groups) == 0 {
-		return nil, errors.New("no commander group was given")
+		return nil, errors.New("no group was given to be attached")
 	}
-
+	
 	Logger.Println("Opening commander dialect...")
 
 	consumer, producer, err := dialect.Open(connectionstring, groups...)
@@ -48,6 +48,9 @@ func New(dialect Dialect, connectionstring string, groups ...*Group) (*Client, e
 		Dialect:  dialect,
 		Consumer: consumer,
 		Producer: producer,
+		Middleware: &Middleware{
+			events: make(map[EventType]*MiddlewareSubscriptions),
+		},
 	}
 
 	for _, group := range groups {
@@ -63,6 +66,7 @@ type Client struct {
 	Dialect          Dialect
 	Consumer         Consumer
 	Producer         Producer
+	Middleware       *Middleware
 	Groups           []Group
 }
 

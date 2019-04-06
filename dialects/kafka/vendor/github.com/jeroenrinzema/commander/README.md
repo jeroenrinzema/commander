@@ -2,6 +2,7 @@
 [![GoDoc](https://godoc.org/github.com/jeroenrinzema/commander?status.svg)](https://godoc.org/github.com/jeroenrinzema/commander)
 [![Coverage Report](https://goreportcard.com/badge/github.com/jeroenrinzema/commander)](https://goreportcard.com/report/github.com/jeroenrinzema/commander)
 [![MIT](https://img.shields.io/github/license/jeroenrinzema/commander.svg)](https://img.shields.io/github/license/jeroenrinzema/commander.svg)
+[![Build Status](https://travis-ci.org/jeroenrinzema/commander.svg?branch=master)](https://travis-ci.org/jeroenrinzema/commander)
 
 Commander is a toolset for writing event driven applications, aims to be developer friendly. Commander supports event driven patterns such as CQRS and has support for different infastructure "dialects".
 
@@ -11,7 +12,11 @@ Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for det
 
 ## Official dialects
 
-- **[Kafka](https://github.com/jeroenrinzema/commander/dialects/kafka)** - Commander Kafka consumer/producer build upon the Sarama go Kafka client.
+- **[Kafka](https://github.com/jeroenrinzema/commander/tree/master/dialects/kafka)** - Commander Kafka consumer/producer build upon the Sarama go Kafka client.
+
+## Examples
+
+For more advanced code check out the examples on [Github](https://github.com/jeroenrinzema/commander/tree/master/examples).
 
 ## Getting started
 
@@ -58,4 +63,10 @@ group.ProduceCommand(command)
 
 This example consumes commands with the action `example` and produces at once a event with the action `created` to the event topic. In this example is the [CQRS](https://martinfowler.com/bliki/CQRS.html) pattern used but commander is not limited by it. Commander tries to be flexible and allowes applications to be written in many different ways.
 
-Check out the available examples on [Github](https://github.com/jeroenrinzema/commander/tree/master/examples).
+## Dialects
+
+A dialect is the connector to a given protocol or infrastructure. A dialect needs to be defined when constructing a new commander instance. Commander comes shipped with a `mocking` dialect designed for testing purposes. Check out the dialects [directory](https://github.com/jeroenrinzema/commander/tree/master/dialects) for the available dialects.
+
+## Middleware
+
+Middleware allowes actions to be preformed on event(s) or messages to be manipulated. Check out the middleware [directory](https://github.com/jeroenrinzema/commander/tree/master/middleware) for the available middleware controllers.

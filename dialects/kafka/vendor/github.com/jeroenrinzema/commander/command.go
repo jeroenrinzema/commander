@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"time"
@@ -29,6 +30,7 @@ func NewCommand(action string, version int8, key uuid.UUID, data []byte) Command
 		Version:   version,
 		Data:      data,
 		Timestamp: time.Now(),
+		Ctx:       context.Background(),
 	}
 
 	return command
@@ -43,22 +45,27 @@ type Command struct {
 	Data      []byte            `json:"data"`          // Passed command data as bytes
 	Version   int8              `json:"version"`       // Command data schema version
 	Origin    Topic             `json:"-"`             // Command topic origin
+	Offset    int               `json:"-"`             // Command message offset
+	Partition int               `json:"-"`             // Command message partition
 	Timestamp time.Time         `json:"timestamp"`     // Timestamp of command append
+	Ctx       context.Context   `json:"-"`
 }
 
 // NewEvent creates a new acknowledged event as a response to this command.
 func (command *Command) NewEvent(action string, version int8, data []byte) Event {
 	event := NewEvent(action, version, command.ID, command.Key, data)
 	event.CommandTimestamp = command.Timestamp
+	event.Ctx = command.Ctx
 
 	return event
 }
 
 // NewError creates a error event as a response to this command.
-func (command *Command) NewError(action string, err error) Event {
+func (command *Command) NewError(action string, status StatusCode, err error) Event {
 	event := NewEvent(action, 0, command.ID, command.Key, nil)
-	event.Status = StatusInternalServerError
+	event.Status = status
 	event.CommandTimestamp = command.Timestamp
+	event.Ctx = command.Ctx
 
 	if err != nil {
 		event.Meta = err.Error()
@@ -120,6 +127,8 @@ headers:
 	command.Key = id
 	command.Data = message.Value
 	command.Origin = message.Topic
+	command.Offset = message.Offset
+	command.Partition = message.Partition
 	command.Timestamp = message.Timestamp
 
 	if throw != nil {
@@ -141,10 +150,13 @@ func (command *Command) Message(topic Topic) *Message {
 	headers[CommandTimestampHeader] = strconv.Itoa(int(command.Timestamp.Unix()))
 
 	message := &Message{
-		Headers: headers,
-		Key:     []byte(command.Key.String()),
-		Value:   command.Data,
-		Topic:   topic,
+		Headers:   headers,
+		Key:       []byte(command.Key.String()),
+		Value:     command.Data,
+		Offset:    command.Offset,
+		Partition: command.Partition,
+		Topic:     topic,
+		Ctx:       command.Ctx,
 	}
 
 	return message

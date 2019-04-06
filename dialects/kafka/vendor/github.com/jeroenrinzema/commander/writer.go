@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -31,7 +32,7 @@ type ResponseWriter interface {
 	ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (Event, error)
 
 	// ProduceError produces a new error event
-	ProduceError(action string, err error) (Event, error)
+	ProduceError(action string, status StatusCode, err error) (Event, error)
 
 	// ProduceCommand produces a new command
 	ProduceCommand(action string, version int8, key uuid.UUID, data []byte) (Command, error)
@@ -50,11 +51,15 @@ type writer struct {
 	retry   error
 }
 
-func (writer *writer) ProduceError(action string, err error) (Event, error) {
+func (writer *writer) ProduceError(action string, status StatusCode, err error) (Event, error) {
 	var event Event
 
+	if status == 0 {
+		status = StatusInternalServerError
+	}
+
 	if writer.Command != nil {
-		event = writer.Command.NewError(action, err)
+		event = writer.Command.NewError(action, status, err)
 	} else {
 		event = NewEvent(action, 0, uuid.Nil, uuid.Nil, nil)
 		event.Status = StatusInternalServerError
@@ -71,10 +76,12 @@ func (writer *writer) ProduceError(action string, err error) (Event, error) {
 func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (Event, error) {
 	var parent uuid.UUID
 	var timestamp time.Time
+	var ctx context.Context
 
 	if writer.Command != nil {
 		parent = writer.Command.ID
 		timestamp = writer.Command.Timestamp
+		ctx = writer.Command.Ctx
 	}
 
 	if key == uuid.Nil && writer.Command != nil {
@@ -83,6 +90,7 @@ func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, d
 
 	event := NewEvent(action, version, parent, key, data)
 	event.CommandTimestamp = timestamp
+	event.Ctx = ctx
 
 	err := writer.Group.ProduceEvent(event)
 	return event, err
@@ -96,7 +104,7 @@ func (writer *writer) ProduceCommand(action string, version int8, key uuid.UUID,
 }
 
 func (writer *writer) Retry(err error) {
-	if err != nil {
+	if err == nil {
 		err = ErrDefaultRetry
 	}
 

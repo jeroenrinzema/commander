@@ -11,4 +11,8 @@ go:
   - 1.12.x
 
 install: false
-script: go test ./... -v -mod=vendor
+script:
+- go test ./... -v -mod=vendor -race
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

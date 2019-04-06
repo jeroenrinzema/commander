@@ -73,7 +73,7 @@ func main() {
 
 		id, err := uuid.FromString(string(command.Data))
 		if err != nil {
-			writer.ProduceError("ParseDataError", nil)
+			writer.ProduceError("ParseDataError", commander.StatusBadRequest, nil)
 			return
 		}
 
@@ -101,12 +101,12 @@ func main() {
 		command := commander.NewCommand("Available", 1, key, []byte(item.String()))
 		event, err := warehouse.SyncCommand(command)
 		if err != nil {
-			writer.ProduceError("WarehouseNotAvailable", err)
+			writer.ProduceError("WarehouseNotAvailable", commander.StatusInternalServerError, err)
 			return
 		}
 
 		if event.Status != commander.StatusOK {
-			writer.ProduceError("NotAvailable", err)
+			writer.ProduceError("NotAvailable", commander.StatusNotFound, err)
 			return
 		}
 

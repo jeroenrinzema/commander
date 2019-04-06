@@ -80,14 +80,12 @@ func (consumer *MockConsumer) Emit(message *Message) {
 
 // Subscribe subscribes to the given topics and returs a message channel
 func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, chan<- error, error) {
-	// We are only appending therefor could we only read-lock the mutex (otherwise could we end up in a deadlock)
-	consumer.mutex.RLock()
-	defer consumer.mutex.RUnlock()
-
 	subscription := &MockSubscription{
 		messages: make(chan *Message, 1),
 		marked:   make(chan error, 1),
 	}
+
+	consumer.mutex.Lock()
 
 	for _, topic := range topics {
 		if consumer.subscriptions[topic.Name] == nil {
@@ -96,6 +94,8 @@ func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, chan<
 
 		consumer.subscriptions[topic.Name] = append(consumer.subscriptions[topic.Name], subscription)
 	}
+
+	consumer.mutex.Unlock()
 
 	return subscription.messages, subscription.marked, nil
 }

@@ -65,6 +65,8 @@ type Event struct {
 	Status           StatusCode        `json:"status"`            // Event status code (commander.Status*)
 	Version          int8              `json:"version"`           // Event data schema version
 	Origin           Topic             `json:"-"`                 // Event topic origin
+	Offset           int               `json:"-"`                 // Event message offset
+	Partition        int               `json:"-"`                 // Event message partition
 	Meta             string            `json:"meta"`              // Additional event meta message
 	CommandTimestamp time.Time         `json:"command_timestamp"` // Timestamp of parent command append
 	Timestamp        time.Time         `json:"timestamp"`         // Timestamp of event append
@@ -158,6 +160,8 @@ headers:
 	event.Key = id
 	event.Data = message.Value
 	event.Origin = message.Topic
+	event.Offset = message.Offset
+	event.Partition = message.Partition
 	event.Timestamp = message.Timestamp
 
 	if throw != nil {
@@ -183,11 +187,13 @@ func (event *Event) Message(topic Topic) *Message {
 	headers[CommandTimestampHeader] = strconv.Itoa(int(event.CommandTimestamp.Unix()))
 
 	message := &Message{
-		Headers: headers,
-		Key:     []byte(event.Key.String()),
-		Value:   event.Data,
-		Topic:   topic,
-		Ctx:     event.Ctx,
+		Headers:   headers,
+		Key:       []byte(event.Key.String()),
+		Value:     event.Data,
+		Topic:     topic,
+		Offset:    event.Offset,
+		Partition: event.Partition,
+		Ctx:       event.Ctx,
 	}
 
 	return message

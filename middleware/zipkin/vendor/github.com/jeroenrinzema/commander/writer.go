@@ -104,7 +104,7 @@ func (writer *writer) ProduceCommand(action string, version int8, key uuid.UUID,
 }
 
 func (writer *writer) Retry(err error) {
-	if err != nil {
+	if err == nil {
 		err = ErrDefaultRetry
 	}
 

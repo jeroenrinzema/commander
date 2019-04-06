@@ -247,7 +247,16 @@ func (group *Group) ProduceEvent(event Event) error {
 // Publish publishes the given message to the group producer.
 // All middleware subscriptions are called before publishing the message.
 func (group *Group) Publish(message *Message) error {
-	group.Middleware.Emit(BeforePublish, message)
+	group.Middleware.Emit(BeforePublish, &MiddlewareEvent{
+		Value: message,
+		Ctx:   message.Ctx,
+	})
+
+	defer group.Middleware.Emit(AfterPublish, &MiddlewareEvent{
+		Value: message,
+		Ctx:   message.Ctx,
+	})
+
 	return group.Producer.Publish(message)
 }
 
@@ -286,10 +295,18 @@ func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, chan<- error, 
 
 	go func(messages <-chan *Message) {
 		for message := range messages {
-			group.Middleware.Emit(BeforeConsumption, message)
+			group.Middleware.Emit(BeforeMessageConsumption, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
+
 			sink <- message
 			marked <- <-called // Await called and pipe into marked
-			group.Middleware.Emit(AfterConsumed, message)
+
+			group.Middleware.Emit(AfterMessageConsumed, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
 		}
 	}(messages)
 
@@ -317,6 +334,11 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 
 			Logger.Println("Processing action:", a)
 
+			group.Middleware.Emit(BeforeActionConsumption, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
+
 			switch sort {
 			case EventTopic:
 				event := Event{
@@ -340,6 +362,11 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 			// Check if the message is marked to be retried
 			err := writer.ShouldRetry()
 			marked <- err
+
+			group.Middleware.Emit(AfterActionConsumption, &MiddlewareEvent{
+				Value: message,
+				Ctx:   message.Ctx,
+			})
 		}
 	}()
 

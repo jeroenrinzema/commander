@@ -45,6 +45,8 @@ type Command struct {
 	Data      []byte            `json:"data"`          // Passed command data as bytes
 	Version   int8              `json:"version"`       // Command data schema version
 	Origin    Topic             `json:"-"`             // Command topic origin
+	Offset    int               `json:"-"`             // Command message offset
+	Partition int               `json:"-"`             // Command message partition
 	Timestamp time.Time         `json:"timestamp"`     // Timestamp of command append
 	Ctx       context.Context   `json:"-"`
 }
@@ -125,6 +127,8 @@ headers:
 	command.Key = id
 	command.Data = message.Value
 	command.Origin = message.Topic
+	command.Offset = message.Offset
+	command.Partition = message.Partition
 	command.Timestamp = message.Timestamp
 
 	if throw != nil {
@@ -146,11 +150,13 @@ func (command *Command) Message(topic Topic) *Message {
 	headers[CommandTimestampHeader] = strconv.Itoa(int(command.Timestamp.Unix()))
 
 	message := &Message{
-		Headers: headers,
-		Key:     []byte(command.Key.String()),
-		Value:   command.Data,
-		Topic:   topic,
-		Ctx:     command.Ctx,
+		Headers:   headers,
+		Key:       []byte(command.Key.String()),
+		Value:     command.Data,
+		Offset:    command.Offset,
+		Partition: command.Partition,
+		Topic:     topic,
+		Ctx:       command.Ctx,
 	}
 
 	return message

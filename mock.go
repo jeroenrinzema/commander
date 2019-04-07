@@ -11,6 +11,12 @@ type MockSubscription struct {
 	marked   chan error
 }
 
+// MockTopicSubscriptions holds the active mock subscriptions for the given topic
+type MockTopicSubscriptions struct {
+	list  []*MockSubscription
+	mutex sync.RWMutex
+}
+
 // MockDialect a in-memory mocking dialect
 type MockDialect struct {
 	Consumer *MockConsumer
@@ -20,7 +26,7 @@ type MockDialect struct {
 // Open opens the mocking consumer and producer
 func (dialect *MockDialect) Open(connectionstring string, groups ...*Group) (Consumer, Producer, error) {
 	consumer := &MockConsumer{
-		subscriptions: make(map[string][]*MockSubscription),
+		subscriptions: make(map[string]*MockTopicSubscriptions),
 	}
 
 	producer := &MockProducer{
@@ -48,7 +54,7 @@ func (dialect *MockDialect) Close() error {
 
 // MockConsumer consumes messages and emits them to the subscribed channels
 type MockConsumer struct {
-	subscriptions map[string][]*MockSubscription
+	subscriptions map[string]*MockTopicSubscriptions
 	mutex         sync.RWMutex
 	consumptions  sync.WaitGroup
 }
@@ -65,7 +71,15 @@ func (consumer *MockConsumer) Emit(message *Message) {
 
 	message.Timestamp = time.Now()
 	topic := message.Topic.Name
-	for _, subscription := range consumer.subscriptions[topic] {
+
+	if consumer.subscriptions[topic] == nil {
+		return
+	}
+
+	consumer.subscriptions[topic].mutex.RLock()
+	defer consumer.subscriptions[topic].mutex.RUnlock()
+
+	for _, subscription := range consumer.subscriptions[topic].list {
 		subscription.messages <- message
 		err := <-subscription.marked
 		if err != nil {
@@ -85,30 +99,34 @@ func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, chan<
 		marked:   make(chan error, 1),
 	}
 
-	consumer.mutex.Lock()
-
 	for _, topic := range topics {
 		if consumer.subscriptions[topic.Name] == nil {
-			consumer.subscriptions[topic.Name] = []*MockSubscription{}
+			consumer.mutex.Lock()
+			consumer.subscriptions[topic.Name] = &MockTopicSubscriptions{
+				list: []*MockSubscription{},
+			}
+			consumer.mutex.Unlock()
 		}
 
-		consumer.subscriptions[topic.Name] = append(consumer.subscriptions[topic.Name], subscription)
+		consumer.subscriptions[topic.Name].mutex.Lock()
+		consumer.subscriptions[topic.Name].list = append(consumer.subscriptions[topic.Name].list, subscription)
+		consumer.subscriptions[topic.Name].mutex.Unlock()
 	}
-
-	consumer.mutex.Unlock()
 
 	return subscription.messages, subscription.marked, nil
 }
 
 // Unsubscribe unsubscribes the given consumer channel (if found) from the subscription list
 func (consumer *MockConsumer) Unsubscribe(channel <-chan *Message) error {
-	consumer.mutex.Lock()
-	defer consumer.mutex.Unlock()
+	consumer.mutex.RLock()
+	defer consumer.mutex.RUnlock()
 
 	for topic, subscriptions := range consumer.subscriptions {
-		for index, subscription := range subscriptions {
+		for index, subscription := range subscriptions.list {
 			if subscription.messages == channel {
-				consumer.subscriptions[topic] = append(consumer.subscriptions[topic][:index], consumer.subscriptions[topic][index+1:]...)
+				consumer.subscriptions[topic].mutex.Lock()
+				consumer.subscriptions[topic].list = append(consumer.subscriptions[topic].list[:index], consumer.subscriptions[topic].list[index+1:]...)
+				consumer.subscriptions[topic].mutex.Unlock()
 			}
 		}
 	}
@@ -118,6 +136,9 @@ func (consumer *MockConsumer) Unsubscribe(channel <-chan *Message) error {
 
 // Close closes the kafka consumer
 func (consumer *MockConsumer) Close() error {
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
+
 	consumer.consumptions.Wait()
 	return nil
 }

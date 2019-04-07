@@ -19,7 +19,8 @@ func NewTestClient(groups ...*Group) *Client {
 	return client
 }
 
-// TestClosingConsumptions test if consumptions get closed properly
+// TestClosingConsumptions test if consumptions get closed properly.
+// This function tests if the message does not get delivered before 1 sec has passed.
 func TestClosingConsumptions(t *testing.T) {
 	group := NewTestGroup()
 	client := NewTestClient(group)
@@ -34,7 +35,7 @@ func TestClosingConsumptions(t *testing.T) {
 			t.Error("the received message is not a event")
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 		delivered <- event
 	})
 
@@ -46,14 +47,16 @@ func TestClosingConsumptions(t *testing.T) {
 
 	client.Close()
 
-	deadline := time.Now().Add(500 * time.Millisecond)
+	deadline := time.Now().Add(50 * time.Millisecond)
 	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 
 	defer cancel()
 
 	select {
 	case <-ctx.Done():
+		break
 	case <-delivered:
 		t.Error("the client did not close safely")
+		break
 	}
 }

@@ -108,12 +108,12 @@ func TestAwaitEvent(t *testing.T) {
 	parent, _ := uuid.NewV4()
 
 	event := NewEvent("tested", 1, parent, uuid.Nil, []byte("{}"))
-	group.ProduceEvent(event)
+	go group.ProduceEvent(event)
 
 	sink, marked, err := group.AwaitEvent(timeout, parent)
 	select {
 	case e := <-err:
-		t.Error(e)
+		t.Fatal(e)
 	case <-sink:
 		marked <- nil
 	}

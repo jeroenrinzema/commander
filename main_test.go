@@ -1,7 +1,6 @@
 package commander
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -20,23 +19,18 @@ func NewTestClient(groups ...*Group) *Client {
 }
 
 // TestClosingConsumptions test if consumptions get closed properly.
-// This function tests if the message does not get delivered before 1 sec has passed.
+// This function tests if the message does not get delivered before the sleep period has passed.
 func TestClosingConsumptions(t *testing.T) {
 	group := NewTestGroup()
 	client := NewTestClient(group)
 
 	action := "testing"
 	version := int8(1)
-	delivered := make(chan Event, 1)
+	delivered := make(chan error, 1)
 
 	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) {
-		event, ok := message.(Event)
-		if !ok {
-			t.Error("the received message is not a event")
-		}
-
 		time.Sleep(100 * time.Millisecond)
-		delivered <- event
+		delivered <- nil
 	})
 
 	parent, _ := uuid.NewV4()
@@ -47,16 +41,7 @@ func TestClosingConsumptions(t *testing.T) {
 
 	client.Close()
 
-	deadline := time.Now().Add(50 * time.Millisecond)
-	ctx, cancel := context.WithDeadline(context.Background(), deadline)
-
-	defer cancel()
-
-	select {
-	case <-ctx.Done():
-		break
-	case <-delivered:
-		t.Error("the client did not close safely")
-		break
+	if len(delivered) == 0 {
+		t.Fatal("the client did not close safely")
 	}
 }

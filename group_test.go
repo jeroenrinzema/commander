@@ -90,7 +90,7 @@ func TestSyncCommand(t *testing.T) {
 	go func() {
 		_, err := group.SyncCommand(command)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 	}()
 
@@ -375,7 +375,7 @@ func TestMessageMarked(t *testing.T) {
 	group.ProduceCommand(first)
 	group.ProduceCommand(second)
 
-	deadline := time.Now().Add(100 * time.Millisecond)
+	deadline := time.Now().Add(50 * time.Millisecond)
 	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 
 	defer cancel()
@@ -383,7 +383,7 @@ func TestMessageMarked(t *testing.T) {
 	select {
 	case <-ctx.Done():
 		if len(delivered) == 2 {
-			t.Fatal("the events are unexpectedly consumed before marked")
+			t.Fatal("the events are unexpectedly consumed")
 		}
 	}
 }

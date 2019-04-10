@@ -63,11 +63,11 @@ type MockConsumer struct {
 func (consumer *MockConsumer) Emit(message *Message) {
 	Logger.Println("claimed message from:", message.Topic.Name)
 
-	consumer.consumptions.Add(1)
-	defer consumer.consumptions.Done()
-
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
+
+	consumer.consumptions.Add(1)
+	defer consumer.consumptions.Done()
 
 	message.Timestamp = time.Now()
 	topic := message.Topic.Name

@@ -37,10 +37,10 @@ Let's first set up a simple commander group.
 
 ```go
 dialect := commander.NewMockDialect()
-group := commander.NewGroup{
+group := commander.NewGroup(
 	NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode),
 	NewTopic("event", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
-}
+)
 
 client := commander.NewClient(group)
 ```

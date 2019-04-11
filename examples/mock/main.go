@@ -5,53 +5,28 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
 )
 
-/**
- * A commander group contains all the information needed for commander
- * to setup it's consumers and producers.
- */
-var group = &commander.Group{
-	Topics: []commander.Topic{
-		{
-			Name:    "commands",
-			Type:    commander.CommandTopic,
-			Consume: true,
-			Produce: true,
-		},
-		{
-			Name:    "events",
-			Type:    commander.EventTopic,
-			Consume: true,
-			Produce: true,
-		},
-	},
-	Timeout: 5 * time.Second,
-}
-
 func main() {
 	commander.Logger.SetOutput(os.Stdout)
-	connectionstring := ""
-	dialect := &commander.MockDialect{}
 
-	/**
-	 * When constrcuting a new commander instance do you have to construct a commander.Dialect as well.
-	 * A dialect consists mainly of a producer and a consumer that acts as a connector to the wanted infastructure.
-	 */
-	_, err := commander.New(dialect, connectionstring, group)
-	if err != nil {
-		panic(err)
-	}
+	dialect := commander.NewMockDialect()
+	group := commander.NewGroup(
+		commander.NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode|commander.ProduceMode),
+		commander.NewTopic("events", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
+	)
+
+	client := commander.NewClient(group)
+	defer client.Close()
 
 	/**
 	 * HandleFunc handles an "example" command. Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	group.HandleFunc(commander.CommandTopic, "example", func(writer commander.ResponseWriter, message interface{}) {
+	group.HandleFunc(commander.CommandMessage, "example", func(writer commander.ResponseWriter, message interface{}) {
 		key, err := uuid.NewV4()
 		if err != nil {
 			return
@@ -84,7 +59,7 @@ func main() {
 	fmt.Println("Http server running at :8080")
 	fmt.Println("Send a http request to / to simulate a 'sync' command")
 
-	err = http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic(err)
 	}

@@ -3,26 +3,49 @@ package commander
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/gofrs/uuid"
 )
 
+// Custom error types
+var (
+	ErrNoConsumeTopic = errors.New("no consume topic available")
+	ErrNoProduceTopic = errors.New("no produce topic available")
+)
+
 const (
 	// DefaultAttempts represents the default amount of retry attempts
 	DefaultAttempts = 5
+	// DefaultTimeout represents the default timeout when awaiting a "sync" command to complete
+	DefaultTimeout = 5 * time.Second
 )
+
+// NewGroup initializes a new commander group.
+func NewGroup(t ...Topic) *Group {
+	topics := make(map[MessageType][]Topic)
+	for _, topic := range t {
+		topics[topic.Type] = append(topics[topic.Type], topic)
+	}
+
+	group := &Group{
+		Timeout: DefaultTimeout,
+		Retries: DefaultAttempts,
+		Topics:  topics,
+	}
+
+	return group
+}
 
 // Group contains information about a commander group.
 // A commander group could contain a events and commands topic where
 // commands and events could be consumed and produced to. The amount of retries
 // attempted before a error is thrown could also be defined in a group.
 type Group struct {
-	*Client
-	Timeout time.Duration
-	Topics  []Topic
-	Retries int
+	Middleware *Middleware
+	Timeout    time.Duration
+	Topics     map[MessageType][]Topic
+	Retries    int
 }
 
 // Close represents a closing method
@@ -36,20 +59,6 @@ type Handle func(ResponseWriter, interface{})
 // Handler prodvides a interface to handle Messages
 type Handler interface {
 	Process(writer ResponseWriter, message interface{})
-}
-
-// IsAttached checks if the given group is attached to a commander instance
-func (group *Group) IsAttached() error {
-	if group.Client == nil {
-		topics := []string{}
-		for _, topic := range group.Topics {
-			topics = append(topics, topic.Name)
-		}
-
-		return fmt.Errorf("The commander group for the topics: %+v is not attached to a commander instance", topics)
-	}
-
-	return nil
 }
 
 // AsyncCommand creates a command message to the given group command topic
@@ -94,7 +103,7 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 	sink := make(chan Event, 1)
 	erro := make(chan error, 1)
 
-	messages, marked, closing, err := group.NewConsumer(EventTopic)
+	messages, marked, closing, err := group.NewConsumer(EventMessage)
 	if err != nil {
 		closing()
 		erro <- err
@@ -130,38 +139,19 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 	return sink, marked, erro
 }
 
-// FetchConsumeTopic returns the active consume/produce topic of the given type
-func (group *Group) FetchConsumeTopic(sType TopicType) (Topic, error) {
-	for _, topic := range group.Topics {
-		if topic.Type != sType {
+// FetchTopics fetches the available topics for the given mode and the given type
+func (group *Group) FetchTopics(t MessageType, m TopicMode) []Topic {
+	topics := []Topic{}
+
+	for _, topic := range group.Topics[t] {
+		if !topic.HasMode(m) {
 			continue
 		}
 
-		if topic.Consume != true {
-			continue
-		}
-
-		return topic, nil
+		topics = append(topics, topic)
 	}
 
-	return Topic{}, errors.New("No topic is found that is marked for consumption")
-}
-
-// FetchProduceTopic returns the active consume/produce topic of the given type
-func (group *Group) FetchProduceTopic(sType TopicType) (Topic, error) {
-	for _, topic := range group.Topics {
-		if topic.Type != sType {
-			continue
-		}
-
-		if topic.Produce != true {
-			continue
-		}
-
-		return topic, nil
-	}
-
-	return Topic{}, errors.New("No topic is found that is marked for producing")
+	return topics
 }
 
 // ProduceCommand constructs and produces a command message to the set command topic.
@@ -169,19 +159,17 @@ func (group *Group) FetchProduceTopic(sType TopicType) (Topic, error) {
 func (group *Group) ProduceCommand(command Command) error {
 	Logger.Println("Producing command")
 
-	err := group.IsAttached()
-	if err != nil {
-		panic(err)
-	}
-
 	if command.Key == uuid.Nil {
 		command.Key = command.ID
 	}
 
-	topic, err := group.FetchProduceTopic(CommandTopic)
-	if err != nil {
-		return err
+	topics := group.FetchTopics(CommandMessage, ProduceMode)
+	if len(topics) == 0 {
+		return ErrNoProduceTopic
 	}
+
+	// NOTE: Support for multiple produce topics?
+	topic := topics[0]
 
 	message := command.Message(topic)
 	amount := group.Retries
@@ -193,7 +181,7 @@ func (group *Group) ProduceCommand(command Command) error {
 		Amount: amount,
 	}
 
-	err = retry.Attempt(func() error {
+	err := retry.Attempt(func() error {
 		return group.Publish(message)
 	})
 
@@ -209,19 +197,17 @@ func (group *Group) ProduceCommand(command Command) error {
 func (group *Group) ProduceEvent(event Event) error {
 	Logger.Println("Producing event")
 
-	err := group.IsAttached()
-	if err != nil {
-		panic(err)
-	}
-
 	if event.Key == uuid.Nil {
 		event.Key = event.ID
 	}
 
-	topic, err := group.FetchProduceTopic(EventTopic)
-	if err != nil {
-		return err
+	topics := group.FetchTopics(EventMessage, ProduceMode)
+	if len(topics) == 0 {
+		return ErrNoProduceTopic
 	}
+
+	// NOTE: Support for multiple produce topics?
+	topic := topics[0]
 
 	message := event.Message(topic)
 	amount := group.Retries
@@ -233,7 +219,7 @@ func (group *Group) ProduceEvent(event Event) error {
 		Amount: amount,
 	}
 
-	err = retry.Attempt(func() error {
+	err := retry.Attempt(func() error {
 		return group.Publish(message)
 	})
 
@@ -257,41 +243,38 @@ func (group *Group) Publish(message *Message) error {
 		Ctx:   message.Ctx,
 	})
 
-	return group.Producer.Publish(message)
+	for _, topic := range group.Topics[message.Type] {
+		if !topic.HasMode(ProduceMode) {
+			continue
+		}
+
+		err := topic.Dialect.Producer().Publish(message)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // NewConsumer starts consuming events of topics from the same topic type.
 // All received messages are published over the returned messages channel.
 // All middleware subscriptions are called before consuming the message.
-func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, chan<- error, Close, error) {
+func (group *Group) NewConsumer(sort MessageType) (<-chan *Message, chan<- error, Close, error) {
 	Logger.Println("New topic consumer")
 
-	err := group.IsAttached()
-	if err != nil {
-		panic(err)
-	}
-
-	topics := []Topic{}
-	for _, topic := range group.Topics {
-		if topic.Type != sort {
-			continue
-		}
-
-		if topic.Consume == false {
-			continue
-		}
-
-		topics = append(topics, topic)
-	}
-
+	topics := group.FetchTopics(sort, ConsumeMode)
 	if len(topics) == 0 {
 		return make(<-chan *Message, 0), make(chan<- error, 0), func() {}, errors.New("no consumable topics are found for the topic type" + string(sort))
 	}
 
+	// NOTE: support multiple topics for consumption?
+	topic := topics[0]
+
 	sink := make(chan *Message, 1)
 	called := make(chan error, 1)
 
-	messages, marked, err := group.Consumer.Subscribe(topics...)
+	messages, marked, err := topic.Dialect.Consumer().Subscribe(topics...)
 
 	go func(messages <-chan *Message) {
 		for message := range messages {
@@ -310,13 +293,13 @@ func (group *Group) NewConsumer(sort TopicType) (<-chan *Message, chan<- error, 
 		}
 	}(messages)
 
-	return sink, called, func() { group.Consumer.Unsubscribe(messages) }, err
+	return sink, called, func() { topic.Dialect.Consumer().Unsubscribe(messages) }, err
 }
 
-// HandleFunc awaits messages from the given TopicType and action.
+// HandleFunc awaits messages from the given MessageType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (Close, error) {
+func (group *Group) HandleFunc(sort MessageType, action string, callback Handle) (Close, error) {
 	messages, marked, closing, err := group.NewConsumer(sort)
 	if err != nil {
 		return nil, err
@@ -340,14 +323,14 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 			})
 
 			switch sort {
-			case EventTopic:
+			case EventMessage:
 				event := Event{
 					Ctx: message.Ctx,
 				}
 				event.Populate(message)
 
 				value = event
-			case CommandTopic:
+			case CommandMessage:
 				command := Command{
 					Ctx: message.Ctx,
 				}
@@ -373,9 +356,9 @@ func (group *Group) HandleFunc(sort TopicType, action string, callback Handle) (
 	return closing, nil
 }
 
-// Handle awaits messages from the given TopicType and action.
+// Handle awaits messages from the given MessageType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) Handle(sort TopicType, action string, handler Handler) (Close, error) {
+func (group *Group) Handle(sort MessageType, action string, handler Handler) (Close, error) {
 	return group.HandleFunc(sort, action, handler.Process)
 }

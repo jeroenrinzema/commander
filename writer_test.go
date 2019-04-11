@@ -11,10 +11,10 @@ import (
 
 // TestNewResponseWriter tests if able to construct a new resoponse writer
 func TestNewResponseWriter(t *testing.T) {
-	group := NewTestGroup()
-	command := NewMockCommand("testing")
+	group, client := NewMockClient()
+	defer client.Close()
 
-	NewTestClient(group)
+	command := NewMockCommand("testing")
 
 	NewResponseWriter(group, command)
 	NewResponseWriter(group, nil)
@@ -22,8 +22,8 @@ func TestNewResponseWriter(t *testing.T) {
 
 // TestWriterProduceCommand tests if able to write a command to the mock group
 func TestWriterProduceCommand(t *testing.T) {
-	group := NewTestGroup()
-	NewTestClient(group)
+	group, client := NewMockClient()
+	defer client.Close()
 
 	action := "testing"
 	key, _ := uuid.NewV4()
@@ -32,7 +32,7 @@ func TestWriterProduceCommand(t *testing.T) {
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
 
-	messages, marked, closing, err := group.NewConsumer(CommandTopic)
+	messages, marked, closing, err := group.NewConsumer(CommandMessage)
 	if err != nil {
 		t.Error(err)
 		return
@@ -60,8 +60,8 @@ func TestWriterProduceCommand(t *testing.T) {
 
 // TestWriterProduceEvent tests if able to write a event to the mock group
 func TestWriterProduceEvent(t *testing.T) {
-	group := NewTestGroup()
-	NewTestClient(group)
+	group, client := NewMockClient()
+	defer client.Close()
 
 	action := "testing"
 	key, _ := uuid.NewV4()
@@ -71,7 +71,7 @@ func TestWriterProduceEvent(t *testing.T) {
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
 
-	messages, marked, closing, err := group.NewConsumer(EventTopic)
+	messages, marked, closing, err := group.NewConsumer(EventMessage)
 	if err != nil {
 		t.Error(err)
 		return
@@ -107,8 +107,8 @@ func TestWriterProduceEvent(t *testing.T) {
 
 // TestWriterProduceErrorEvent tests if able to write a error event to the mock group
 func TestWriterProduceErrorEvent(t *testing.T) {
-	group := NewTestGroup()
-	NewTestClient(group)
+	group, client := NewMockClient()
+	defer client.Close()
 
 	action := "testing"
 	data := errors.New("test error")
@@ -116,7 +116,7 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
 
-	messages, marked, closing, err := group.NewConsumer(EventTopic)
+	messages, marked, closing, err := group.NewConsumer(EventMessage)
 	if err != nil {
 		t.Error(err)
 		return

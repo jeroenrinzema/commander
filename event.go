@@ -45,6 +45,7 @@ func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data
 		Action:  action,
 		Data:    data,
 		Key:     key,
+		Type:    EventMessage,
 		Status:  StatusOK,
 		Version: version,
 		Ctx:     context.Background(),
@@ -64,6 +65,7 @@ type Event struct {
 	Key              uuid.UUID         `json:"key"`               // Event partition key
 	Status           StatusCode        `json:"status"`            // Event status code (commander.Status*)
 	Version          int8              `json:"version"`           // Event data schema version
+	Type             MessageType       `json:"type"`              // Command message type
 	Origin           Topic             `json:"-"`                 // Event topic origin
 	Offset           int               `json:"-"`                 // Event message offset
 	Partition        int               `json:"-"`                 // Event message partition
@@ -163,6 +165,7 @@ headers:
 	event.Offset = message.Offset
 	event.Partition = message.Partition
 	event.Timestamp = message.Timestamp
+	event.Type = EventMessage
 
 	if throw != nil {
 		Logger.Println("A error was thrown when populating the command message:", throw)

@@ -17,14 +17,8 @@ type MockTopicSubscriptions struct {
 	mutex sync.RWMutex
 }
 
-// MockDialect a in-memory mocking dialect
-type MockDialect struct {
-	Consumer *MockConsumer
-	Producer *MockProducer
-}
-
-// Open opens the mocking consumer and producer
-func (dialect *MockDialect) Open(connectionstring string, groups ...*Group) (Consumer, Producer, error) {
+// NewMockDialect opens and constructs a in-memory mocking dialect
+func NewMockDialect() *MockDialect {
 	consumer := &MockConsumer{
 		subscriptions: make(map[string]*MockTopicSubscriptions),
 	}
@@ -33,10 +27,28 @@ func (dialect *MockDialect) Open(connectionstring string, groups ...*Group) (Con
 		consumer,
 	}
 
-	dialect.Consumer = consumer
-	dialect.Producer = producer
+	dialect := &MockDialect{
+		consumer: consumer,
+		producer: producer,
+	}
 
-	return consumer, producer, nil
+	return dialect
+}
+
+// MockDialect a in-memory mocking dialect
+type MockDialect struct {
+	consumer *MockConsumer
+	producer *MockProducer
+}
+
+// Consumer returns the dialect consumer
+func (dialect *MockDialect) Consumer() Consumer {
+	return dialect.consumer
+}
+
+// Producer returns the dialect producer
+func (dialect *MockDialect) Producer() Producer {
+	return dialect.producer
 }
 
 // Healthy checks if the dialect is healthy and up and running
@@ -46,8 +58,8 @@ func (dialect *MockDialect) Healthy() bool {
 
 // Close closes the mock dialect
 func (dialect *MockDialect) Close() error {
-	dialect.Consumer.Close()
-	dialect.Producer.Close()
+	dialect.consumer.Close()
+	dialect.producer.Close()
 
 	return nil
 }

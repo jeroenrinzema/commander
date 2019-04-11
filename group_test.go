@@ -16,33 +16,21 @@ func (handle *actionHandle) Process(writer ResponseWriter, message interface{}) 
 	handle.messages <- message
 }
 
-// NewTestGroup initializes a new group used for testing
-func NewTestGroup() *Group {
-	group := &Group{
-		Timeout: 5 * time.Second,
-		Topics: []Topic{
-			{
-				Name:    "events",
-				Type:    EventTopic,
-				Consume: true,
-				Produce: true,
-			},
-			{
-				Name:    "commands",
-				Type:    CommandTopic,
-				Consume: true,
-				Produce: true,
-			},
-		},
-	}
+// NewMockClient initializes a new in-memory mocking dialect, group and commander client used for testing
+func NewMockClient() (*Group, *Client) {
+	dialect := NewMockDialect()
+	group := NewGroup(
+		NewTopic("events", dialect, EventMessage, ConsumeMode|ProduceMode),
+		NewTopic("commands", dialect, CommandMessage, ConsumeMode|ProduceMode),
+	)
 
-	return group
+	client := NewClient(group)
+	return group, client
 }
 
 // TestProduceCommand tests if able to produce a command
 func TestProduceCommand(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
 	key, _ := uuid.NewV4()
@@ -53,8 +41,7 @@ func TestProduceCommand(t *testing.T) {
 
 // TestProduceEvent tests if able to produce a event
 func TestProduceEvent(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
 	key, _ := uuid.NewV4()
@@ -66,8 +53,7 @@ func TestProduceEvent(t *testing.T) {
 
 // TestAsyncCommand tests if plausible to create a async command
 func TestAsyncCommand(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
 	command := NewMockCommand("action")
@@ -80,8 +66,7 @@ func TestAsyncCommand(t *testing.T) {
 
 // TestSyncCommand tests if able to send a sync command
 func TestSyncCommand(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
 	key, _ := uuid.NewV4()
@@ -100,8 +85,7 @@ func TestSyncCommand(t *testing.T) {
 
 // TestAwaitEvent tests if plausible to await a event
 func TestAwaitEvent(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
 	timeout := 2 * time.Second
@@ -121,11 +105,10 @@ func TestAwaitEvent(t *testing.T) {
 
 // TestEventConsumer tests if events get consumed
 func TestEventConsumer(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
-	events, marked, close, err := group.NewConsumer(EventTopic)
+	events, marked, close, err := group.NewConsumer(EventMessage)
 	if err != nil {
 		panic(err)
 	}
@@ -155,11 +138,10 @@ func TestEventConsumer(t *testing.T) {
 
 // TestCommandConsumer tests if commands get consumed
 func TestCommandConsumer(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
-	commands, marked, close, err := group.NewConsumer(CommandTopic)
+	commands, marked, close, err := group.NewConsumer(CommandMessage)
 	if err != nil {
 		panic(err)
 	}
@@ -186,14 +168,13 @@ func TestCommandConsumer(t *testing.T) {
 
 // TestEventHandleFunc tests if a event handle func get's called
 func TestEventHandleFunc(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
 	action := "testing"
 	delivered := make(chan Event, 1)
 
-	group.HandleFunc(EventTopic, action, func(writer ResponseWriter, message interface{}) {
+	group.HandleFunc(EventMessage, action, func(writer ResponseWriter, message interface{}) {
 		event, ok := message.(Event)
 		if !ok {
 			t.Error("the received message is not a event")
@@ -222,15 +203,14 @@ func TestEventHandleFunc(t *testing.T) {
 
 // TestEventHandle testis if a event handle get's called
 func TestEventHandle(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
 	action := "testing"
 	delivered := make(chan interface{}, 1)
 
 	handle := &actionHandle{delivered}
-	group.Handle(EventTopic, action, handle)
+	group.Handle(EventMessage, action, handle)
 
 	parent, _ := uuid.NewV4()
 	key, _ := uuid.NewV4()
@@ -252,15 +232,14 @@ func TestEventHandle(t *testing.T) {
 
 // TestActionEventHandle tests if event actions are isolated
 func TestActionEventHandle(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
 	delivered := make(chan interface{}, 2)
 	failure := make(chan interface{}, 2)
 
-	group.Handle(EventTopic, "create", &actionHandle{delivered})
-	group.Handle(EventTopic, "delete", &actionHandle{failure})
+	group.Handle(EventMessage, "create", &actionHandle{delivered})
+	group.Handle(EventMessage, "delete", &actionHandle{failure})
 
 	parent, _ := uuid.NewV4()
 	key, _ := uuid.NewV4()
@@ -284,15 +263,14 @@ func TestActionEventHandle(t *testing.T) {
 
 // TestActionCommandHandle tests if command actions are isolated
 func TestActionCommandHandle(t *testing.T) {
-	group := NewTestGroup()
-	client := NewTestClient(group)
+	group, client := NewMockClient()
 	defer client.Close()
 
 	delivered := make(chan interface{}, 1)
 	failure := make(chan interface{}, 1)
 
-	group.Handle(CommandTopic, "delete", &actionHandle{failure})
-	group.Handle(CommandTopic, "create", &actionHandle{delivered})
+	group.Handle(CommandMessage, "delete", &actionHandle{failure})
+	group.Handle(CommandMessage, "create", &actionHandle{delivered})
 
 	key, _ := uuid.NewV4()
 
@@ -315,24 +293,24 @@ func TestActionCommandHandle(t *testing.T) {
 
 // TestCommandTimestampPassed tests if the command timestamp is passed to the produced event
 func TestCommandTimestampPassed(t *testing.T) {
+	group, client := NewMockClient()
+	defer client.Close()
+
 	var timestamp time.Time
 
 	// Command object to be checked upon
 	key, _ := uuid.NewV4()
 	command := NewCommand("command", 1, key, []byte("{}"))
 
-	group := NewTestGroup()
-	NewTestClient(group)
-
 	delivered := make(chan interface{}, 1)
-	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) {
+	group.HandleFunc(CommandMessage, "command", func(writer ResponseWriter, message interface{}) {
 		command := message.(Command)
 		timestamp = command.Timestamp
 
 		writer.ProduceEvent("event", 1, uuid.Nil, nil)
 	})
 
-	group.HandleFunc(EventTopic, "event", func(writer ResponseWriter, message interface{}) {
+	group.HandleFunc(EventMessage, "event", func(writer ResponseWriter, message interface{}) {
 		event := message.(Event)
 		delivered <- message
 
@@ -357,17 +335,17 @@ func TestCommandTimestampPassed(t *testing.T) {
 
 // TestCommandTimestampPassed tests if the command timestamp is passed to the produced event
 func TestMessageMarked(t *testing.T) {
+	group, client := NewMockClient()
+	defer client.Close()
+
 	id := func() uuid.UUID { id, _ := uuid.NewV4(); return id }
 
 	first := NewCommand("command", 1, id(), []byte("{}"))
 	second := NewCommand("command", 1, id(), []byte("{}"))
 
-	group := NewTestGroup()
-	NewTestClient(group)
-
 	delivered := make(chan interface{}, 2)
 
-	group.HandleFunc(CommandTopic, "command", func(writer ResponseWriter, message interface{}) {
+	group.HandleFunc(CommandMessage, "command", func(writer ResponseWriter, message interface{}) {
 		time.Sleep(100 * time.Millisecond)
 		delivered <- message
 	})

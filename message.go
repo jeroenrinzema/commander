@@ -5,6 +5,15 @@ import (
 	"time"
 )
 
+// MessageType represents a message type
+type MessageType int8
+
+// Available message types
+const (
+	EventMessage MessageType = iota + 1
+	CommandMessage
+)
+
 const (
 	// ParentHeader kafka message parent header
 	ParentHeader = "cmdr_parent"
@@ -25,6 +34,7 @@ const (
 // Message contains all the nessasery information
 type Message struct {
 	Topic     Topic             `json:"topic"`
+	Type      MessageType       `json:"type"`
 	Headers   map[string]string `json:"headers"`
 	Value     []byte            `json:"value"`
 	Key       []byte            `json:"key"`

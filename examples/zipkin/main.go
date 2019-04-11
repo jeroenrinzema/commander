@@ -7,54 +7,35 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/middleware/zipkin"
 )
 
-/**
- * A commander group contains all the information needed for commander
- * to setup it's consumers and producers.
- */
-var group = &commander.Group{
-	Topics: []commander.Topic{
-		{
-			Name:    "commands",
-			Type:    commander.CommandTopic,
-			Consume: true,
-			Produce: true,
-		},
-		{
-			Name:    "events",
-			Type:    commander.EventTopic,
-			Consume: true,
-			Produce: true,
-		},
-	},
-	Timeout: 5 * time.Second,
+// Available flags
+var (
+	ZipkinHost  = ""
+	ServiceName = ""
+)
+
+func init() {
+	commander.Logger.SetOutput(os.Stdout)
+	flag.StringVar(&ZipkinHost, "host", "http://127.0.0.1:9411/api/v2/spans", "Zipkin host")
+	flag.StringVar(&ServiceName, "name", "example", "Service name")
+	flag.Parse()
 }
 
 func main() {
-	commander.Logger.SetOutput(os.Stdout)
-	zipkinHost := flag.String("host", "http://127.0.0.1:9411/api/v2/spans", "Zipkin host")
-	serviceName := flag.String("name", "example", "Service name")
-	flag.Parse()
+	dialect := commander.NewMockDialect()
+	group := commander.NewGroup(
+		commander.NewTopic("commands", dialect, commander.CommandMessage, commander.DefaultMode),
+		commander.NewTopic("events", dialect, commander.EventMessage, commander.DefaultMode),
+	)
 
-	connectionstring := ""
-	dialect := &commander.MockDialect{}
+	client := commander.NewClient(group)
 
-	/**
-	 * When constrcuting a new commander instance do you have to construct a commander.Dialect as well.
-	 * A dialect consists mainly of a producer and a consumer that acts as a connector to the wanted infastructure.
-	 */
-	client, err := commander.New(dialect, connectionstring, group)
-	if err != nil {
-		panic(err)
-	}
-
-	zconnect := fmt.Sprintf("host=%s name=%s", *zipkinHost, *serviceName)
+	zconnect := fmt.Sprintf("host=%s name=%s", ZipkinHost, ServiceName)
 	tracing, err := zipkin.New(zconnect)
 	if err != nil {
 		panic(err)
@@ -67,7 +48,7 @@ func main() {
 	 * HandleFunc handles an "example" command. Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	group.HandleFunc(commander.CommandTopic, "example", func(writer commander.ResponseWriter, message interface{}) {
+	group.HandleFunc(commander.CommandMessage, "example", func(writer commander.ResponseWriter, message interface{}) {
 		key, err := uuid.NewV4()
 		if err != nil {
 			return

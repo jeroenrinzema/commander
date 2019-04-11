@@ -143,6 +143,7 @@ unsubscribe:
 				consumer.subscriptions[topic].mutex.Lock()
 				consumer.subscriptions[topic].list = append(consumer.subscriptions[topic].list[:index], consumer.subscriptions[topic].list[index+1:]...)
 				consumer.subscriptions[topic].mutex.Unlock()
+
 				break unsubscribe
 			}
 		}
@@ -156,10 +157,6 @@ unsubscribe:
 // Close closes the kafka consumer
 func (consumer *MockConsumer) Close() error {
 	consumer.consumptions.Wait()
-
-	consumer.mutex.Lock()
-	defer consumer.mutex.Unlock()
-
 	return nil
 }
 

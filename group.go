@@ -117,8 +117,8 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer closing()
 		defer cancel()
+		defer closing()
 
 	await:
 		for {
@@ -128,13 +128,14 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 				break await
 			case message := <-messages:
 				if action != "" && message.Headers[ActionHeader] != action {
-					continue
+					marked <- nil
+					continue await
 				}
 
 				event := Event{}
 				event.Populate(message)
 
-				if event.Parent != parent {
+				if parent != uuid.Nil && event.Parent != parent {
 					marked <- nil
 					continue await
 				}

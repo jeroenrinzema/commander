@@ -145,6 +145,50 @@ func TestAwaitEvent(t *testing.T) {
 		t.Fatal(e)
 	case <-sink:
 		marked <- nil
+		break
+	}
+}
+
+// TestAwaitEventAction tests if plausible to await a event action
+func TestAwaitEventAction(t *testing.T) {
+	group, client := NewMockClient()
+	defer client.Close()
+
+	timeout := 100 * time.Millisecond
+	parent, _ := uuid.NewV4()
+
+	sink, marked, errs := group.AwaitEvent(timeout, parent, "final")
+
+	event := NewEvent("final", 1, parent, uuid.Nil, nil)
+	group.ProduceEvent(event)
+
+	select {
+	case e := <-errs:
+		t.Fatal(e)
+	case <-sink:
+		marked <- nil
+		break
+	}
+}
+
+// TestAwaitEventIgnoreParent tests if plausible to await a event and ignore the parent
+func TestAwaitEventIgnoreParent(t *testing.T) {
+	group, client := NewMockClient()
+	defer client.Close()
+
+	timeout := 100 * time.Millisecond
+	parent, _ := uuid.NewV4()
+
+	sink, marked, errs := group.AwaitEvent(timeout, uuid.Nil, "tested")
+	event := NewEvent("tested", 1, parent, uuid.Nil, nil)
+	group.ProduceEvent(event)
+
+	select {
+	case e := <-errs:
+		t.Fatal(e)
+	case <-sink:
+		marked <- nil
+		break
 	}
 }
 

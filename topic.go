@@ -26,6 +26,7 @@ func NewTopic(name string, dialect Dialect, t MessageType, m TopicMode) Topic {
 		Mode:    m,
 	}
 
+	dialect.Assigned(topic)
 	return topic
 }
 

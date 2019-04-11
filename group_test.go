@@ -132,7 +132,7 @@ func TestAwaitEvent(t *testing.T) {
 	timeout := 1 * time.Second
 	parent, _ := uuid.NewV4()
 
-	sink, marked, errs := group.AwaitEvent(timeout, parent)
+	sink, marked, errs := group.AwaitEvent(timeout, parent, "")
 
 	event := NewEvent("tested", 1, parent, uuid.Nil, []byte("{}"))
 	err := group.ProduceEvent(event)

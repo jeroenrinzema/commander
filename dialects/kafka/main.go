@@ -1,69 +1,92 @@
 package kafka
 
 import (
+	"errors"
+
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/dialects/kafka/consumer"
 	"github.com/jeroenrinzema/commander/dialects/kafka/producer"
 )
 
+// Error types
+var (
+	ErrNotOpened = errors.New("error Kafka dialect not opened")
+)
+
 // Dialect represents the kafka dialect
 type Dialect struct {
-	Groups []commander.Group
-	Config *sarama.Config
+	Connection Config
+	Topics     []commander.Topic
+	Config     *sarama.Config
 
 	consumer *consumer.Client
 	producer *producer.Client
 }
 
-// New initializes and constructs a new Kafka dialect
-func New() Dialect {
-	config := sarama.NewConfig()
-	dialect := Dialect{
-		Config: config,
-	}
-
-	return dialect
-}
-
-// Open opens a kafka consumer and producer
-func (dialect *Dialect) Open(connectionstring string, groups ...*commander.Group) (commander.Consumer, commander.Producer, error) {
-	commander.Logger.Println("Opening kafka dialect...")
-
+// NewDialect initializes and constructs a new Kafka dialect
+func NewDialect(connectionstring string) (*Dialect, error) {
 	values := ParseConnectionstring(connectionstring)
 	err := ValidateConnectionKeyVal(values)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	connection, err := NewConfig(values)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	if dialect.Config == nil {
-		dialect.Config = sarama.NewConfig()
+	dialect := &Dialect{
+		Connection: connection,
+		Config:     sarama.NewConfig(),
 	}
 
 	dialect.Config.Version = connection.Version
 	dialect.Config.Producer.Return.Successes = true
 
-	commander.Logger.Println("Constructing consumer/producer")
+	return dialect, nil
+}
 
-	consumer, err := consumer.NewClient(connection.Brokers, connection.Group, connection.InitialOffset, dialect.Config, groups...)
-	if err != nil {
-		return nil, nil, err
+// Consumer returns the dialect as consumer
+func (dialect *Dialect) Consumer() commander.Consumer {
+	if dialect.consumer == nil {
+		panic(ErrNotOpened)
 	}
 
-	producer, err := producer.NewClient(connection.Brokers, dialect.Config)
+	return dialect.consumer
+}
+
+// Producer returns the dialect as producer
+func (dialect *Dialect) Producer() commander.Producer {
+	if dialect.producer == nil {
+		panic(ErrNotOpened)
+	}
+
+	return dialect.producer
+}
+
+// Assigned is called when a topic gets created
+func (dialect *Dialect) Assigned(topic commander.Topic) {
+	dialect.Topics = append(dialect.Topics, topic)
+}
+
+// Open opens a kafka consumer and producer
+func (dialect *Dialect) Open() error {
+	consumer, err := consumer.NewClient(dialect.Connection.Brokers, dialect.Connection.Group, dialect.Connection.InitialOffset, dialect.Config, dialect.Topics...)
 	if err != nil {
-		return nil, nil, err
+		return err
+	}
+
+	producer, err := producer.NewClient(dialect.Connection.Brokers, dialect.Config)
+	if err != nil {
+		return err
 	}
 
 	dialect.consumer = consumer
 	dialect.producer = producer
 
-	return consumer, producer, nil
+	return nil
 }
 
 // Close closes the Kafka consumers and producers

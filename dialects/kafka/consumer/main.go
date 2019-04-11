@@ -19,17 +19,10 @@ const (
 )
 
 // NewClient initializes a new consumer client and a Kafka consumer
-func NewClient(brokers []string, group string, initialOffset int64, config *sarama.Config, groups ...*commander.Group) (*Client, error) {
+func NewClient(brokers []string, group string, initialOffset int64, config *sarama.Config, ts ...commander.Topic) (*Client, error) {
 	topics := []string{}
-
-	for _, group := range groups {
-		for _, topic := range group.Topics {
-			if !topic.Consume {
-				continue
-			}
-
-			topics = append(topics, topic.Name)
-		}
+	for _, topic := range ts {
+		topics = append(topics, topic.Name)
 	}
 
 	client := &Client{
@@ -206,6 +199,6 @@ func (client *Client) Close() error {
 	if client.handle == nil {
 		return nil
 	}
-	
+
 	return client.handle.Close()
 }

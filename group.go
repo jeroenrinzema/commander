@@ -81,7 +81,7 @@ func (group *Group) AsyncCommand(command Command) error {
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
 func (group *Group) SyncCommand(command Command) (Event, error) {
-	sink, marked, erro := group.AwaitEvent(group.Timeout, command.ID)
+	sink, marked, erro := group.AwaitEvent(group.Timeout, command.ID, "")
 	err := group.AsyncCommand(command)
 	if err != nil {
 		return Event{}, err
@@ -102,7 +102,7 @@ func (group *Group) SyncCommand(command Command) (Event, error) {
 // If not the expected events are returned within the given timeout period
 // will a error be returned. The timeout channel is closed when all
 // expected events are received or after a timeout is thrown.
-func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan Event, chan<- error, <-chan error) {
+func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action string) (<-chan Event, chan<- error, <-chan error) {
 	Logger.Println("Awaiting child event")
 
 	sink := make(chan Event, 1)
@@ -127,6 +127,10 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 				erro <- ErrTimeout
 				break await
 			case message := <-messages:
+				if action != "" && message.Headers[ActionHeader] != action {
+					continue
+				}
+
 				event := Event{}
 				event.Populate(message)
 

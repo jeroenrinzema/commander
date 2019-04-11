@@ -41,6 +41,10 @@ type MockDialect struct {
 	producer *MockProducer
 }
 
+// Assigned assignes the dialect to the given topic
+func (dialect *MockDialect) Assigned(Topic) {
+}
+
 // Consumer returns the dialect consumer
 func (dialect *MockDialect) Consumer() Consumer {
 	return dialect.consumer

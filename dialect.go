@@ -3,6 +3,9 @@ package commander
 // Dialect represents a commander dialect.
 // A dialect is responsible for the consumption/production of the targeted protocol.
 type Dialect interface {
+	// Assigned assignes a dialect to the given topic
+	Assigned(topic Topic)
+
 	// Consumer returns the dialect consumer
 	Consumer() Consumer
 

@@ -34,7 +34,6 @@ const (
 // Message contains all the nessasery information
 type Message struct {
 	Topic     Topic             `json:"topic"`
-	Type      MessageType       `json:"type"`
 	Headers   map[string]string `json:"headers"`
 	Value     []byte            `json:"value"`
 	Key       []byte            `json:"key"`

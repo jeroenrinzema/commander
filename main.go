@@ -52,15 +52,20 @@ type Client struct {
 
 // Close closes the consumer and producer
 func (client *Client) Close() error {
-	Logger.Println("Closing commander client")
+	dialects := make(map[Dialect]bool)
 
-	// Close all dialects
-	// Keep a list of dialects already closed (memory addresses)
+	for _, group := range client.Groups {
+		for _, topics := range group.Topics {
+			for _, topic := range topics {
+				if dialects[topic.Dialect] {
+					continue
+				}
 
-	// err := client.Dialect.Close()
-	// if err != nil {
-	// 	return err
-	// }
+				topic.Dialect.Close()
+				dialects[topic.Dialect] = true
+			}
+		}
+	}
 
 	return nil
 }

@@ -10,8 +10,7 @@ import (
 
 // Custom error types
 var (
-	ErrNoConsumeTopic = errors.New("no consume topic available")
-	ErrNoProduceTopic = errors.New("no produce topic available")
+	ErrNoTopic = errors.New("no topic found")
 )
 
 const (
@@ -165,7 +164,7 @@ func (group *Group) ProduceCommand(command Command) error {
 
 	topics := group.FetchTopics(CommandMessage, ProduceMode)
 	if len(topics) == 0 {
-		return ErrNoProduceTopic
+		return ErrNoTopic
 	}
 
 	// NOTE: Support for multiple produce topics?
@@ -203,7 +202,7 @@ func (group *Group) ProduceEvent(event Event) error {
 
 	topics := group.FetchTopics(EventMessage, ProduceMode)
 	if len(topics) == 0 {
-		return ErrNoProduceTopic
+		return ErrNoTopic
 	}
 
 	// NOTE: Support for multiple produce topics?
@@ -243,15 +242,9 @@ func (group *Group) Publish(message *Message) error {
 		Ctx:   message.Ctx,
 	})
 
-	for _, topic := range group.Topics[message.Type] {
-		if !topic.HasMode(ProduceMode) {
-			continue
-		}
-
-		err := topic.Dialect.Producer().Publish(message)
-		if err != nil {
-			return err
-		}
+	err := message.Topic.Dialect.Producer().Publish(message)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -265,7 +258,7 @@ func (group *Group) NewConsumer(sort MessageType) (<-chan *Message, chan<- error
 
 	topics := group.FetchTopics(sort, ConsumeMode)
 	if len(topics) == 0 {
-		return make(<-chan *Message, 0), make(chan<- error, 0), func() {}, errors.New("no consumable topics are found for the topic type" + string(sort))
+		return make(<-chan *Message, 0), make(chan<- error, 0), func() {}, ErrNoTopic
 	}
 
 	// NOTE: support multiple topics for consumption?
@@ -275,6 +268,9 @@ func (group *Group) NewConsumer(sort MessageType) (<-chan *Message, chan<- error
 	called := make(chan error, 1)
 
 	messages, marked, err := topic.Dialect.Consumer().Subscribe(topics...)
+	if err != nil {
+		return sink, called, func() {}, err
+	}
 
 	go func(messages <-chan *Message) {
 		for message := range messages {
@@ -293,7 +289,7 @@ func (group *Group) NewConsumer(sort MessageType) (<-chan *Message, chan<- error
 		}
 	}(messages)
 
-	return sink, called, func() { topic.Dialect.Consumer().Unsubscribe(messages) }, err
+	return sink, called, func() { topic.Dialect.Consumer().Unsubscribe(messages) }, nil
 }
 
 // HandleFunc awaits messages from the given MessageType and action.

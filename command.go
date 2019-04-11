@@ -29,7 +29,6 @@ func NewCommand(action string, version int8, key uuid.UUID, data []byte) Command
 		Action:    action,
 		Version:   version,
 		Data:      data,
-		Type:      CommandMessage,
 		Timestamp: time.Now(),
 		Ctx:       context.Background(),
 	}
@@ -45,7 +44,6 @@ type Command struct {
 	Action    string            `json:"action"`        // Command representing action
 	Data      []byte            `json:"data"`          // Passed command data as bytes
 	Version   int8              `json:"version"`       // Command data schema version
-	Type      MessageType       `json:"type"`          // Command message type
 	Origin    Topic             `json:"-"`             // Command topic origin
 	Offset    int               `json:"-"`             // Command message offset
 	Partition int               `json:"-"`             // Command message partition
@@ -132,7 +130,6 @@ headers:
 	command.Offset = message.Offset
 	command.Partition = message.Partition
 	command.Timestamp = message.Timestamp
-	command.Type = CommandMessage
 
 	if throw != nil {
 		Logger.Println("A error was thrown when populating the command message:", throw)

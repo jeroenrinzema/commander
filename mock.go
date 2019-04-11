@@ -73,13 +73,10 @@ type MockConsumer struct {
 
 // Emit emits a message to all subscribers of the given topic
 func (consumer *MockConsumer) Emit(message *Message) {
-	Logger.Println("claimed message from:", message.Topic.Name)
+	defer consumer.consumptions.Done()
 
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
-
-	consumer.consumptions.Add(1)
-	defer consumer.consumptions.Done()
 
 	message.Timestamp = time.Now()
 	topic := message.Topic.Name
@@ -100,8 +97,6 @@ func (consumer *MockConsumer) Emit(message *Message) {
 			panic(err)
 		}
 	}
-
-	Logger.Println("message marked")
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
@@ -111,13 +106,18 @@ func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, chan<
 		marked:   make(chan error, 1),
 	}
 
+	consumer.mutex.RLock()
+	defer consumer.mutex.RUnlock()
+
 	for _, topic := range topics {
 		if consumer.subscriptions[topic.Name] == nil {
+			consumer.mutex.RUnlock()
 			consumer.mutex.Lock()
 			consumer.subscriptions[topic.Name] = &MockTopicSubscriptions{
 				list: []*MockSubscription{},
 			}
 			consumer.mutex.Unlock()
+			consumer.mutex.RLock()
 		}
 
 		consumer.subscriptions[topic.Name].mutex.Lock()
@@ -133,14 +133,21 @@ func (consumer *MockConsumer) Unsubscribe(channel <-chan *Message) error {
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
 
+unsubscribe:
 	for topic, subscriptions := range consumer.subscriptions {
+		subscriptions.mutex.RLock()
+
 		for index, subscription := range subscriptions.list {
 			if subscription.messages == channel {
+				subscriptions.mutex.RUnlock()
 				consumer.subscriptions[topic].mutex.Lock()
 				consumer.subscriptions[topic].list = append(consumer.subscriptions[topic].list[:index], consumer.subscriptions[topic].list[index+1:]...)
 				consumer.subscriptions[topic].mutex.Unlock()
+				break unsubscribe
 			}
 		}
+
+		subscriptions.mutex.RUnlock()
 	}
 
 	return nil
@@ -148,10 +155,11 @@ func (consumer *MockConsumer) Unsubscribe(channel <-chan *Message) error {
 
 // Close closes the kafka consumer
 func (consumer *MockConsumer) Close() error {
+	consumer.consumptions.Wait()
+
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
-	consumer.consumptions.Wait()
 	return nil
 }
 
@@ -162,6 +170,7 @@ type MockProducer struct {
 
 // Publish publishes the given message
 func (producer *MockProducer) Publish(message *Message) error {
+	producer.consumer.consumptions.Add(1)
 	go producer.consumer.Emit(message)
 	return nil
 }

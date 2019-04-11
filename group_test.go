@@ -51,6 +51,23 @@ func TestProduceEvent(t *testing.T) {
 	group.ProduceEvent(event)
 }
 
+// TestProduceEventNoTopics tests if a error is returned when no topics for production are found
+func TestProduceEventNoTopics(t *testing.T) {
+	group := NewGroup()
+
+	client := NewClient(group)
+	defer client.Close()
+
+	key, _ := uuid.NewV4()
+	parent, _ := uuid.NewV4()
+	event := NewEvent("tested", 1, parent, key, []byte("{}"))
+
+	err := group.ProduceEvent(event)
+	if err != ErrNoTopic {
+		t.Fatal("no topic error is not thrown when expected")
+	}
+}
+
 // TestAsyncCommand tests if plausible to create a async command
 func TestAsyncCommand(t *testing.T) {
 	group, client := NewMockClient()
@@ -69,18 +86,38 @@ func TestSyncCommand(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
+	action := "testing"
 	key, _ := uuid.NewV4()
-	command := NewCommand("testing", 1, key, []byte("{}"))
+	command := NewCommand(action, 1, key, []byte("{}"))
 
 	go func() {
-		_, err := group.SyncCommand(command)
+		messages, marked, closing, err := group.NewConsumer(CommandMessage)
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		defer closing()
+
+		<-messages
+
+		event := NewEvent(action, 1, command.ID, uuid.Nil, nil)
+		err = group.ProduceEvent(event)
+		if err != nil {
+			marked <- err
+			t.Fatal(err)
+		}
+
+		marked <- nil
 	}()
 
-	event := NewEvent("tested", 1, command.ID, command.Key, []byte("{}"))
-	group.ProduceEvent(event)
+	event, err := group.SyncCommand(command)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if event.Parent != command.ID {
+		t.Fatal("command id and parent do not match")
+	}
 }
 
 // TestAwaitEvent tests if plausible to await a event
@@ -88,15 +125,19 @@ func TestAwaitEvent(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
-	timeout := 2 * time.Second
+	timeout := 1 * time.Second
 	parent, _ := uuid.NewV4()
 
-	event := NewEvent("tested", 1, parent, uuid.Nil, []byte("{}"))
-	go group.ProduceEvent(event)
+	sink, marked, errs := group.AwaitEvent(timeout, parent)
 
-	sink, marked, err := group.AwaitEvent(timeout, parent)
+	event := NewEvent("tested", 1, parent, uuid.Nil, []byte("{}"))
+	err := group.ProduceEvent(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	select {
-	case e := <-err:
+	case e := <-errs:
 		t.Fatal(e)
 	case <-sink:
 		marked <- nil
@@ -119,7 +160,7 @@ func TestEventConsumer(t *testing.T) {
 	key, _ := uuid.NewV4()
 
 	event := NewEvent("tested", 1, parent, key, []byte("{}"))
-	go group.ProduceEvent(event)
+	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
 

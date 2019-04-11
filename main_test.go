@@ -26,9 +26,15 @@ func TestClosingConsumptions(t *testing.T) {
 	key, _ := uuid.NewV4()
 
 	event := NewEvent(action, version, parent, key, []byte("{}"))
-	group.ProduceEvent(event)
+	err := group.ProduceEvent(event)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	client.Close()
+	err = client.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(delivered) == 0 {
 		t.Fatal("the client did not close safely")

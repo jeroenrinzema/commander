@@ -20,8 +20,8 @@ func (handle *actionHandle) Process(writer ResponseWriter, message interface{}) 
 func NewMockClient() (*Group, *Client) {
 	dialect := NewMockDialect()
 	group := NewGroup(
-		NewTopic("events", dialect, EventMessage, ConsumeMode|ProduceMode),
-		NewTopic("commands", dialect, CommandMessage, ConsumeMode|ProduceMode),
+		NewTopic("events", dialect, EventMessage, DefaultMode),
+		NewTopic("commands", dialect, CommandMessage, DefaultMode),
 	)
 
 	client := NewClient(group)

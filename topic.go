@@ -8,10 +8,17 @@ type TopicMode int8
 const (
 	ConsumeMode TopicMode = 1 << iota
 	ProduceMode
+
+	DefaultMode = ConsumeMode | ProduceMode
 )
 
 // NewTopic constructs a new commander topic for the given name, type, mode and dialect.
+// If no topic mode is defined is the default mode (consume|produce) assigned to the topic.
 func NewTopic(name string, dialect Dialect, t MessageType, m TopicMode) Topic {
+	if m == 0 {
+		m = DefaultMode
+	}
+
 	topic := Topic{
 		Name:    name,
 		Dialect: dialect,

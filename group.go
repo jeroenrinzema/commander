@@ -22,9 +22,15 @@ const (
 
 // NewGroup initializes a new commander group.
 func NewGroup(t ...Topic) *Group {
-	topics := make(map[MessageType][]Topic)
+	topics := make(map[TopicMode][]Topic)
 	for _, topic := range t {
-		topics[topic.Type] = append(topics[topic.Type], topic)
+		if topic.HasMode(ConsumeMode) {
+			topics[ConsumeMode] = append(topics[ConsumeMode], topic)
+		}
+
+		if topic.HasMode(ProduceMode) {
+			topics[ProduceMode] = append(topics[ProduceMode], topic)
+		}
 	}
 
 	group := &Group{
@@ -43,7 +49,7 @@ func NewGroup(t ...Topic) *Group {
 type Group struct {
 	Middleware *Middleware
 	Timeout    time.Duration
-	Topics     map[MessageType][]Topic
+	Topics     map[TopicMode][]Topic
 	Retries    int
 }
 
@@ -142,8 +148,8 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID) (<-chan 
 func (group *Group) FetchTopics(t MessageType, m TopicMode) []Topic {
 	topics := []Topic{}
 
-	for _, topic := range group.Topics[t] {
-		if !topic.HasMode(m) {
+	for _, topic := range group.Topics[m] {
+		if topic.Type != t {
 			continue
 		}
 

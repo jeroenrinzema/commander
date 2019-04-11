@@ -111,13 +111,9 @@ func (consumer *MockConsumer) Subscribe(topics ...Topic) (<-chan *Message, chan<
 
 	for _, topic := range topics {
 		if consumer.subscriptions[topic.Name] == nil {
-			consumer.mutex.RUnlock()
-			consumer.mutex.Lock()
 			consumer.subscriptions[topic.Name] = &MockTopicSubscriptions{
 				list: []*MockSubscription{},
 			}
-			consumer.mutex.Unlock()
-			consumer.mutex.RLock()
 		}
 
 		consumer.subscriptions[topic.Name].mutex.Lock()

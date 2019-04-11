@@ -260,7 +260,7 @@ func (group *Group) Publish(message *Message) error {
 // All received messages are published over the returned messages channel.
 // All middleware subscriptions are called before consuming the message.
 func (group *Group) NewConsumer(sort MessageType) (<-chan *Message, chan<- error, Close, error) {
-	Logger.Println("New topic consumer")
+	Logger.Println("New topic consumer:", sort)
 
 	topics := group.FetchTopics(sort, ConsumeMode)
 	if len(topics) == 0 {

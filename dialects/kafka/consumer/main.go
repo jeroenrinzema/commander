@@ -203,5 +203,9 @@ func (client *Client) Claim(message *sarama.ConsumerMessage) error {
 
 // Close closes the Kafka consumer
 func (client *Client) Close() error {
+	if client.handle == nil {
+		return nil
+	}
+	
 	return client.handle.Close()
 }

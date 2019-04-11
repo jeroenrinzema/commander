@@ -90,30 +90,34 @@ func TestSyncCommand(t *testing.T) {
 	key, _ := uuid.NewV4()
 	command := NewCommand(action, 1, key, []byte("{}"))
 
-	go func() {
-		messages, marked, closing, err := group.NewConsumer(CommandMessage)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer closing()
-
-		<-messages
-
-		event := NewEvent(action, 1, command.ID, uuid.Nil, nil)
-		err = group.ProduceEvent(event)
-		if err != nil {
-			marked <- err
-			t.Fatal(err)
-		}
-
-		marked <- nil
-	}()
-
-	event, err := group.SyncCommand(command)
+	messages, marked, closing, err := group.NewConsumer(CommandMessage)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	defer closing()
+	delivered := make(chan Event, 1)
+
+	go func() {
+		event, err := group.SyncCommand(command)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		delivered <- event
+	}()
+
+	<-messages
+
+	event := NewEvent(action, 1, command.ID, uuid.Nil, nil)
+	err = group.ProduceEvent(event)
+	if err != nil {
+		marked <- err
+		t.Fatal(err)
+	}
+
+	marked <- nil
+	event = <-delivered
 
 	if event.Parent != command.ID {
 		t.Fatal("command id and parent do not match")

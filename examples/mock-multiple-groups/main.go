@@ -10,12 +10,13 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/dialects/mock"
 )
 
 func main() {
 	commander.Logger.SetOutput(os.Stdout)
 
-	dialect := commander.NewMockDialect()
+	dialect := mock.NewDialect()
 	cart := commander.NewGroup(
 		commander.NewTopic("cart-commands", dialect, commander.CommandMessage, commander.DefaultMode),
 		commander.NewTopic("cart-events", dialect, commander.EventMessage, commander.DefaultMode),

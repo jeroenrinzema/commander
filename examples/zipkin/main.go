@@ -10,6 +10,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/dialects/mock"
 	"github.com/jeroenrinzema/commander/middleware/zipkin"
 )
 
@@ -21,13 +22,14 @@ var (
 
 func init() {
 	commander.Logger.SetOutput(os.Stdout)
+
 	flag.StringVar(&ZipkinHost, "host", "http://127.0.0.1:9411/api/v2/spans", "Zipkin host")
 	flag.StringVar(&ServiceName, "name", "example", "Service name")
 	flag.Parse()
 }
 
 func main() {
-	dialect := commander.NewMockDialect()
+	dialect := mock.NewDialect()
 	group := commander.NewGroup(
 		commander.NewTopic("commands", dialect, commander.CommandMessage, commander.DefaultMode),
 		commander.NewTopic("events", dialect, commander.EventMessage, commander.DefaultMode),

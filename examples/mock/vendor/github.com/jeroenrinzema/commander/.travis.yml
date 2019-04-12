@@ -1,0 +1,18 @@
+sudo: false
+
+language: go
+
+env:
+    global: 
+        - GO111MODULE=on
+
+go:
+  - 1.11.x
+  - 1.12.x
+
+install: false
+script:
+- go test ./... -v -mod=vendor -race -count=5 -coverprofile=coverage.txt -covermode=atomic
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

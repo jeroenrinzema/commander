@@ -4,9 +4,9 @@ import (
 	"errors"
 
 	"github.com/Shopify/sarama"
-	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/dialects/kafka/consumer"
 	"github.com/jeroenrinzema/commander/dialects/kafka/producer"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // Error types
@@ -17,7 +17,7 @@ var (
 // Dialect represents the kafka dialect
 type Dialect struct {
 	Connection Config
-	Topics     []commander.Topic
+	Topics     []types.Topic
 	Config     *sarama.Config
 
 	consumer *consumer.Client
@@ -25,7 +25,7 @@ type Dialect struct {
 }
 
 // NewDialect initializes and constructs a new Kafka dialect
-func NewDialect(connectionstring string) (commander.Dialect, error) {
+func NewDialect(connectionstring string) (types.Dialect, error) {
 	values := ParseConnectionstring(connectionstring)
 	err := ValidateConnectionKeyVal(values)
 	if err != nil {
@@ -49,7 +49,7 @@ func NewDialect(connectionstring string) (commander.Dialect, error) {
 }
 
 // Consumer returns the dialect as consumer
-func (dialect *Dialect) Consumer() commander.Consumer {
+func (dialect *Dialect) Consumer() types.Consumer {
 	if dialect.consumer == nil {
 		panic(ErrNotOpened)
 	}
@@ -58,7 +58,7 @@ func (dialect *Dialect) Consumer() commander.Consumer {
 }
 
 // Producer returns the dialect as producer
-func (dialect *Dialect) Producer() commander.Producer {
+func (dialect *Dialect) Producer() types.Producer {
 	if dialect.producer == nil {
 		panic(ErrNotOpened)
 	}
@@ -67,7 +67,7 @@ func (dialect *Dialect) Producer() commander.Producer {
 }
 
 // Assigned is called when a topic gets created
-func (dialect *Dialect) Assigned(topic commander.Topic) {
+func (dialect *Dialect) Assigned(topic types.Topic) {
 	dialect.Topics = append(dialect.Topics, topic)
 }
 

@@ -3,7 +3,7 @@ package mock
 import (
 	"sync"
 
-	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // Consumer a message consumer
@@ -15,7 +15,7 @@ type Consumer struct {
 
 // Emit emits a message to all subscribers of the given topic
 // Once a message is passed to a subscription is
-func (consumer *Consumer) Emit(message commander.Message) {
+func (consumer *Consumer) Emit(message types.Message) {
 	defer consumer.consumptions.Done()
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
@@ -56,9 +56,9 @@ func (consumer *Consumer) Emit(message commander.Message) {
 // will return a message channel and a close function.
 // Once a message is consumed should the marked channel be called. Pass a nil for a successful consume and
 // a error if a error occurred during processing.
-func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commander.Message, chan<- error, error) {
+func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Message, chan<- error, error) {
 	subscription := &Subscription{
-		messages: make(chan *commander.Message, 1),
+		messages: make(chan *types.Message, 1),
 		marked:   make(chan error, 1),
 	}
 
@@ -86,7 +86,7 @@ func (consumer *Consumer) Subscribe(topics ...commander.Topic) (<-chan *commande
 
 // Unsubscribe unsubscribes the given channel subscription from the given topic.
 // A boolean is returned that represents if the channel successfully got unsubscribed.
-func (consumer *Consumer) Unsubscribe(channel <-chan *commander.Message) error {
+func (consumer *Consumer) Unsubscribe(channel <-chan *types.Message) error {
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
 

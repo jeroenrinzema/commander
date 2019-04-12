@@ -1,4 +1,4 @@
-package commander
+package types
 
 import (
 	"context"
@@ -31,7 +31,7 @@ const (
 	CommandTimestampHeader = "cmdr_command_timestamp"
 )
 
-// Message contains all the nessasery information
+// Message a message
 type Message struct {
 	Topic     Topic             `json:"topic"`
 	Headers   map[string]string `json:"headers"`

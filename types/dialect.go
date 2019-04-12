@@ -1,4 +1,4 @@
-package commander
+package types
 
 // Dialect represents a commander dialect.
 // A dialect is responsible for the consumption/production of the targeted protocol.

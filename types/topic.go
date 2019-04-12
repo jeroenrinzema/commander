@@ -1,4 +1,4 @@
-package commander
+package types
 
 // TopicMode represents the mode of the given topic.
 // The mode describes if the given topic is marked for consumption/production/streaming...

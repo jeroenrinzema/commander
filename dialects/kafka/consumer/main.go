@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/Shopify/sarama"
-	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // HandleType represents the type of consumer that is adviced to use for the given connectionstring
@@ -19,7 +19,7 @@ const (
 )
 
 // NewClient initializes a new consumer client and a Kafka consumer
-func NewClient(brokers []string, group string, initialOffset int64, config *sarama.Config, ts ...commander.Topic) (*Client, error) {
+func NewClient(brokers []string, group string, initialOffset int64, config *sarama.Config, ts ...types.Topic) (*Client, error) {
 	topics := []string{}
 	for _, topic := range ts {
 		topics = append(topics, topic.Name)
@@ -83,7 +83,7 @@ type Claimer interface {
 
 // Subscription represents a consumer topic(s) subscription
 type Subscription struct {
-	messages chan *commander.Message
+	messages chan *types.Message
 	marked   chan error
 }
 
@@ -104,12 +104,10 @@ type Client struct {
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
-func (client *Client) Subscribe(topics ...commander.Topic) (<-chan *commander.Message, chan<- error, error) {
-	commander.Logger.Println("Subscribing to topics:", topics)
-
+func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, chan<- error, error) {
 	subscription := &Subscription{
 		marked:   make(chan error, 1),
-		messages: make(chan *commander.Message, 1),
+		messages: make(chan *types.Message, 1),
 	}
 
 	client.mutex.Lock()
@@ -129,7 +127,7 @@ func (client *Client) Subscribe(topics ...commander.Topic) (<-chan *commander.Me
 }
 
 // Unsubscribe unsubscribes the given topic from the subscription list
-func (client *Client) Unsubscribe(sub <-chan *commander.Message) error {
+func (client *Client) Unsubscribe(sub <-chan *types.Message) error {
 	client.mutex.RLock()
 	defer client.mutex.RUnlock()
 
@@ -165,9 +163,9 @@ func (client *Client) Claim(message *sarama.ConsumerMessage) error {
 			headers[string(record.Key)] = string(record.Value)
 		}
 
-		message := &commander.Message{
+		message := &types.Message{
 			Headers: headers,
-			Topic: commander.Topic{
+			Topic: types.Topic{
 				Name: message.Topic,
 			},
 			Offset:    int(message.Offset),

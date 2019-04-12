@@ -1,4 +1,4 @@
-package commander
+package types
 
 // Producer a message producer
 type Producer interface {

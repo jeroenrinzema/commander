@@ -1,6 +1,6 @@
 package mock
 
-import "github.com/jeroenrinzema/commander"
+import "github.com/jeroenrinzema/commander/types"
 
 // Producer a message producer
 type Producer struct {
@@ -8,7 +8,7 @@ type Producer struct {
 }
 
 // Publish produces a message to the given topic
-func (producer *Producer) Publish(message *commander.Message) error {
+func (producer *Producer) Publish(message *types.Message) error {
 	producer.consumer.consumptions.Add(1)
 	go producer.consumer.Emit(*message)
 	return nil

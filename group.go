@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // Custom error types
@@ -22,7 +23,7 @@ const (
 
 // NewGroup initializes a new commander group.
 func NewGroup(t ...Topic) *Group {
-	topics := make(map[TopicMode][]Topic)
+	topics := make(map[types.TopicMode][]types.Topic)
 	for _, topic := range t {
 		if topic.HasMode(ConsumeMode) {
 			topics[ConsumeMode] = append(topics[ConsumeMode], topic)
@@ -49,7 +50,7 @@ func NewGroup(t ...Topic) *Group {
 type Group struct {
 	Middleware *Middleware
 	Timeout    time.Duration
-	Topics     map[TopicMode][]Topic
+	Topics     map[types.TopicMode][]types.Topic
 	Retries    int
 }
 
@@ -150,7 +151,7 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 }
 
 // FetchTopics fetches the available topics for the given mode and the given type
-func (group *Group) FetchTopics(t MessageType, m TopicMode) []Topic {
+func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) []types.Topic {
 	topics := []Topic{}
 
 	for _, topic := range group.Topics[m] {
@@ -264,7 +265,7 @@ func (group *Group) Publish(message *Message) error {
 // NewConsumer starts consuming events of topics from the same topic type.
 // All received messages are published over the returned messages channel.
 // All middleware subscriptions are called before consuming the message.
-func (group *Group) NewConsumer(sort MessageType) (<-chan *Message, chan<- error, Close, error) {
+func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, chan<- error, Close, error) {
 	Logger.Println("New topic consumer:", sort)
 
 	topics := group.FetchTopics(sort, ConsumeMode)
@@ -306,7 +307,7 @@ func (group *Group) NewConsumer(sort MessageType) (<-chan *Message, chan<- error
 // HandleFunc awaits messages from the given MessageType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) HandleFunc(sort MessageType, action string, callback Handle) (Close, error) {
+func (group *Group) HandleFunc(sort types.MessageType, action string, callback Handle) (Close, error) {
 	messages, marked, closing, err := group.NewConsumer(sort)
 	if err != nil {
 		return nil, err
@@ -366,6 +367,6 @@ func (group *Group) HandleFunc(sort MessageType, action string, callback Handle)
 // Handle awaits messages from the given MessageType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) Handle(sort MessageType, action string, handler Handler) (Close, error) {
+func (group *Group) Handle(sort types.MessageType, action string, handler Handler) (Close, error) {
 	return group.HandleFunc(sort, action, handler.Process)
 }

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+
+	"github.com/jeroenrinzema/commander/types"
 )
 
 const (
@@ -52,7 +54,7 @@ type Client struct {
 
 // Close closes the consumer and producer
 func (client *Client) Close() error {
-	dialects := make(map[Dialect]bool)
+	dialects := make(map[types.Dialect]bool)
 
 	for _, group := range client.Groups {
 		for _, topics := range group.Topics {

@@ -1,12 +1,24 @@
 package mock
 
 import (
-	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // NewDialect constructs a new in-memory mocking dialect
-func NewDialect() commander.Dialect {
-	dialect := &Dialect{}
+func NewDialect() types.Dialect {
+	consumer := &Consumer{
+		subscriptions: make(map[string]*SubscriptionCollection),
+	}
+
+	producer := &Producer{
+		consumer: consumer,
+	}
+
+	dialect := &Dialect{
+		consumer: consumer,
+		producer: producer,
+	}
+
 	return dialect
 }
 
@@ -17,17 +29,17 @@ type Dialect struct {
 }
 
 // Assigned notifies a dialect about the assignment of the given topic
-func (dialect *Dialect) Assigned(commander.Topic) {
+func (dialect *Dialect) Assigned(types.Topic) {
 	// ignore...
 }
 
 // Consumer returns the dialect consumer
-func (dialect *Dialect) Consumer() commander.Consumer {
+func (dialect *Dialect) Consumer() types.Consumer {
 	return dialect.consumer
 }
 
 // Producer returns the dialect producer
-func (dialect *Dialect) Producer() commander.Producer {
+func (dialect *Dialect) Producer() types.Producer {
 	return dialect.producer
 }
 
@@ -41,5 +53,7 @@ func (dialect *Dialect) Healthy() bool {
 // Close awaits till the consumer(s) and producer(s) of the given dialect are closed.
 // If an error is returned is the closing aborted and the error returned to the user.
 func (dialect *Dialect) Close() error {
+	dialect.consumer.Close()
+	dialect.producer.Close()
 	return nil
 }

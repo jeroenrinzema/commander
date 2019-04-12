@@ -3,12 +3,12 @@ package mock
 import (
 	"sync"
 
-	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // Subscription mock message subscription
 type Subscription struct {
-	messages chan *commander.Message
+	messages chan *types.Message
 	marked   chan error
 }
 

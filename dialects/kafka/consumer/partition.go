@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/jeroenrinzema/commander"
 )
 
 // NewPartitionHandle initializes a new PartitionHandle
@@ -55,11 +54,8 @@ func (tc *TopicPartitionConsumers) Consume(partition int32) error {
 			break
 		}
 
-		commander.Logger.Println("opening partition consumer:", tc.topic, "consumer:", partition)
-
 		client, err := tc.handle.consumer.ConsumePartition(tc.topic, partition, tc.handle.initialOffset)
 		if err != nil {
-			commander.Logger.Println("err opening partition consumer", err)
 			continue
 		}
 
@@ -91,7 +87,6 @@ func (tc *TopicPartitionConsumers) Delist(consumer *PartitionConsumer) error {
 		}
 	}
 
-	commander.Logger.Println("partition consumer closed:", tc.topic, "consumer:", consumer.partition)
 	return nil
 }
 
@@ -207,8 +202,6 @@ func (handle *PartitionHandle) Connect(brokers []string, topics []string, initia
 // Close closes the given consumer and all topic partition consumers.
 // First are all partition consumers closed before the client consumer is closed.
 func (handle *PartitionHandle) Close() error {
-	commander.Logger.Println("closing partition consumer")
-
 	handle.mutex.RLock()
 	defer handle.mutex.RUnlock()
 

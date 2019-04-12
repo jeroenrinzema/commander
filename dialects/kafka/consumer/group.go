@@ -43,10 +43,8 @@ func (handle *GroupHandle) Connect(brokers []string, topics []string, group stri
 				break
 			}
 
-			commander.Logger.Println("Opening consumer for:", topics, "on:", brokers)
 			ctx := context.Background()
-			err := consumer.Consume(ctx, topics, handle)
-			commander.Logger.Println("Consumer closed:", err)
+			_ = consumer.Consume(ctx, topics, handle)
 		}
 	}()
 
@@ -81,19 +79,16 @@ func (handle *GroupHandle) Cleanup(session sarama.ConsumerGroupSession) error {
 // If an error occured during processing of the claimed message is the message marked to be retried.
 func (handle *GroupHandle) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
-		commander.Logger.Println("Message claimed:", message.Topic, message.Partition, message.Offset)
 		handle.consumptions.Add(1)
 
 		go func(message *sarama.ConsumerMessage) {
 			err := handle.client.Claim(message)
 			if err != nil {
 				// Mark the message to be consumed again
-				commander.Logger.Println("Marking a message as not consumed:", message.Topic, message.Partition, message.Offset)
 				session.MarkOffset(message.Topic, message.Partition, message.Offset, "")
 				return
 			}
 
-			commander.Logger.Println("Marking message as consumed")
 			session.MarkMessage(message, "")
 
 			handle.consumptions.Done()

@@ -8,12 +8,13 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/dialects/mock"
 )
 
 func main() {
 	commander.Logger.SetOutput(os.Stdout)
 
-	dialect := commander.NewMockDialect()
+	dialect := mock.NewDialect()
 	group := commander.NewGroup(
 		commander.NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode|commander.ProduceMode),
 		commander.NewTopic("events", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),

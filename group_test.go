@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/dialects/mock"
 )
 
 type actionHandle struct {
@@ -18,7 +19,7 @@ func (handle *actionHandle) Process(writer ResponseWriter, message interface{}) 
 
 // NewMockClient initializes a new in-memory mocking dialect, group and commander client used for testing
 func NewMockClient() (*Group, *Client) {
-	dialect := NewMockDialect()
+	dialect := mock.NewDialect()
 	group := NewGroup(
 		NewTopic("events", dialect, EventMessage, DefaultMode),
 		NewTopic("commands", dialect, CommandMessage, DefaultMode),

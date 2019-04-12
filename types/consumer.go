@@ -1,4 +1,4 @@
-package commander
+package types
 
 // Consumer a message consumer
 type Consumer interface {

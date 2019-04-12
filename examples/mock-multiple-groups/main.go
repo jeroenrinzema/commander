@@ -10,64 +10,33 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/dialects/mock"
 )
-
-// Constructing the commander groups
-var cart = &commander.Group{
-	Topics: []commander.Topic{
-		{
-			Name:    "cart-commands",
-			Type:    commander.CommandTopic,
-			Consume: true,
-			Produce: true,
-		},
-		{
-			Name:    "cart-events",
-			Type:    commander.EventTopic,
-			Consume: true,
-			Produce: true,
-		},
-	},
-	Timeout: 5 * time.Second,
-}
-
-var warehouse = &commander.Group{
-	Topics: []commander.Topic{
-		{
-			Name:    "warehouse-commands",
-			Type:    commander.CommandTopic,
-			Consume: true,
-			Produce: true,
-		},
-		{
-			Name:    "warehouse-events",
-			Type:    commander.EventTopic,
-			Consume: true,
-			Produce: true,
-		},
-	},
-	Timeout: 2 * time.Second,
-}
 
 func main() {
 	commander.Logger.SetOutput(os.Stdout)
-	connectionstring := ""
-	dialect := &commander.MockDialect{}
 
-	/**
-	 * When constrcuting a new commander instance do you have to construct a commander.Dialect as well.
-	 * A dialect consists mainly of a producer and a consumer that acts as a connector to the wanted infastructure.
-	 */
-	_, err := commander.New(dialect, connectionstring, cart, warehouse)
-	if err != nil {
-		panic(err)
-	}
+	dialect := mock.NewDialect()
+	cart := commander.NewGroup(
+		commander.NewTopic("cart-commands", dialect, commander.CommandMessage, commander.DefaultMode),
+		commander.NewTopic("cart-events", dialect, commander.EventMessage, commander.DefaultMode),
+	)
+
+	warehouse := commander.NewGroup(
+		commander.NewTopic("warehouse-commands", dialect, commander.CommandMessage, commander.DefaultMode),
+		commander.NewTopic("warehouse-events", dialect, commander.EventMessage, commander.DefaultMode),
+	)
+
+	warehouse.Timeout = 2 * time.Second
+
+	client := commander.NewClient(cart, warehouse)
+	defer client.Close()
 
 	/**
 	 * HandleFunc handles commands with the action "available". Once a available command is received
 	 * will a available event be produced.
 	 */
-	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
+	warehouse.HandleFunc(commander.CommandMessage, "Available", func(writer commander.ResponseWriter, message interface{}) {
 		command := message.(commander.Command)
 		log.Println("> Available")
 
@@ -93,7 +62,7 @@ func main() {
 	 * HandleFunc handles command with the action "example". Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	cart.HandleFunc(commander.CommandTopic, "Purchase", func(writer commander.ResponseWriter, message interface{}) {
+	cart.HandleFunc(commander.CommandMessage, "Purchase", func(writer commander.ResponseWriter, message interface{}) {
 		item, _ := uuid.NewV4()
 		key, _ := uuid.NewV4()
 		log.Println("> Purchase")
@@ -142,7 +111,7 @@ func main() {
 	fmt.Println("Http server running at :8080")
 	fmt.Println("Send a http request to /purchase to simulate a 'sync' purchase command")
 
-	err = http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic(err)
 	}

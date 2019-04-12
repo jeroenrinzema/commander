@@ -7,50 +7,45 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/dialects/kafka"
 )
 
-var warehouse = &commander.Group{
-	Topics: []commander.Topic{
-		{
-			Name:    "commands",
-			Type:    commander.CommandTopic,
-			Consume: true,
-			Produce: true,
-		},
-		{
-			Name:    "events",
-			Type:    commander.EventTopic,
-			Consume: true,
-			Produce: true,
-		},
-	},
-	Timeout: 5 * time.Second,
+// Available flags
+var (
+	Brokers = ""
+	Version = ""
+	Group   = ""
+)
+
+func init() {
+	commander.Logger.SetOutput(os.Stdout)
+	flag.StringVar(&Brokers, "brokers", "127.0.0.1", "Kafka brokers separated by a ,")
+	flag.StringVar(&Version, "version", "2.1.1", "Kafka cluster version")
+	flag.StringVar(&Group, "group", "", "Optional kafka consumer group")
+	flag.Parse()
 }
 
 func main() {
-	commander.Logger.SetOutput(os.Stdout)
-	brokers := flag.String("brokers", "127.0.0.1", "Kafka brokers separated by a ,")
-	version := flag.String("version", "2.1.1", "Kafka cluster version")
-	group := flag.String("group", "", "Optional kafka consumer group")
-	flag.Parse()
-
-	connectionstring := fmt.Sprintf("brokers=%s group=%s initial-offset=newest version=%s", *brokers, *group, *version)
+	connectionstring := fmt.Sprintf("brokers=%s group=%s initial-offset=newest version=%s", Brokers, Group, Version)
 	log.Println("Connecting to Kafka:", connectionstring)
 
-	dialect := &kafka.Dialect{}
+	dialect, err := kafka.NewDialect(connectionstring)
+	if err != nil {
+		panic(err)
+	}
 
-	/**
-	 * When constrcuting a new commander instance do you have to construct a commander.Dialect as well.
-	 * A dialect consists mainly of a producer and a consumer that acts as a connector to the wanted infastructure.
-	 */
-	client, err := commander.New(dialect, connectionstring, warehouse)
+	warehouse := commander.NewGroup(
+		commander.NewTopic("commands", dialect, commander.CommandMessage, commander.DefaultMode),
+		commander.NewTopic("events", dialect, commander.EventMessage, commander.DefaultMode),
+	)
+
+	client := commander.NewClient(warehouse)
+	defer client.Close()
+
+	err = dialect.Open()
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +54,7 @@ func main() {
 	 * HandleFunc handles an "Available" command. Once a command with the action "Available" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	warehouse.HandleFunc(commander.CommandTopic, "Available", func(writer commander.ResponseWriter, message interface{}) {
+	warehouse.HandleFunc(commander.CommandMessage, "Available", func(writer commander.ResponseWriter, message interface{}) {
 		key, err := uuid.NewV4()
 		if err != nil {
 			// Mark the message to be retried, this will reset the offset of the message topic, parition to the original message offset
@@ -133,18 +128,8 @@ func main() {
 		Addr: ":8080",
 	}
 
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	sigterm := make(chan os.Signal, 1)
-	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
-
-	<-sigterm
-
-	client.Close()
-	server.Close()
+	err = server.ListenAndServe()
+	if err != nil {
+		panic(err)
+	}
 }

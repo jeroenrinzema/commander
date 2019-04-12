@@ -25,7 +25,7 @@ type Dialect struct {
 }
 
 // NewDialect initializes and constructs a new Kafka dialect
-func NewDialect(connectionstring string) (types.Dialect, error) {
+func NewDialect(connectionstring string) (*Dialect, error) {
 	values := ParseConnectionstring(connectionstring)
 	err := ValidateConnectionKeyVal(values)
 	if err != nil {

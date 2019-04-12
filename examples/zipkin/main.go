@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
@@ -43,8 +42,7 @@ func main() {
 		panic(err)
 	}
 
-	log.Println("Injecting Zipkin tracer:", zconnect)
-	client.Middleware.Use(tracing.Controller)
+	client.Middleware.Use(tracing)
 
 	/**
 	 * HandleFunc handles an "example" command. Once a command with the action "example" is

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/types"
 )
 
@@ -48,7 +49,7 @@ func NewGroup(t ...Topic) *Group {
 // commands and events could be consumed and produced to. The amount of retries
 // attempted before a error is thrown could also be defined in a group.
 type Group struct {
-	Middleware *Middleware
+	Middleware *middleware.Client
 	Timeout    time.Duration
 	Topics     map[types.TopicMode][]types.Topic
 	Retries    int
@@ -244,12 +245,12 @@ func (group *Group) ProduceEvent(event Event) error {
 // Publish publishes the given message to the group producer.
 // All middleware subscriptions are called before publishing the message.
 func (group *Group) Publish(message *Message) error {
-	group.Middleware.Emit(BeforePublish, &MiddlewareEvent{
+	group.Middleware.Emit(middleware.BeforePublish, &middleware.Event{
 		Value: message,
 		Ctx:   message.Ctx,
 	})
 
-	defer group.Middleware.Emit(AfterPublish, &MiddlewareEvent{
+	defer group.Middleware.Emit(middleware.AfterPublish, &middleware.Event{
 		Value: message,
 		Ctx:   message.Ctx,
 	})
@@ -286,7 +287,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 	go func(messages <-chan *Message) {
 		for message := range messages {
-			group.Middleware.Emit(BeforeMessageConsumption, &MiddlewareEvent{
+			group.Middleware.Emit(middleware.BeforeMessageConsumption, &middleware.Event{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
@@ -294,7 +295,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 			sink <- message
 			marked <- <-called // Await called and pipe into marked
 
-			group.Middleware.Emit(AfterMessageConsumed, &MiddlewareEvent{
+			group.Middleware.Emit(middleware.AfterMessageConsumed, &middleware.Event{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
@@ -325,7 +326,7 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 
 			Logger.Println("Processing action:", a)
 
-			group.Middleware.Emit(BeforeActionConsumption, &MiddlewareEvent{
+			group.Middleware.Emit(middleware.BeforeActionConsumption, &middleware.Event{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
@@ -354,7 +355,7 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 			err := writer.ShouldRetry()
 			marked <- err
 
-			group.Middleware.Emit(AfterActionConsumption, &MiddlewareEvent{
+			group.Middleware.Emit(middleware.AfterActionConsumption, &middleware.Event{
 				Value: message,
 				Ctx:   message.Ctx,
 			})

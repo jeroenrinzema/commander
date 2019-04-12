@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 
+	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/types"
 )
 
@@ -33,10 +34,8 @@ var (
 // A client is needed to control a collection of groups.
 func NewClient(groups ...*Group) *Client {
 	client := &Client{
-		Groups: groups,
-		Middleware: &Middleware{
-			events: make(map[EventType]*MiddlewareSubscriptions),
-		},
+		Groups:     groups,
+		Middleware: middleware.NewClient(),
 	}
 
 	for _, group := range groups {
@@ -48,7 +47,7 @@ func NewClient(groups ...*Group) *Client {
 
 // Client manages the consumers, producers and groups.
 type Client struct {
-	Middleware *Middleware
+	Middleware *middleware.Client
 	Groups     []*Group
 }
 

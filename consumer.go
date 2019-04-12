@@ -1,6 +1,6 @@
 package commander
 
-// Consumer describes a message consumer
+// Consumer a message consumer
 type Consumer interface {
 	// Subscribe creates a new topic subscription that will receive
 	// messages consumed by the consumer of the given topic. This method

@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// TODO: rewrite mock dialect to support concurrent events etc...
+
 // MockSubscription mock message subscription
 type MockSubscription struct {
 	messages chan *Message

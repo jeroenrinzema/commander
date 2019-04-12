@@ -1,6 +1,6 @@
 package commander
 
-// Producer represents a dialect producer
+// Producer a message producer
 type Producer interface {
 	// Publish produces a message to the given topic
 	Publish(message *Message) error

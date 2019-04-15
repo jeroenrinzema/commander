@@ -37,7 +37,7 @@ For more advanced code check out the examples on [Github](https://github.com/jer
 Let's first set up a simple commander group.
 
 ```go
-dialect := commander.NewMockDialect()
+dialect := mock.NewDialect()
 group := commander.NewGroup(
 	NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode),
 	NewTopic("event", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),

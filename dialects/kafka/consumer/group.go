@@ -98,7 +98,8 @@ func (handle *GroupHandle) ConsumeClaim(session sarama.ConsumerGroupSession, cla
 	return nil
 }
 
-// Close closes the group consume handle and awaits till all claimed messages are processed
+// Close closes the group consume handle and awaits till all claimed messages are processed.
+// The consumer group get's marked for closing
 func (handle *GroupHandle) Close() error {
 	handle.closing = true
 	err := handle.consumer.Close()

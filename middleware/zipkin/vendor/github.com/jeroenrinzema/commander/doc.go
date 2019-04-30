@@ -1,4 +1,0 @@
-/*
-Package commander ...
-*/
-package commander

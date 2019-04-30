@@ -22,7 +22,7 @@ var (
 
 func init() {
 	commander.Logger.SetOutput(os.Stdout)
-	flag.StringVar(&Brokers, "brokers", "127.0.0.1", "Kafka brokers separated by a ,")
+	flag.StringVar(&Brokers, "brokers", "127.0.0.1:9092", "Kafka brokers separated by a ,")
 	flag.StringVar(&Version, "version", "2.1.1", "Kafka cluster version")
 	flag.StringVar(&Group, "group", "", "Optional kafka consumer group")
 	flag.Parse()
@@ -37,6 +37,9 @@ func main() {
 		panic(err)
 	}
 
+	/**
+	 * Commander group definition, multiple groups could be defined and assigned to a single instance.
+	 */
 	warehouse := commander.NewGroup(
 		commander.NewTopic("commands", dialect, commander.CommandMessage, commander.DefaultMode),
 		commander.NewTopic("events", dialect, commander.EventMessage, commander.DefaultMode),

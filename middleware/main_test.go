@@ -23,7 +23,7 @@ func TestEmittingMessage(t *testing.T) {
 
 	select {
 	case <-timeout.Done():
-		t.Error("Timeout reached")
+		t.Fatal("Timeout reached")
 	case <-sink:
 	}
 }

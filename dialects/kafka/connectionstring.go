@@ -10,11 +10,11 @@ type ConnectionMap map[string]string
 
 // These const's contain the connection string keys to different values
 const (
-	BrokersKey        = "brokers"
-	GroupKey          = "group"
-	VersionKey        = "version"
-	InitialOffsetKey  = "initial-offset"
-	ConnectionTimeout = "connection-timeout"
+	BrokersKey           = "brokers"
+	GroupKey             = "group"
+	VersionKey           = "version"
+	InitialOffsetKey     = "initial-offset"
+	ConnectionTimeoutKey = "connection-timeout"
 )
 
 // ParseConnectionstring parses the given connectionstring and returns a map with all key/values

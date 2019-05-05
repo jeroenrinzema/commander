@@ -68,7 +68,7 @@ func NewConfig(values ConnectionMap) (Config, error) {
 		break
 	}
 
-	connectionTimeout, err := time.ParseDuration(values[ConnectionTimeout])
+	connectionTimeout, err := time.ParseDuration(values[ConnectionTimeoutKey])
 	if err != nil {
 		connectionTimeout = DefaultConnectionTimeout
 	}

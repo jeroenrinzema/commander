@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"context"
+	"log"
 	"sync"
 
 	"github.com/Shopify/sarama"
@@ -44,7 +45,9 @@ func (handle *GroupHandle) Connect(brokers []string, topics []string, group stri
 			}
 
 			ctx := context.Background()
-			_ = consumer.Consume(ctx, topics, handle)
+			err := consumer.Consume(ctx, topics, handle)
+
+			log.Println(err)
 		}
 	}()
 

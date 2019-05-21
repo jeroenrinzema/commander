@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -56,6 +57,7 @@ func (tc *TopicPartitionConsumers) Consume(partition int32) error {
 
 		client, err := tc.handle.consumer.ConsumePartition(tc.topic, partition, tc.handle.initialOffset)
 		if err != nil {
+			log.Println(err)
 			continue
 		}
 

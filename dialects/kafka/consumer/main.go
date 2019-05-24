@@ -85,6 +85,7 @@ type Claimer interface {
 type Subscription struct {
 	messages chan *types.Message
 	marked   chan error
+	unsafe   bool
 }
 
 // Channel represents a thread safe list of subscriptions
@@ -118,9 +119,11 @@ func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, c
 			client.channels[topic.Name] = &Channel{}
 		}
 
-		client.channels[topic.Name].mutex.Lock()
-		client.channels[topic.Name].subscriptions = append(client.channels[topic.Name].subscriptions, subscription)
-		client.channels[topic.Name].mutex.Unlock()
+		go func(topic types.Topic, subscription *Subscription) {
+			client.channels[topic.Name].mutex.Lock()
+			client.channels[topic.Name].subscriptions = append(client.channels[topic.Name].subscriptions, subscription)
+			client.channels[topic.Name].mutex.Unlock()
+		}(topic, subscription)
 	}
 
 	return subscription.messages, subscription.marked, nil
@@ -132,18 +135,30 @@ func (client *Client) Unsubscribe(sub <-chan *types.Message) error {
 	defer client.mutex.RUnlock()
 
 	for topic, channel := range client.channels {
-		subscriptions := channel.subscriptions
+		go func(channel *Channel, topic string, sub <-chan *types.Message) {
+			subscriptions := channel.subscriptions
+			channel.mutex.RLock()
+			for index, subscription := range subscriptions {
+				if subscription.messages == sub {
+					// Mark the subscription as unsafe to be removed in the next garbage collection attempt
+					client.channels[topic].subscriptions[index].unsafe = true
 
-		for index, subscription := range subscriptions {
-			if subscription.messages == sub {
-				channel.mutex.Lock()
-				client.channels[topic].subscriptions = append(client.channels[topic].subscriptions[:index], client.channels[topic].subscriptions[index+1:]...)
-				close(subscription.messages)
-				channel.mutex.Unlock()
-				break
+					go func(channel *Channel, topic string, sub <-chan *types.Message) {
+						channel.mutex.Lock()
+						for index, subscription := range subscriptions {
+							if subscription.messages == sub {
+								client.channels[topic].subscriptions = append(client.channels[topic].subscriptions[:index], client.channels[topic].subscriptions[index+1:]...)
+								close(subscription.messages)
+								break
+							}
+						}
+						channel.mutex.Unlock()
+					}(channel, topic, sub)
+					break
+				}
 			}
-		}
-
+			channel.mutex.RUnlock()
+		}(channel, topic, sub)
 	}
 
 	return nil
@@ -177,15 +192,17 @@ func (client *Client) Claim(message *sarama.ConsumerMessage) error {
 		}
 
 		channel.mutex.RLock()
-
 		for _, subscription := range subscriptions {
+			if subscription.unsafe {
+				continue
+			}
+
 			subscription.messages <- message
 			err = <-subscription.marked
 			if err != nil {
 				break
 			}
 		}
-
 		channel.mutex.RUnlock()
 	}
 

@@ -107,6 +107,7 @@ func (group *Group) SyncCommand(command Command) (Event, error) {
 func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action string) (<-chan Event, chan<- error, <-chan error) {
 	Logger.Println("Awaiting child event")
 
+	var match bool
 	sink := make(chan Event, 1)
 	erro := make(chan error, 1)
 
@@ -120,15 +121,18 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		defer closing()
 
 	await:
 		for {
 			select {
 			case <-ctx.Done():
 				erro <- ErrTimeout
-				break await
 			case message := <-messages:
+				if match {
+					marked <- nil
+					continue await
+				}
+
 				if action != "" && message.Headers[ActionHeader] != action {
 					marked <- nil
 					continue await
@@ -142,8 +146,11 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 					continue await
 				}
 
-				sink <- event
-				break await
+				go func() {
+					match = true
+					go closing()
+					sink <- event
+				}()
 			}
 		}
 	}()

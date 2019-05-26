@@ -107,7 +107,7 @@ func (group *Group) SyncCommand(command Command) (Event, error) {
 func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action string) (<-chan Event, chan<- error, <-chan error) {
 	Logger.Println("Awaiting child event")
 
-	var match bool
+	breaker := false
 	sink := make(chan Event, 1)
 	erro := make(chan error, 1)
 
@@ -128,7 +128,7 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 			case <-ctx.Done():
 				erro <- ErrTimeout
 			case message := <-messages:
-				if match {
+				if breaker {
 					marked <- nil
 					continue await
 				}
@@ -146,11 +146,9 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 					continue await
 				}
 
-				go func() {
-					match = true
-					go closing()
-					sink <- event
-				}()
+				breaker = true
+				closing()
+				sink <- event
 			}
 		}
 	}()
@@ -286,6 +284,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 	sink := make(chan *Message, 1)
 	called := make(chan error, 1)
+	breaker := false
 
 	messages, marked, err := topic.Dialect.Consumer().Subscribe(topics...)
 	if err != nil {
@@ -294,6 +293,11 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 	go func(messages <-chan *Message) {
 		for message := range messages {
+			if breaker {
+				marked <- nil
+				continue
+			}
+
 			group.Middleware.Emit(middleware.BeforeMessageConsumption, &middleware.Event{
 				Value: message,
 				Ctx:   message.Ctx,
@@ -309,7 +313,12 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 		}
 	}(messages)
 
-	return sink, called, func() { topic.Dialect.Consumer().Unsubscribe(messages) }, nil
+	close := func() {
+		breaker = true
+		go topic.Dialect.Consumer().Unsubscribe(messages)
+	}
+
+	return sink, called, close, nil
 }
 
 // HandleFunc awaits messages from the given MessageType and action.

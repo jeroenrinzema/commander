@@ -29,7 +29,8 @@ func main() {
 
 	warehouse.Timeout = 2 * time.Second
 
-	client := commander.NewClient(cart, warehouse)
+	// The mock dialect does not throw any error thus could safely be ignored
+	client, _ := commander.NewClient(cart, warehouse)
 	defer client.Close()
 
 	/**

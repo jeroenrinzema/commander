@@ -20,7 +20,7 @@ func main() {
 		commander.NewTopic("events", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
 	)
 
-	client := commander.NewClient(group)
+	client, _ := commander.NewClient(group)
 	defer client.Close()
 
 	/**

@@ -17,6 +17,10 @@ type Dialect interface {
 	// The user should implement the health check
 	Healthy() bool
 
+	// Open notifies a dialect to open the dialect.
+	// No further topic assignments should be made.
+	Open() error
+
 	// Close awaits till the consumer(s) and producer(s) of the given dialect are closed.
 	// If an error is returned is the closing aborted and the error returned to the user.
 	Close() error

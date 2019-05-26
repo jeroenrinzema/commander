@@ -34,7 +34,8 @@ func main() {
 		commander.NewTopic("events", dialect, commander.EventMessage, commander.DefaultMode),
 	)
 
-	client := commander.NewClient(group)
+	// The mock dialect does not throw any error thus could safely be ignored
+	client, _ := commander.NewClient(group)
 
 	zconnect := fmt.Sprintf("host=%s name=%s", ZipkinHost, ServiceName)
 	tracing, err := zipkin.New(zconnect)

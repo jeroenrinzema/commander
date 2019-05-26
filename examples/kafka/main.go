@@ -45,13 +45,12 @@ func main() {
 		commander.NewTopic("events", dialect, commander.EventMessage, commander.DefaultMode),
 	)
 
-	client := commander.NewClient(warehouse)
-	defer client.Close()
-
-	err = dialect.Open()
+	client, err := commander.NewClient(warehouse)
 	if err != nil {
 		panic(err)
 	}
+
+	defer client.Close()
 
 	/**
 	 * HandleFunc handles an "Available" command. Once a command with the action "Available" is

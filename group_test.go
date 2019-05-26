@@ -25,7 +25,7 @@ func NewMockClient() (*Group, *Client) {
 		NewTopic("commands", dialect, CommandMessage, DefaultMode),
 	)
 
-	client := NewClient(group)
+	client, _ := NewClient(group)
 	return group, client
 }
 
@@ -56,7 +56,7 @@ func TestProduceEvent(t *testing.T) {
 func TestProduceEventNoTopics(t *testing.T) {
 	group := NewGroup()
 
-	client := NewClient(group)
+	client, _ := NewClient(group)
 	defer client.Close()
 
 	key, _ := uuid.NewV4()

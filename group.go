@@ -315,7 +315,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 	close := func() {
 		breaker = true
-		go topic.Dialect.Consumer().Unsubscribe(messages)
+		topic.Dialect.Consumer().Unsubscribe(messages)
 	}
 
 	return sink, called, close, nil

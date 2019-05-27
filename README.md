@@ -43,7 +43,7 @@ group := commander.NewGroup(
 	NewTopic("event", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
 )
 
-client := commander.NewClient(group)
+client, err := commander.NewClient(group)
 ```
 
 Once the event groups are defined and the dialects are initialized could consumers/producers be setup.

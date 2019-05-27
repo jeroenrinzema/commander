@@ -111,7 +111,6 @@ func attemptDeadlock(partitions, consumers int, b *testing.B) {
 	}()
 
 	<-time.After(10 * time.Second)
-	b.Log("opening breaker\n")
 	breaker = true
 	wg.Wait()
 }

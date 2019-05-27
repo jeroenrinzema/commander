@@ -160,10 +160,12 @@ func (client *Client) Unsubscribe(sub <-chan *types.Message) error {
 // is returned if one of the subscriptions failed to process the message.
 func (client *Client) Claim(message *sarama.ConsumerMessage) error {
 	var err error
+	topic := message.Topic
 
-	channel := client.channels[message.Topic]
-	if channel != nil {
-		subscriptions := channel.subscriptions
+	client.mutex.RLock()
+	defer client.mutex.RUnlock()
+
+	if client.channels[topic] != nil {
 		headers := map[string]string{}
 		for _, record := range message.Headers {
 			headers[string(record.Key)] = string(record.Value)
@@ -182,15 +184,15 @@ func (client *Client) Claim(message *sarama.ConsumerMessage) error {
 			Ctx:       context.Background(),
 		}
 
-		channel.mutex.RLock()
-		for _, subscription := range subscriptions {
+		client.channels[topic].mutex.RLock()
+		for _, subscription := range client.channels[topic].subscriptions {
 			subscription.messages <- message
 			err = <-subscription.marked
 			if err != nil {
 				break
 			}
 		}
-		channel.mutex.RUnlock()
+		client.channels[topic].mutex.RUnlock()
 	}
 
 	return err

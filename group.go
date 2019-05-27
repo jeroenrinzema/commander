@@ -119,7 +119,7 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 	}
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(timeout))
 		defer cancel()
 
 	await:
@@ -127,6 +127,8 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 			select {
 			case <-ctx.Done():
 				erro <- ErrTimeout
+				breaker = true
+				closing()
 			case message := <-messages:
 				if breaker {
 					marked <- nil

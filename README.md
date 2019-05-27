@@ -4,7 +4,7 @@
 [![Coverage](https://codecov.io/gh/jeroenrinzema/commander/branch/master/graph/badge.svg)](https://codecov.io/gh/jeroenrinzema/commander)
 [![Coverage Report](https://goreportcard.com/badge/github.com/jeroenrinzema/commander)](https://goreportcard.com/report/github.com/jeroenrinzema/commander)
 
-Commander is a toolkit for writing event driven applications, aims to be developer friendly. Commander supports event driven patterns such as **CQRS** and has support for different "dialects". Dialects allow Commander to communicate with different protocols.
+Commander is a high-level toolkit for writing event driven applications, aims to be developer friendly. Commander supports event driven patterns such as **CQRS** and has support for different "dialects". Dialects allow Commander to communicate with different protocols.
 
 ## Event driven patterns
 

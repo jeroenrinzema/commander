@@ -9,6 +9,8 @@ import (
 	"github.com/jeroenrinzema/commander/types"
 )
 
+type nothing struct{}
+
 // HandleType represents the type of consumer that is adviced to use for the given connectionstring
 type HandleType int8
 
@@ -26,9 +28,8 @@ func NewClient(brokers []string, group string, initialOffset int64, config *sara
 	}
 
 	client := &Client{
-		brokers:  brokers,
-		topics:   topics,
-		channels: make(map[string]*Channel),
+		brokers: brokers,
+		topics:  make(map[string]*Topic),
 	}
 
 	if len(topics) == 0 {
@@ -87,20 +88,25 @@ type Subscription struct {
 	marked   chan error
 }
 
-// Channel represents a thread safe list of subscriptions
-type Channel struct {
-	subscriptions []*Subscription
+// Topic represents a thread safe list of subscriptions
+type Topic struct {
+	subscriptions map[<-chan *types.Message]*Subscription
 	mutex         sync.RWMutex
+}
+
+// NewTopic constructs and returns a new Topic struct
+func NewTopic() *Topic {
+	return &Topic{
+		subscriptions: make(map[<-chan *types.Message]*Subscription),
+	}
 }
 
 // Client consumes kafka messages
 type Client struct {
-	handle   Handle
-	brokers  []string
-	topics   []string
-	channels map[string]*Channel
-	mutex    sync.RWMutex
-	ready    chan bool
+	handle  Handle
+	brokers []string
+	topics  map[string]*Topic
+	ready   chan bool
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
@@ -110,19 +116,14 @@ func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, c
 		messages: make(chan *types.Message, 1),
 	}
 
-	client.mutex.Lock()
-	defer client.mutex.Unlock()
-
 	for _, topic := range topics {
-		if client.channels[topic.Name] == nil {
-			client.channels[topic.Name] = &Channel{}
+		if client.topics[topic.Name] == nil {
+			client.topics[topic.Name] = NewTopic()
 		}
 
-		go func(topic types.Topic, subscription *Subscription) {
-			client.channels[topic.Name].mutex.Lock()
-			client.channels[topic.Name].subscriptions = append(client.channels[topic.Name].subscriptions, subscription)
-			client.channels[topic.Name].mutex.Unlock()
-		}(topic, subscription)
+		client.topics[topic.Name].mutex.Lock()
+		client.topics[topic.Name].subscriptions[subscription.messages] = subscription
+		client.topics[topic.Name].mutex.Unlock()
 	}
 
 	return subscription.messages, subscription.marked, nil
@@ -131,24 +132,16 @@ func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, c
 // Unsubscribe removes the given channel from the available subscriptions.
 // A new goroutine is spawned to avoid locking the channel.
 func (client *Client) Unsubscribe(sub <-chan *types.Message) error {
-	// IDEA: garbage collector that tries to remove subscriptions at a given interval
-
-	client.mutex.RLock()
-	defer client.mutex.RUnlock()
-
-	for topic := range client.channels {
-		go func(topic string, sub <-chan *types.Message) {
-			channel := client.channels[topic]
-			channel.mutex.Lock()
-			defer channel.mutex.Unlock()
-
-			for index, subscription := range client.channels[topic].subscriptions {
-				if subscription.messages == sub {
-					client.channels[topic].subscriptions = append(client.channels[topic].subscriptions[:index], client.channels[topic].subscriptions[index+1:]...)
-					close(subscription.messages)
-					break
-				}
+	for _, topic := range client.topics {
+		go func(topic *Topic, sub <-chan *types.Message) {
+			topic.mutex.Lock()
+			subscription, has := topic.subscriptions[sub]
+			if has {
+				delete(topic.subscriptions, sub)
+				close(subscription.messages)
+				close(subscription.marked)
 			}
+			topic.mutex.Unlock()
 		}(topic, sub)
 	}
 
@@ -162,10 +155,7 @@ func (client *Client) Claim(message *sarama.ConsumerMessage) error {
 	var err error
 	topic := message.Topic
 
-	client.mutex.RLock()
-	defer client.mutex.RUnlock()
-
-	if client.channels[topic] != nil {
+	if client.topics[topic] != nil {
 		headers := map[string]string{}
 		for _, record := range message.Headers {
 			headers[string(record.Key)] = string(record.Value)
@@ -184,15 +174,18 @@ func (client *Client) Claim(message *sarama.ConsumerMessage) error {
 			Ctx:       context.Background(),
 		}
 
-		client.channels[topic].mutex.RLock()
-		for _, subscription := range client.channels[topic].subscriptions {
-			subscription.messages <- message
-			err = <-subscription.marked
-			if err != nil {
-				break
+		client.topics[topic].mutex.RLock()
+		for _, subscription := range client.topics[topic].subscriptions {
+			select {
+			case subscription.messages <- message:
+				err = <-subscription.marked
+				if err != nil {
+					break
+				}
+			default:
 			}
 		}
-		client.channels[topic].mutex.RUnlock()
+		client.topics[topic].mutex.RUnlock()
 	}
 
 	return err

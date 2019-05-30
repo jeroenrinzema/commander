@@ -21,7 +21,7 @@ Steps to reproduce the behavior. Please include code examples:
 A clear and concise description of what you expected to happen.
 
 **Desktop (please complete the following information):**
- - OS: [e.g. iOS]
+ - OS: [e.g. Linux]
  - Golang version
 
 **Additional context**

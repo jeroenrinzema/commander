@@ -69,7 +69,7 @@ Middleware allowes actions to be preformed on event(s) or messages to be manipul
 
 ## Contributing
 
-Thank you for your interest in contributing to Commander! ♥
+Thank you for your interest in contributing to Commander! ❤
 
 Everyone is welcome to contribute, whether it's in the form of code, documentation, bug reports, feature requests, or anything else. We encourage you to experiment with the project and make contributions to help evolve it to meet your needs!
 

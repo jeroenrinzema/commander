@@ -25,7 +25,7 @@ func TestClosingConsumptions(t *testing.T) {
 	parent, _ := uuid.NewV4()
 	key, _ := uuid.NewV4()
 
-	event := NewEvent(action, version, parent, key, []byte("{}"))
+	event := NewEvent(action, version, parent, key.Bytes(), []byte("{}"))
 	err := group.ProduceEvent(event)
 	if err != nil {
 		t.Fatal(err)

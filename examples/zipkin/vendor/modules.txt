@@ -1,8 +1,10 @@
 # github.com/gofrs/uuid v3.2.0+incompatible
 github.com/gofrs/uuid
-# github.com/jeroenrinzema/commander v0.0.0-00010101000000-000000000000 => ../../
+# github.com/jeroenrinzema/commander v1.0.0-rc.25 => ../../
 github.com/jeroenrinzema/commander
+github.com/jeroenrinzema/commander/dialects/mock
 github.com/jeroenrinzema/commander/middleware/zipkin
+github.com/jeroenrinzema/commander/middleware
 github.com/jeroenrinzema/commander/types
 # github.com/openzipkin/zipkin-go v0.1.6
 github.com/openzipkin/zipkin-go

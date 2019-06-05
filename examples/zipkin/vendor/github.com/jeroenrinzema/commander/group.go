@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/types"
 )
 
@@ -48,7 +49,7 @@ func NewGroup(t ...Topic) *Group {
 // commands and events could be consumed and produced to. The amount of retries
 // attempted before a error is thrown could also be defined in a group.
 type Group struct {
-	Middleware *Middleware
+	Middleware *middleware.Client
 	Timeout    time.Duration
 	Topics     map[types.TopicMode][]types.Topic
 	Retries    int
@@ -106,6 +107,7 @@ func (group *Group) SyncCommand(command Command) (Event, error) {
 func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action string) (<-chan Event, chan<- error, <-chan error) {
 	Logger.Println("Awaiting child event")
 
+	breaker := false
 	sink := make(chan Event, 1)
 	erro := make(chan error, 1)
 
@@ -117,17 +119,22 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 	}
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(timeout))
 		defer cancel()
-		defer closing()
 
 	await:
 		for {
 			select {
 			case <-ctx.Done():
 				erro <- ErrTimeout
-				break await
+				breaker = true
+				closing()
 			case message := <-messages:
+				if breaker {
+					marked <- nil
+					continue await
+				}
+
 				if action != "" && message.Headers[ActionHeader] != action {
 					marked <- nil
 					continue await
@@ -141,8 +148,9 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action s
 					continue await
 				}
 
+				breaker = true
+				closing()
 				sink <- event
-				break await
 			}
 		}
 	}()
@@ -170,8 +178,8 @@ func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) []types.
 func (group *Group) ProduceCommand(command Command) error {
 	Logger.Println("Producing command")
 
-	if command.Key == uuid.Nil {
-		command.Key = command.ID
+	if command.Key == nil {
+		command.Key = command.ID.Bytes()
 	}
 
 	topics := group.FetchTopics(CommandMessage, ProduceMode)
@@ -208,8 +216,8 @@ func (group *Group) ProduceCommand(command Command) error {
 func (group *Group) ProduceEvent(event Event) error {
 	Logger.Println("Producing event")
 
-	if event.Key == uuid.Nil {
-		event.Key = event.ID
+	if event.Key == nil {
+		event.Key = event.ID.Bytes()
 	}
 
 	topics := group.FetchTopics(EventMessage, ProduceMode)
@@ -244,12 +252,12 @@ func (group *Group) ProduceEvent(event Event) error {
 // Publish publishes the given message to the group producer.
 // All middleware subscriptions are called before publishing the message.
 func (group *Group) Publish(message *Message) error {
-	group.Middleware.Emit(BeforePublish, &MiddlewareEvent{
+	group.Middleware.Emit(middleware.BeforePublish, &middleware.Event{
 		Value: message,
 		Ctx:   message.Ctx,
 	})
 
-	defer group.Middleware.Emit(AfterPublish, &MiddlewareEvent{
+	defer group.Middleware.Emit(middleware.AfterPublish, &middleware.Event{
 		Value: message,
 		Ctx:   message.Ctx,
 	})
@@ -278,6 +286,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 	sink := make(chan *Message, 1)
 	called := make(chan error, 1)
+	breaker := false
 
 	messages, marked, err := topic.Dialect.Consumer().Subscribe(topics...)
 	if err != nil {
@@ -286,7 +295,12 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 	go func(messages <-chan *Message) {
 		for message := range messages {
-			group.Middleware.Emit(BeforeMessageConsumption, &MiddlewareEvent{
+			if breaker {
+				marked <- nil
+				continue
+			}
+
+			group.Middleware.Emit(middleware.BeforeMessageConsumption, &middleware.Event{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
@@ -294,14 +308,19 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 			sink <- message
 			marked <- <-called // Await called and pipe into marked
 
-			group.Middleware.Emit(AfterMessageConsumed, &MiddlewareEvent{
+			group.Middleware.Emit(middleware.AfterMessageConsumed, &middleware.Event{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
 		}
 	}(messages)
 
-	return sink, called, func() { topic.Dialect.Consumer().Unsubscribe(messages) }, nil
+	close := func() {
+		breaker = true
+		go topic.Dialect.Consumer().Unsubscribe(messages)
+	}
+
+	return sink, called, close, nil
 }
 
 // HandleFunc awaits messages from the given MessageType and action.
@@ -325,7 +344,7 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 
 			Logger.Println("Processing action:", a)
 
-			group.Middleware.Emit(BeforeActionConsumption, &MiddlewareEvent{
+			group.Middleware.Emit(middleware.BeforeActionConsumption, &middleware.Event{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
@@ -354,7 +373,7 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 			err := writer.ShouldRetry()
 			marked <- err
 
-			group.Middleware.Emit(AfterActionConsumption, &MiddlewareEvent{
+			group.Middleware.Emit(middleware.AfterActionConsumption, &middleware.Event{
 				Value: message,
 				Ctx:   message.Ctx,
 			})

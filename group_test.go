@@ -35,7 +35,7 @@ func TestProduceCommand(t *testing.T) {
 	defer client.Close()
 
 	key, _ := uuid.NewV4()
-	command := NewCommand("testing", 1, key, []byte("{}"))
+	command := NewCommand("testing", 1, key.Bytes(), []byte("{}"))
 
 	group.ProduceCommand(command)
 }
@@ -47,7 +47,7 @@ func TestProduceEvent(t *testing.T) {
 
 	key, _ := uuid.NewV4()
 	parent, _ := uuid.NewV4()
-	event := NewEvent("tested", 1, parent, key, []byte("{}"))
+	event := NewEvent("tested", 1, parent, key.Bytes(), []byte("{}"))
 
 	group.ProduceEvent(event)
 }
@@ -61,7 +61,7 @@ func TestProduceEventNoTopics(t *testing.T) {
 
 	key, _ := uuid.NewV4()
 	parent, _ := uuid.NewV4()
-	event := NewEvent("tested", 1, parent, key, []byte("{}"))
+	event := NewEvent("tested", 1, parent, key.Bytes(), []byte("{}"))
 
 	err := group.ProduceEvent(event)
 	if err != ErrNoTopic {
@@ -89,7 +89,7 @@ func TestSyncCommand(t *testing.T) {
 
 	action := "testing"
 	key, _ := uuid.NewV4()
-	command := NewCommand(action, 1, key, []byte("{}"))
+	command := NewCommand(action, 1, key.Bytes(), []byte("{}"))
 
 	messages, marked, closing, err := group.NewConsumer(CommandMessage)
 	if err != nil {
@@ -110,7 +110,7 @@ func TestSyncCommand(t *testing.T) {
 
 	<-messages
 
-	event := NewEvent(action, 1, command.ID, uuid.Nil, nil)
+	event := NewEvent(action, 1, command.ID, nil, nil)
 	err = group.ProduceEvent(event)
 	if err != nil {
 		marked <- err
@@ -135,7 +135,7 @@ func TestAwaitEvent(t *testing.T) {
 
 	sink, marked, errs := group.AwaitEvent(timeout, parent, "")
 
-	event := NewEvent("tested", 1, parent, uuid.Nil, []byte("{}"))
+	event := NewEvent("tested", 1, parent, nil, []byte("{}"))
 	err := group.ProduceEvent(event)
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +160,7 @@ func TestAwaitEventAction(t *testing.T) {
 
 	sink, marked, errs := group.AwaitEvent(timeout, parent, "final")
 
-	event := NewEvent("final", 1, parent, uuid.Nil, nil)
+	event := NewEvent("final", 1, parent, nil, nil)
 	group.ProduceEvent(event)
 
 	select {
@@ -181,7 +181,7 @@ func TestAwaitEventIgnoreParent(t *testing.T) {
 	parent, _ := uuid.NewV4()
 
 	sink, marked, errs := group.AwaitEvent(timeout, uuid.Nil, "tested")
-	event := NewEvent("tested", 1, parent, uuid.Nil, nil)
+	event := NewEvent("tested", 1, parent, nil, nil)
 	group.ProduceEvent(event)
 
 	select {
@@ -208,7 +208,7 @@ func TestEventConsumer(t *testing.T) {
 	parent, _ := uuid.NewV4()
 	key, _ := uuid.NewV4()
 
-	event := NewEvent("tested", 1, parent, key, []byte("{}"))
+	event := NewEvent("tested", 1, parent, key.Bytes(), []byte("{}"))
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -239,7 +239,7 @@ func TestCommandConsumer(t *testing.T) {
 	defer close()
 
 	key, _ := uuid.NewV4()
-	command := NewCommand("testing", 1, key, []byte("{}"))
+	command := NewCommand("testing", 1, key.Bytes(), []byte("{}"))
 	group.ProduceCommand(command)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -276,7 +276,7 @@ func TestEventHandleFunc(t *testing.T) {
 	parent, _ := uuid.NewV4()
 	key, _ := uuid.NewV4()
 
-	event := NewEvent(action, 1, parent, key, []byte("{}"))
+	event := NewEvent(action, 1, parent, key.Bytes(), []byte("{}"))
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -305,7 +305,7 @@ func TestEventHandle(t *testing.T) {
 	parent, _ := uuid.NewV4()
 	key, _ := uuid.NewV4()
 
-	event := NewEvent(action, 1, parent, key, []byte("{}"))
+	event := NewEvent(action, 1, parent, key.Bytes(), []byte("{}"))
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -334,7 +334,7 @@ func TestActionEventHandle(t *testing.T) {
 	parent, _ := uuid.NewV4()
 	key, _ := uuid.NewV4()
 
-	event := NewEvent("create", 1, parent, key, []byte("{}"))
+	event := NewEvent("create", 1, parent, key.Bytes(), []byte("{}"))
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -364,7 +364,7 @@ func TestActionCommandHandle(t *testing.T) {
 
 	key, _ := uuid.NewV4()
 
-	command := NewCommand("create", 1, key, []byte("{}"))
+	command := NewCommand("create", 1, key.Bytes(), []byte("{}"))
 	group.ProduceCommand(command)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -390,14 +390,14 @@ func TestCommandTimestampPassed(t *testing.T) {
 
 	// Command object to be checked upon
 	key, _ := uuid.NewV4()
-	command := NewCommand("command", 1, key, []byte("{}"))
+	command := NewCommand("command", 1, key.Bytes(), []byte("{}"))
 
 	delivered := make(chan interface{}, 1)
 	group.HandleFunc(CommandMessage, "command", func(writer ResponseWriter, message interface{}) {
 		command := message.(Command)
 		timestamp = command.Timestamp
 
-		writer.ProduceEvent("event", 1, uuid.Nil, nil)
+		writer.ProduceEvent("event", 1, nil, nil)
 	})
 
 	group.HandleFunc(EventMessage, "event", func(writer ResponseWriter, message interface{}) {
@@ -428,7 +428,7 @@ func TestMessageMarked(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
-	id := func() uuid.UUID { id, _ := uuid.NewV4(); return id }
+	id := func() []byte { return uuid.Must(uuid.NewV4()).Bytes() }
 
 	first := NewCommand("command", 1, id(), []byte("{}"))
 	second := NewCommand("command", 1, id(), []byte("{}"))

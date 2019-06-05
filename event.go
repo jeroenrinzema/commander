@@ -26,11 +26,10 @@ const (
 )
 
 // NewEvent constructs a new event
-func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data []byte) Event {
-	id, err := uuid.NewV4()
-	if err != nil {
-		Logger.Println("Unable to generate a new uuid!")
-		panic(err)
+func NewEvent(action string, version int8, parent uuid.UUID, key []byte, data []byte) Event {
+	id := uuid.Must(uuid.NewV4())
+	if key == nil {
+		key = id.Bytes()
 	}
 
 	// Fix: unexpected end of JSON input
@@ -61,7 +60,7 @@ type Event struct {
 	ID               uuid.UUID         `json:"id"`                // Unique event id
 	Action           string            `json:"action"`            // Event representing action
 	Data             []byte            `json:"data"`              // Passed event data as bytes
-	Key              uuid.UUID         `json:"key"`               // Event partition key
+	Key              []byte            `json:"key"`               // Event partition key
 	Status           StatusCode        `json:"status"`            // Event status code (commander.Status*)
 	Version          int8              `json:"version"`           // Event data schema version
 	Origin           Topic             `json:"-"`                 // Event topic origin
@@ -147,17 +146,11 @@ headers:
 		event.Headers[key] = str
 	}
 
-	id, err := uuid.FromString(string(message.Key))
-
-	if err != nil {
-		throw = err
-	}
-
 	if len(event.Action) == 0 {
 		throw = errors.New("No event action is set")
 	}
 
-	event.Key = id
+	event.Key = message.Key
 	event.Data = message.Value
 	event.Origin = message.Topic
 	event.Offset = message.Offset
@@ -188,7 +181,7 @@ func (event *Event) Message(topic Topic) *Message {
 
 	message := &Message{
 		Headers:   headers,
-		Key:       []byte(event.Key.String()),
+		Key:       event.Key,
 		Value:     event.Data,
 		Topic:     topic,
 		Offset:    event.Offset,

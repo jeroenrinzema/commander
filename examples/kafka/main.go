@@ -65,7 +65,8 @@ func main() {
 		}
 
 		// Event: name, version, key, data
-		writer.ProduceEvent("Available", 1, key, nil)
+		// The event key defines to which partition the message should be written
+		writer.ProduceEvent("Available", 1, key.Bytes(), nil)
 	})
 
 	/**
@@ -81,7 +82,7 @@ func main() {
 			return
 		}
 
-		command := commander.NewCommand("Available", 1, key, nil)
+		command := commander.NewCommand("Available", 1, key.Bytes(), nil)
 		event, err := warehouse.SyncCommand(command)
 
 		if err != nil {
@@ -105,7 +106,7 @@ func main() {
 			return
 		}
 
-		command := commander.NewCommand("Available", 1, key, nil)
+		command := commander.NewCommand("Available", 1, key.Bytes(), nil)
 		err = warehouse.AsyncCommand(command)
 
 		if err != nil {

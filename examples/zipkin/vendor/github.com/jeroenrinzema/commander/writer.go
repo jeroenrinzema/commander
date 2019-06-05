@@ -29,13 +29,13 @@ var (
 // ResponseWriter writes events or commands back to the assigned group.
 type ResponseWriter interface {
 	// ProduceEvent creates and produces a new event to the assigned group.
-	ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (Event, error)
+	ProduceEvent(action string, version int8, key []byte, data []byte) (Event, error)
 
 	// ProduceError produces a new error event
 	ProduceError(action string, status StatusCode, err error) (Event, error)
 
 	// ProduceCommand produces a new command
-	ProduceCommand(action string, version int8, key uuid.UUID, data []byte) (Command, error)
+	ProduceCommand(action string, version int8, key []byte, data []byte) (Command, error)
 
 	// Retry marks the message to be retried. An error could be given to be passed to the dialect
 	Retry(err error)
@@ -61,7 +61,7 @@ func (writer *writer) ProduceError(action string, status StatusCode, err error) 
 	if writer.Command != nil {
 		event = writer.Command.NewError(action, status, err)
 	} else {
-		event = NewEvent(action, 0, uuid.Nil, uuid.Nil, nil)
+		event = NewEvent(action, 0, uuid.Nil, nil, nil)
 		event.Status = StatusInternalServerError
 
 		if err != nil {
@@ -73,7 +73,7 @@ func (writer *writer) ProduceError(action string, status StatusCode, err error) 
 	return event, err
 }
 
-func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, data []byte) (Event, error) {
+func (writer *writer) ProduceEvent(action string, version int8, key []byte, data []byte) (Event, error) {
 	var parent uuid.UUID
 	var timestamp time.Time
 	var ctx context.Context
@@ -84,7 +84,7 @@ func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, d
 		ctx = writer.Command.Ctx
 	}
 
-	if key == uuid.Nil && writer.Command != nil {
+	if key == nil && writer.Command != nil {
 		key = writer.Command.Key
 	}
 
@@ -96,7 +96,7 @@ func (writer *writer) ProduceEvent(action string, version int8, key uuid.UUID, d
 	return event, err
 }
 
-func (writer *writer) ProduceCommand(action string, version int8, key uuid.UUID, data []byte) (Command, error) {
+func (writer *writer) ProduceCommand(action string, version int8, key []byte, data []byte) (Command, error) {
 	command := NewCommand(action, version, key, data)
 	err := writer.Group.ProduceCommand(command)
 

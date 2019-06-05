@@ -11,8 +11,8 @@ import (
 func NewMockCommand(action string) Command {
 	headers := make(map[string]string)
 
-	key, _ := uuid.NewV4()
-	id, _ := uuid.NewV4()
+	key := uuid.Must(uuid.NewV4()).Bytes()
+	id := uuid.Must(uuid.NewV4())
 
 	command := Command{
 		Origin:  Topic{Name: "topic"},
@@ -69,10 +69,10 @@ func TestCommandErrorEventConstruction(t *testing.T) {
 // TestCommandPopulation tests if able to populate a command from a kafka message
 func TestCommandPopulation(t *testing.T) {
 	action := "action"
-	key, _ := uuid.NewV4()
-	id, _ := uuid.NewV4()
+	key := uuid.Must(uuid.NewV4()).Bytes()
+	id := uuid.Must(uuid.NewV4())
 
-	message := NewMockCommandMessage("action", key.String(), id.String(), "{}", Topic{Name: "testing"})
+	message := NewMockCommandMessage("action", key, id.String(), "{}", Topic{Name: "testing"})
 
 	command := &Command{}
 	command.Populate(&message)
@@ -85,7 +85,7 @@ func TestCommandPopulation(t *testing.T) {
 		t.Error("The populated command id is not set correctly")
 	}
 
-	if command.Key.String() != key.String() {
+	if string(command.Key) != string(key) {
 		t.Error("The populated command key is not set correctly")
 	}
 }
@@ -97,19 +97,11 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 	command := &Command{}
 
 	action := "action"
-	key, _ := uuid.NewV4()
-	id, _ := uuid.NewV4()
+	key := uuid.Must(uuid.NewV4()).Bytes()
+	id := uuid.Must(uuid.NewV4())
 	value := "{}"
 
-	corrupted = NewMockCommandMessage(action, key.String(), id.String(), value, Topic{Name: "testing"})
-	corrupted.Key = []byte("")
-
-	err = command.Populate(&corrupted)
-	if err == nil {
-		t.Error("no error is thrown during corrupted key population")
-	}
-
-	corrupted = NewMockCommandMessage(action, key.String(), id.String(), value, Topic{Name: "testing"})
+	corrupted = NewMockCommandMessage(action, key, id.String(), value, Topic{Name: "testing"})
 	corrupted.Headers[IDHeader] = ""
 
 	err = command.Populate(&corrupted)
@@ -117,7 +109,7 @@ func TestErrorHandlingCommandPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted id population")
 	}
 
-	corrupted = NewMockCommandMessage(action, key.String(), id.String(), value, Topic{Name: "testing"})
+	corrupted = NewMockCommandMessage(action, key, id.String(), value, Topic{Name: "testing"})
 	corrupted.Headers[ActionHeader] = ""
 
 	err = command.Populate(&corrupted)

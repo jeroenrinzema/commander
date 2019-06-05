@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 
+	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/types"
 )
 
@@ -31,24 +32,47 @@ var (
 
 // NewClient constructs a new commander client.
 // A client is needed to control a collection of groups.
-func NewClient(groups ...*Group) *Client {
+func NewClient(groups ...*Group) (*Client, error) {
 	client := &Client{
-		Groups: groups,
-		Middleware: &Middleware{
-			events: make(map[EventType]*MiddlewareSubscriptions),
-		},
+		Groups:     groups,
+		Middleware: middleware.NewClient(),
 	}
+
+	topics := []types.Topic{}
+	dialects := []types.Dialect{}
 
 	for _, group := range groups {
 		group.Middleware = client.Middleware
+
+		for _, t := range group.Topics {
+			topics = append(topics, t...)
+		}
 	}
 
-	return client
+topic:
+	for _, topic := range topics {
+		for _, dialect := range dialects {
+			if topic.Dialect == dialect {
+				continue topic
+			}
+		}
+
+		dialects = append(dialects, topic.Dialect)
+	}
+
+	for _, dialect := range dialects {
+		err := dialect.Open()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return client, nil
 }
 
 // Client manages the consumers, producers and groups.
 type Client struct {
-	Middleware *Middleware
+	Middleware *middleware.Client
 	Groups     []*Group
 }
 

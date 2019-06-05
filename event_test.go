@@ -10,9 +10,9 @@ import (
 func NewMockEvent(action string) *Event {
 	headers := make(map[string]string)
 
-	parent, _ := uuid.NewV4()
-	key, _ := uuid.NewV4()
-	id, _ := uuid.NewV4()
+	parent := uuid.Must(uuid.NewV4())
+	key := uuid.Must(uuid.NewV4()).Bytes()
+	id := uuid.Must(uuid.NewV4())
 
 	event := &Event{
 		Headers: headers,
@@ -32,11 +32,11 @@ func NewMockEvent(action string) *Event {
 func TestEventPopulation(t *testing.T) {
 	action := "action"
 	version := int8(1)
-	parent, _ := uuid.NewV4()
-	key, _ := uuid.NewV4()
-	id, _ := uuid.NewV4()
+	parent := uuid.Must(uuid.NewV4()).String()
+	key := uuid.Must(uuid.NewV4()).Bytes()
+	id := uuid.Must(uuid.NewV4()).String()
 
-	message := NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), "{}", Topic{})
+	message := NewMockEventMessage(action, version, parent, key, id, "{}", Topic{})
 
 	event := &Event{}
 	event.Populate(&message)
@@ -45,15 +45,15 @@ func TestEventPopulation(t *testing.T) {
 		t.Error("The populated event action is not set correctly")
 	}
 
-	if event.ID.String() != id.String() {
+	if event.ID.String() != id {
 		t.Error("The populated event id is not set correctly")
 	}
 
-	if event.Key.String() != key.String() {
+	if string(event.Key) != string(key) {
 		t.Error("The populated event key is not set correctly")
 	}
 
-	if event.Parent.String() != parent.String() {
+	if event.Parent.String() != parent {
 		t.Error("The populated event parent is not set correctly")
 	}
 
@@ -70,20 +70,12 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 
 	action := "action"
 	version := int8(1)
-	parent, _ := uuid.NewV4()
-	key, _ := uuid.NewV4()
-	id, _ := uuid.NewV4()
+	parent := uuid.Must(uuid.NewV4()).String()
+	key := uuid.Must(uuid.NewV4()).Bytes()
+	id := uuid.Must(uuid.NewV4()).String()
 	value := "{}"
 
-	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
-	corrupted.Key = []byte("")
-
-	err = event.Populate(&corrupted)
-	if err == nil {
-		t.Error("no error is thrown during corrupted key population")
-	}
-
-	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
+	corrupted = NewMockEventMessage(action, version, parent, key, id, value, Topic{Name: "testing"})
 	corrupted.Headers[IDHeader] = ""
 
 	err = event.Populate(&corrupted)
@@ -91,7 +83,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted id population")
 	}
 
-	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
+	corrupted = NewMockEventMessage(action, version, parent, key, id, value, Topic{Name: "testing"})
 	corrupted.Headers[ActionHeader] = ""
 
 	err = event.Populate(&corrupted)
@@ -99,7 +91,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted action population")
 	}
 
-	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
+	corrupted = NewMockEventMessage(action, version, parent, key, id, value, Topic{Name: "testing"})
 	corrupted.Headers[ParentHeader] = ""
 
 	err = event.Populate(&corrupted)
@@ -107,7 +99,7 @@ func TestErrorHandlingEventPopulation(t *testing.T) {
 		t.Error("no error is thrown during corrupted parent population")
 	}
 
-	corrupted = NewMockEventMessage(action, version, parent.String(), key.String(), id.String(), value, Topic{Name: "testing"})
+	corrupted = NewMockEventMessage(action, version, parent, key, id, value, Topic{Name: "testing"})
 	corrupted.Headers[VersionHeader] = ""
 
 	err = event.Populate(&corrupted)

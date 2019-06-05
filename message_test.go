@@ -5,7 +5,7 @@ import (
 )
 
 // NewMockCommandMessage initializes a new mock command message
-func NewMockCommandMessage(action string, key string, id string, value string, topic Topic) Message {
+func NewMockCommandMessage(action string, key []byte, id string, value string, topic Topic) Message {
 	headers := map[string]string{
 		ActionHeader: action,
 		IDHeader:     id,
@@ -22,7 +22,7 @@ func NewMockCommandMessage(action string, key string, id string, value string, t
 }
 
 // NewMockEventMessage initializes a new mock event message
-func NewMockEventMessage(action string, version int8, parent string, key string, id string, value string, topic Topic) Message {
+func NewMockEventMessage(action string, version int8, parent string, key []byte, id string, value string, topic Topic) Message {
 	headers := map[string]string{
 		ActionHeader:  action,
 		ParentHeader:  parent,
@@ -33,7 +33,7 @@ func NewMockEventMessage(action string, version int8, parent string, key string,
 
 	message := Message{
 		Headers: headers,
-		Key:     []byte(key),
+		Key:     key,
 		Value:   []byte(value),
 		Topic:   topic,
 	}

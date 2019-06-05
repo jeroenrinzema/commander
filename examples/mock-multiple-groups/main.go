@@ -49,10 +49,7 @@ func main() {
 
 		// ... validate if the item is available
 
-		key, err := uuid.NewV4()
-		if err != nil {
-			return
-		}
+		key := uuid.Must(uuid.NewV4()).Bytes()
 
 		log.Println("< Available")
 		writer.ProduceEvent("Available", 1, key, []byte(id.String()))
@@ -64,8 +61,9 @@ func main() {
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
 	cart.HandleFunc(commander.CommandMessage, "Purchase", func(writer commander.ResponseWriter, message interface{}) {
-		item, _ := uuid.NewV4()
-		key, _ := uuid.NewV4()
+		item := uuid.Must(uuid.NewV4())
+		key := uuid.Must(uuid.NewV4()).Bytes()
+
 		log.Println("> Purchase")
 
 		command := commander.NewCommand("Available", 1, key, []byte(item.String()))
@@ -94,8 +92,7 @@ func main() {
 	 * with the parent id set to the id of the received command.
 	 */
 	http.HandleFunc("/purchase", func(w http.ResponseWriter, r *http.Request) {
-		key, _ := uuid.NewV4()
-
+		key := uuid.Must(uuid.NewV4()).Bytes()
 		command := commander.NewCommand("Purchase", 1, key, nil)
 		event, err := cart.SyncCommand(command)
 

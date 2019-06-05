@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/middleware"
 	zipkin "github.com/openzipkin/zipkin-go"
 	"github.com/openzipkin/zipkin-go/model"
 	reporter "github.com/openzipkin/zipkin-go/reporter"
@@ -77,20 +78,20 @@ type Zipkin struct {
 
 // Controller is a middleware controller that set's up the needed middleware
 // event subscriptions.
-func (middleware *Zipkin) Controller(subscribe commander.MiddlewareSubscribe) {
-	subscribe(commander.BeforeActionConsumption, middleware.BeforeConsume)
-	subscribe(commander.AfterActionConsumption, middleware.AfterConsume)
-	subscribe(commander.BeforePublish, middleware.BeforePublish)
-	subscribe(commander.AfterPublish, middleware.AfterPublish)
+func (service *Zipkin) Controller(subscribe middleware.Subscribe) {
+	subscribe(middleware.BeforeActionConsumption, service.BeforeConsume)
+	subscribe(middleware.AfterActionConsumption, service.AfterConsume)
+	subscribe(middleware.BeforePublish, service.BeforePublish)
+	subscribe(middleware.AfterPublish, service.AfterPublish)
 }
 
 // Close closes the Zipkin reporter
-func (middleware *Zipkin) Close() error {
-	return middleware.Reporter.Close()
+func (service *Zipkin) Close() error {
+	return service.Reporter.Close()
 }
 
 // BeforeConsume starts a new span and stores it in the message context
-func (middleware *Zipkin) BeforeConsume(event *commander.MiddlewareEvent) error {
+func (service *Zipkin) BeforeConsume(event *middleware.Event) error {
 	commander.Logger.Println("starting span")
 	message, ok := event.Value.(*commander.Message)
 	if !ok {
@@ -105,7 +106,7 @@ func (middleware *Zipkin) BeforeConsume(event *commander.MiddlewareEvent) error 
 
 	action := message.Headers[commander.ActionHeader]
 	name := "commander.consume." + action
-	span := middleware.Tracer.StartSpan(name, options...)
+	span := service.Tracer.StartSpan(name, options...)
 	message.Ctx = context.WithValue(message.Ctx, CtxSpanKeyConsume, span)
 
 	span.Tag(ActionTag, message.Headers[commander.ActionHeader])
@@ -116,9 +117,7 @@ func (middleware *Zipkin) BeforeConsume(event *commander.MiddlewareEvent) error 
 }
 
 // AfterConsume finishes the stored span in the message context
-func (middleware *Zipkin) AfterConsume(event *commander.MiddlewareEvent) error {
-	commander.Logger.Println("finishing span")
-
+func (service *Zipkin) AfterConsume(event *middleware.Event) error {
 	intrf := event.Ctx.Value(CtxSpanKeyConsume)
 	if intrf == nil {
 		return errors.New("message context contains no tracing span")
@@ -134,8 +133,7 @@ func (middleware *Zipkin) AfterConsume(event *commander.MiddlewareEvent) error {
 }
 
 // BeforePublish prepares the given message span headers
-func (middleware *Zipkin) BeforePublish(event *commander.MiddlewareEvent) error {
-	commander.Logger.Println("injecting span into message")
+func (service *Zipkin) BeforePublish(event *middleware.Event) error {
 	message, ok := event.Value.(*commander.Message)
 	if !ok {
 		return errors.New("value is not a *message")
@@ -152,7 +150,7 @@ func (middleware *Zipkin) BeforePublish(event *commander.MiddlewareEvent) error 
 	}
 
 	name := "commander.produce"
-	span := middleware.Tracer.StartSpan(name, zipkin.Kind(model.Consumer), zipkin.Parent(msp.Context()))
+	span := service.Tracer.StartSpan(name, zipkin.Kind(model.Consumer), zipkin.Parent(msp.Context()))
 	message.Ctx = context.WithValue(message.Ctx, CtxSpanKeyProduce, span)
 
 	span.Tag(ActionTag, message.Headers[commander.ActionHeader])
@@ -168,7 +166,7 @@ func (middleware *Zipkin) BeforePublish(event *commander.MiddlewareEvent) error 
 }
 
 // AfterPublish closes the producing span
-func (middleware *Zipkin) AfterPublish(event *commander.MiddlewareEvent) error {
+func (service *Zipkin) AfterPublish(event *middleware.Event) error {
 	commander.Logger.Println("finishing span")
 
 	intrf := event.Ctx.Value(CtxSpanKeyProduce)

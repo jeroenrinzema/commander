@@ -50,11 +50,7 @@ func main() {
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
 	group.HandleFunc(commander.CommandMessage, "example", func(writer commander.ResponseWriter, message interface{}) {
-		key, err := uuid.NewV4()
-		if err != nil {
-			return
-		}
-
+		key := uuid.Must(uuid.NewV4()).Bytes()
 		writer.ProduceEvent("created", 1, key, nil)
 	})
 
@@ -67,7 +63,7 @@ func main() {
 		span := tracing.Tracer.StartSpan("http.sync.example")
 		defer span.Finish()
 
-		key, _ := uuid.NewV4()
+		key := uuid.Must(uuid.NewV4()).Bytes()
 
 		command := commander.NewCommand("example", 1, key, nil)
 		command.Headers = zipkin.ConstructMessageHeaders(span.Context())

@@ -33,7 +33,7 @@ func main() {
 			return
 		}
 
-		writer.ProduceEvent("created", 1, key, nil)
+		writer.ProduceEvent("created", 1, key.Bytes(), nil)
 	})
 
 	/**
@@ -42,8 +42,7 @@ func main() {
 	 * with the parent id set to the id of the received command.
 	 */
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		key, _ := uuid.NewV4()
-
+		key := uuid.Must(uuid.NewV4()).Bytes()
 		command := commander.NewCommand("example", 1, key, nil)
 		event, err := group.SyncCommand(command)
 

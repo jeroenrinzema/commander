@@ -10,11 +10,10 @@ import (
 )
 
 // NewCommand constructs a new command
-func NewCommand(action string, version int8, key uuid.UUID, data []byte) Command {
-	id, err := uuid.NewV4()
-	if err != nil {
-		Logger.Println("Unable to generate a new uuid!")
-		panic(err)
+func NewCommand(action string, version int8, key []byte, data []byte) Command {
+	id := uuid.Must(uuid.NewV4())
+	if key == nil {
+		key = id.Bytes()
 	}
 
 	// Fix: unexpected end of JSON input
@@ -38,7 +37,7 @@ func NewCommand(action string, version int8, key uuid.UUID, data []byte) Command
 
 // Command contains the information of a consumed command.
 type Command struct {
-	Key       uuid.UUID         `json:"key,omitempty"` // Command partition key
+	Key       []byte            `json:"key,omitempty"` // Command partition key
 	Headers   map[string]string `json:"headers"`       // Additional command headers
 	ID        uuid.UUID         `json:"id"`            // Unique command id
 	Action    string            `json:"action"`        // Command representing action
@@ -115,16 +114,11 @@ headers:
 		command.Headers[key] = str
 	}
 
-	id, err := uuid.FromString(string(message.Key))
-	if err != nil {
-		throw = err
-	}
-
 	if len(command.Action) == 0 {
 		return errors.New("No command action is set")
 	}
 
-	command.Key = id
+	command.Key = message.Key
 	command.Data = message.Value
 	command.Origin = message.Topic
 	command.Offset = message.Offset
@@ -151,7 +145,7 @@ func (command *Command) Message(topic Topic) *Message {
 
 	message := &Message{
 		Headers:   headers,
-		Key:       []byte(command.Key.String()),
+		Key:       command.Key,
 		Value:     command.Data,
 		Offset:    command.Offset,
 		Partition: command.Partition,

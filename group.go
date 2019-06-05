@@ -178,8 +178,8 @@ func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) []types.
 func (group *Group) ProduceCommand(command Command) error {
 	Logger.Println("Producing command")
 
-	if command.Key == uuid.Nil {
-		command.Key = command.ID
+	if command.Key == nil {
+		command.Key = command.ID.Bytes()
 	}
 
 	topics := group.FetchTopics(CommandMessage, ProduceMode)
@@ -216,8 +216,8 @@ func (group *Group) ProduceCommand(command Command) error {
 func (group *Group) ProduceEvent(event Event) error {
 	Logger.Println("Producing event")
 
-	if event.Key == uuid.Nil {
-		event.Key = event.ID
+	if event.Key == nil {
+		event.Key = event.ID.Bytes()
 	}
 
 	topics := group.FetchTopics(EventMessage, ProduceMode)

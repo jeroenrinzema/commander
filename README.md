@@ -66,3 +66,11 @@ A dialect is the connector to a given protocol or infrastructure. A dialect need
 ## Middleware
 
 Middleware allowes actions to be preformed on event(s) or messages to be manipulated. Check out the middleware [directory](https://github.com/jeroenrinzema/commander/tree/master/middleware) for the available middleware controllers.
+
+## Contributing
+
+Thank you for your interest in contributing to Commander! ❤
+
+Everyone is welcome to contribute, whether it's in the form of code, documentation, bug reports, feature requests, or anything else. We encourage you to experiment with the project and make contributions to help evolve it to meet your needs!
+
+See the [contributing guide](https://github.com/jeroenrinzema/commander/blob/master/CONTRIBUTING.md) for more details.

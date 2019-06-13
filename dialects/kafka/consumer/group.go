@@ -88,7 +88,7 @@ func (handle *GroupHandle) ConsumeClaim(session sarama.ConsumerGroupSession, cla
 			err := handle.client.Claim(message)
 			if err != nil {
 				// Mark the message to be consumed again
-				session.MarkOffset(message.Topic, message.Partition, message.Offset, "")
+				session.ResetOffset(message.Topic, message.Partition, message.Offset, "")
 				return
 			}
 

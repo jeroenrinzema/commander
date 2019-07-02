@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/types"
 )
 
@@ -49,7 +48,7 @@ func NewGroup(t ...Topic) *Group {
 // commands and events could be consumed and produced to. The amount of retries
 // attempted before a error is thrown could also be defined in a group.
 type Group struct {
-	Middleware *middleware.Client
+	Middleware *Middleware
 	Timeout    time.Duration
 	Topics     map[types.TopicMode][]types.Topic
 	Retries    int
@@ -83,7 +82,7 @@ func (group *Group) AsyncCommand(command Command) error {
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
 func (group *Group) SyncCommand(command Command) (Event, error) {
-	sink, marked, erro := group.AwaitEOS(group.Timeout, command.ID, EventMessage)
+	sink, marked, erro := group.AwaitEvent(group.Timeout, command.ID, "")
 	err := group.AsyncCommand(command)
 	if err != nil {
 		return Event{}, err
@@ -98,85 +97,53 @@ func (group *Group) SyncCommand(command Command) (Event, error) {
 	}
 }
 
-// AwaitEvent awaits till the first event is consumed for the given parent id.
-// If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, t types.MessageType) (<-chan Event, chan<- error, <-chan error) {
+// AwaitEvent awaits till the expected events are created with the given parent id.
+// The returend events are buffered in the sink channel.
+//
+// If not the expected events are returned within the given timeout period
+// will a error be returned. The timeout channel is closed when all
+// expected events are received or after a timeout is thrown.
+func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, action string) (<-chan Event, chan<- error, <-chan error) {
+	Logger.Println("Awaiting child event")
+
 	sink := make(chan Event, 1)
-	messages, marked, closing, erro := group.NewConsumerWithDeadline(timeout, t)
+	erro := make(chan error, 1)
+
+	messages, marked, closing, err := group.NewConsumer(EventMessage)
+	if err != nil {
+		closing()
+		erro <- err
+		return sink, marked, erro
+	}
 
 	go func() {
-		for message := range messages {
-			event := Event{}
-			event.Populate(message)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		defer closing()
 
-			if event.Parent != parent {
-				marked <- nil
-				continue
+	await:
+		for {
+			select {
+			case <-ctx.Done():
+				erro <- ErrTimeout
+				break await
+			case message := <-messages:
+				if action != "" && message.Headers[ActionHeader] != action {
+					marked <- nil
+					continue await
+				}
+
+				event := Event{}
+				event.Populate(message)
+
+				if parent != uuid.Nil && event.Parent != parent {
+					marked <- nil
+					continue await
+				}
+
+				sink <- event
+				break await
 			}
-
-			closing()
-			sink <- event
-			break
-		}
-	}()
-
-	return sink, marked, erro
-}
-
-// AwaitEventWithAction awaits till the first event for the given parent id and action is consumed.
-// If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEventWithAction(timeout time.Duration, parent uuid.UUID, t types.MessageType, action string) (<-chan Event, chan<- error, <-chan error) {
-	sink := make(chan Event, 1)
-	messages, marked, close, erro := group.NewConsumerWithDeadline(timeout, t)
-
-	go func() {
-		for message := range messages {
-			if action != "" && message.Headers[ActionHeader] != action {
-				marked <- nil
-				continue
-			}
-
-			event := Event{}
-			event.Populate(message)
-
-			if parent != uuid.Nil && event.Parent != parent {
-				marked <- nil
-				continue
-			}
-
-			close()
-			sink <- event
-			break
-		}
-	}()
-
-	return sink, marked, erro
-}
-
-// AwaitEOS awaits till the final event stream message is emitted.
-// If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEOS(timeout time.Duration, parent uuid.UUID, t types.MessageType) (<-chan Event, chan<- error, <-chan error) {
-	sink := make(chan Event, 1)
-	messages, marked, close, erro := group.NewConsumerWithDeadline(timeout, t)
-
-	go func() {
-		for message := range messages {
-			if message.Headers[EOSHeader] != "1" {
-				marked <- nil
-				continue
-			}
-
-			event := Event{}
-			event.Populate(message)
-
-			if parent != uuid.Nil && event.Parent != parent {
-				marked <- nil
-				continue
-			}
-
-			close()
-			sink <- event
-			break
 		}
 	}()
 
@@ -203,8 +170,8 @@ func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) []types.
 func (group *Group) ProduceCommand(command Command) error {
 	Logger.Println("Producing command")
 
-	if command.Key == nil {
-		command.Key = command.ID.Bytes()
+	if command.Key == uuid.Nil {
+		command.Key = command.ID
 	}
 
 	topics := group.FetchTopics(CommandMessage, ProduceMode)
@@ -241,8 +208,8 @@ func (group *Group) ProduceCommand(command Command) error {
 func (group *Group) ProduceEvent(event Event) error {
 	Logger.Println("Producing event")
 
-	if event.Key == nil {
-		event.Key = event.ID.Bytes()
+	if event.Key == uuid.Nil {
+		event.Key = event.ID
 	}
 
 	topics := group.FetchTopics(EventMessage, ProduceMode)
@@ -277,12 +244,12 @@ func (group *Group) ProduceEvent(event Event) error {
 // Publish publishes the given message to the group producer.
 // All middleware subscriptions are called before publishing the message.
 func (group *Group) Publish(message *Message) error {
-	group.Middleware.Emit(middleware.BeforePublish, &middleware.Event{
+	group.Middleware.Emit(BeforePublish, &MiddlewareEvent{
 		Value: message,
 		Ctx:   message.Ctx,
 	})
 
-	defer group.Middleware.Emit(middleware.AfterPublish, &middleware.Event{
+	defer group.Middleware.Emit(AfterPublish, &MiddlewareEvent{
 		Value: message,
 		Ctx:   message.Ctx,
 	})
@@ -311,21 +278,15 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 	sink := make(chan *Message, 1)
 	called := make(chan error, 1)
-	breaker := false
 
 	messages, marked, err := topic.Dialect.Consumer().Subscribe(topics...)
 	if err != nil {
 		return sink, called, func() {}, err
 	}
 
-	go func() {
+	go func(messages <-chan *Message) {
 		for message := range messages {
-			if breaker {
-				marked <- nil
-				continue
-			}
-
-			group.Middleware.Emit(middleware.BeforeMessageConsumption, &middleware.Event{
+			group.Middleware.Emit(BeforeMessageConsumption, &MiddlewareEvent{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
@@ -333,61 +294,14 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 			sink <- message
 			marked <- <-called // Await called and pipe into marked
 
-			group.Middleware.Emit(middleware.AfterMessageConsumed, &middleware.Event{
+			group.Middleware.Emit(AfterMessageConsumed, &MiddlewareEvent{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
 		}
-	}()
+	}(messages)
 
-	close := func() {
-		breaker = true
-		go topic.Dialect.Consumer().Unsubscribe(messages)
-	}
-
-	return sink, called, close, nil
-}
-
-// NewConsumerWithDeadline consumes events of the given message type for the given duration.
-// When the deadline is reached is a ErrTimeout error thrown to the errors channel.
-// The consumer could be closed premature by calling the close method.
-func (group *Group) NewConsumerWithDeadline(timeout time.Duration, t types.MessageType) (<-chan *types.Message, chan<- error, Close, <-chan error) {
-	breaker := false
-	sink := make(chan *types.Message, 1)
-	erro := make(chan error, 1)
-
-	messages, marked, closing, err := group.NewConsumer(t)
-	if err != nil {
-		closing()
-		erro <- err
-		return sink, marked, func() {}, erro
-	}
-
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(timeout))
-
-	go func() {
-	await:
-		for {
-			select {
-			case <-ctx.Done():
-				erro <- ErrTimeout
-				breaker = true
-				closing()
-			case message := <-messages:
-				if breaker {
-					marked <- nil
-					continue await
-				}
-
-				sink <- message
-			}
-		}
-	}()
-
-	return sink, marked, func() {
-		cancel()
-		closing()
-	}, erro
+	return sink, called, func() { topic.Dialect.Consumer().Unsubscribe(messages) }, nil
 }
 
 // HandleFunc awaits messages from the given MessageType and action.
@@ -411,7 +325,7 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 
 			Logger.Println("Processing action:", a)
 
-			group.Middleware.Emit(middleware.BeforeActionConsumption, &middleware.Event{
+			group.Middleware.Emit(BeforeActionConsumption, &MiddlewareEvent{
 				Value: message,
 				Ctx:   message.Ctx,
 			})
@@ -440,7 +354,7 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 			err := writer.ShouldRetry()
 			marked <- err
 
-			group.Middleware.Emit(middleware.AfterActionConsumption, &middleware.Event{
+			group.Middleware.Emit(AfterActionConsumption, &MiddlewareEvent{
 				Value: message,
 				Ctx:   message.Ctx,
 			})

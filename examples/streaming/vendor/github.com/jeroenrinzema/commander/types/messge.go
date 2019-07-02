@@ -29,8 +29,6 @@ const (
 	MetaHeader = "cmdr_meta"
 	// CommandTimestampHeader kafka message command timestamp header as UNIX
 	CommandTimestampHeader = "cmdr_command_timestamp"
-	// EOSHeader kafka message EOS (end of stream) indicator
-	EOSHeader = "cmdr_eos"
 )
 
 // Message a message

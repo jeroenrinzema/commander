@@ -10,10 +10,16 @@ import (
 )
 
 // NewCommand constructs a new command
-func NewCommand(action string, version int8, key []byte, data []byte) Command {
-	id := uuid.Must(uuid.NewV4())
-	if key == nil {
-		key = id.Bytes()
+func NewCommand(action string, version int8, key uuid.UUID, data []byte) Command {
+	id, err := uuid.NewV4()
+	if err != nil {
+		Logger.Println("Unable to generate a new uuid!")
+		panic(err)
+	}
+
+	// Fix: unexpected end of JSON input
+	if len(data) == 0 {
+		data = []byte("null")
 	}
 
 	command := Command{
@@ -32,17 +38,16 @@ func NewCommand(action string, version int8, key []byte, data []byte) Command {
 
 // Command contains the information of a consumed command.
 type Command struct {
-	Key       []byte            `json:"key"`       // Command partition key
-	Headers   map[string]string `json:"headers"`   // Additional command headers
-	ID        uuid.UUID         `json:"id"`        // Unique command id
-	Action    string            `json:"action"`    // Command representing action
-	Data      []byte            `json:"data"`      // Passed command data as bytes
-	Version   int8              `json:"version"`   // Command data schema version
-	Origin    Topic             `json:"-"`         // Command topic origin
-	Offset    int               `json:"-"`         // Command message offset
-	Partition int               `json:"-"`         // Command message partition
-	EOS       bool              `json:"eos"`       // EOS (end of stream) indicator
-	Timestamp time.Time         `json:"timestamp"` // Timestamp of command append
+	Key       uuid.UUID         `json:"key,omitempty"` // Command partition key
+	Headers   map[string]string `json:"headers"`       // Additional command headers
+	ID        uuid.UUID         `json:"id"`            // Unique command id
+	Action    string            `json:"action"`        // Command representing action
+	Data      []byte            `json:"data"`          // Passed command data as bytes
+	Version   int8              `json:"version"`       // Command data schema version
+	Origin    Topic             `json:"-"`             // Command topic origin
+	Offset    int               `json:"-"`             // Command message offset
+	Partition int               `json:"-"`             // Command message partition
+	Timestamp time.Time         `json:"timestamp"`     // Timestamp of command append
 	Ctx       context.Context   `json:"-"`
 }
 
@@ -105,21 +110,21 @@ headers:
 
 			command.Version = int8(version)
 			continue headers
-		case EOSHeader:
-			if value == "1" {
-				command.EOS = true
-			}
-			continue headers
 		}
 
 		command.Headers[key] = str
+	}
+
+	id, err := uuid.FromString(string(message.Key))
+	if err != nil {
+		throw = err
 	}
 
 	if len(command.Action) == 0 {
 		return errors.New("No command action is set")
 	}
 
-	command.Key = message.Key
+	command.Key = id
 	command.Data = message.Value
 	command.Origin = message.Topic
 	command.Offset = message.Offset
@@ -140,19 +145,13 @@ func (command *Command) Message(topic Topic) *Message {
 		headers[key] = value
 	}
 
-	eos := "0"
-	if command.EOS {
-		eos = "1"
-	}
-
 	headers[ActionHeader] = command.Action
 	headers[IDHeader] = command.ID.String()
-	headers[CommandTimestampHeader] = strconv.Itoa(int(command.Timestamp.UnixNano()))
-	headers[EOSHeader] = eos
+	headers[CommandTimestampHeader] = strconv.Itoa(int(command.Timestamp.Unix()))
 
 	message := &Message{
 		Headers:   headers,
-		Key:       command.Key,
+		Key:       []byte(command.Key.String()),
 		Value:     command.Data,
 		Offset:    command.Offset,
 		Partition: command.Partition,

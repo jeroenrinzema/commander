@@ -1,10 +1,10 @@
-# Commander 🚀
+# Commander
 [![GoDoc](https://godoc.org/github.com/jeroenrinzema/commander?status.svg)](https://godoc.org/github.com/jeroenrinzema/commander)
 [![Build Status](https://travis-ci.org/jeroenrinzema/commander.svg?branch=master)](https://travis-ci.org/jeroenrinzema/commander)
 [![Coverage](https://codecov.io/gh/jeroenrinzema/commander/branch/master/graph/badge.svg)](https://codecov.io/gh/jeroenrinzema/commander)
 [![Coverage Report](https://goreportcard.com/badge/github.com/jeroenrinzema/commander)](https://goreportcard.com/report/github.com/jeroenrinzema/commander)
 
-Commander is a high-level toolkit for writing event driven applications, aims to be developer friendly. Commander supports event driven patterns such as **CQRS** and has support for different "dialects". Dialects allow Commander to communicate with different protocols.
+Commander is a toolkit for writing event driven applications, aims to be developer friendly. Commander supports event driven patterns such as **CQRS** and has support for different "dialects". Dialects allow Commander to communicate with different protocols.
 
 ## Event driven patterns
 
@@ -14,9 +14,7 @@ The mainstream approach people use for interacting with an information system is
 
 **Event Sourcing** ensure that every change to the state of an application is captured in an event object, and that these event objects are themselves stored in the sequence they were applied for the same lifetime as the application state itself.
 
-**Bidirectional streaming** is possible by producing a stream of events from the client -> server or server -> client. Both the server and client could stream at the same time thus allowing bidirectional streaming. The end of a stream is marked by producing a event/command marked as EOS (end of stream).
-
-## 📚 Usage and documentation
+## Usage and documentation
 
 Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for detailed usage docs. Or check out the [examples](https://github.com/jeroenrinzema/commander/tree/master/examples).
 
@@ -39,13 +37,13 @@ For more advanced code check out the examples on [Github](https://github.com/jer
 Let's first set up a simple commander group.
 
 ```go
-dialect := mock.NewDialect()
+dialect := commander.NewMockDialect()
 group := commander.NewGroup(
 	NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode),
 	NewTopic("event", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
 )
 
-client, err := commander.NewClient(group)
+client := commander.NewClient(group)
 ```
 
 Once the event groups are defined and the dialects are initialized could consumers/producers be setup.
@@ -68,11 +66,3 @@ A dialect is the connector to a given protocol or infrastructure. A dialect need
 ## Middleware
 
 Middleware allowes actions to be preformed on event(s) or messages to be manipulated. Check out the middleware [directory](https://github.com/jeroenrinzema/commander/tree/master/middleware) for the available middleware controllers.
-
-## Contributing
-
-Thank you for your interest in contributing to Commander! ❤
-
-Everyone is welcome to contribute, whether it's in the form of code, documentation, bug reports, feature requests, or anything else. We encourage you to experiment with the project and make contributions to help evolve it to meet your needs!
-
-See the [contributing guide](https://github.com/jeroenrinzema/commander/blob/master/CONTRIBUTING.md) for more details.

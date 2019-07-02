@@ -90,6 +90,7 @@ func TestSyncCommand(t *testing.T) {
 	action := "testing"
 	key, _ := uuid.NewV4()
 	command := NewCommand(action, 1, key.Bytes(), []byte("{}"))
+	command.EOS = true
 
 	messages, marked, closing, err := group.NewConsumer(CommandMessage)
 	if err != nil {
@@ -102,6 +103,7 @@ func TestSyncCommand(t *testing.T) {
 	go func() {
 		event, err := group.SyncCommand(command)
 		if err != nil {
+			close(delivered)
 			t.Fatal(err)
 		}
 
@@ -111,6 +113,8 @@ func TestSyncCommand(t *testing.T) {
 	<-messages
 
 	event := NewEvent(action, 1, command.ID, nil, nil)
+	event.EOS = true
+
 	err = group.ProduceEvent(event)
 	if err != nil {
 		marked <- err
@@ -133,7 +137,7 @@ func TestAwaitEvent(t *testing.T) {
 	timeout := 1 * time.Second
 	parent, _ := uuid.NewV4()
 
-	sink, marked, errs := group.AwaitEvent(timeout, parent, "")
+	sink, marked, errs := group.AwaitEvent(timeout, parent, EventMessage)
 
 	event := NewEvent("tested", 1, parent, nil, []byte("{}"))
 	err := group.ProduceEvent(event)
@@ -158,7 +162,7 @@ func TestAwaitEventAction(t *testing.T) {
 	timeout := 100 * time.Millisecond
 	parent, _ := uuid.NewV4()
 
-	sink, marked, errs := group.AwaitEvent(timeout, parent, "final")
+	sink, marked, errs := group.AwaitEventWithAction(timeout, parent, EventMessage, "final")
 
 	event := NewEvent("final", 1, parent, nil, nil)
 	group.ProduceEvent(event)
@@ -180,7 +184,7 @@ func TestAwaitEventIgnoreParent(t *testing.T) {
 	timeout := 100 * time.Millisecond
 	parent, _ := uuid.NewV4()
 
-	sink, marked, errs := group.AwaitEvent(timeout, uuid.Nil, "tested")
+	sink, marked, errs := group.AwaitEventWithAction(timeout, uuid.Nil, EventMessage, "tested")
 	event := NewEvent("tested", 1, parent, nil, nil)
 	group.ProduceEvent(event)
 
@@ -423,7 +427,7 @@ func TestCommandTimestampPassed(t *testing.T) {
 	}
 }
 
-// TestCommandTimestampPassed tests if the command timestamp is passed to the produced event
+// TestMessageMarked tests if the command timestamp is passed to the produced event
 func TestMessageMarked(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
@@ -453,5 +457,39 @@ func TestMessageMarked(t *testing.T) {
 		if len(delivered) == 2 {
 			t.Fatal("the events are unexpectedly consumed")
 		}
+	}
+}
+
+// TestEventStream tests if able to consume and await a event stream
+func TestEventStream(t *testing.T) {
+	var event Event
+
+	group, client := NewMockClient()
+	defer client.Close()
+
+	group.HandleFunc(CommandMessage, "command", func(writer ResponseWriter, message interface{}) {
+		writer.ProduceEvent("action", 1, nil, nil)
+		event, _ = writer.ProduceEventEOS("action", 1, nil, nil)
+		writer.ProduceEvent("action", 1, nil, nil)
+	})
+
+	command := NewCommand("command", 1, nil, nil)
+	err := group.ProduceCommand(command)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	timeout := 500 * time.Millisecond
+	events, marked, erro := group.AwaitEOS(timeout, command.ID, EventMessage)
+
+	select {
+	case err := <-erro:
+		t.Fatal(err)
+	case res := <-events:
+		if res.ID != event.ID {
+			t.Fatal("returned event is not the expected event")
+		}
+
+		marked <- nil
 	}
 }

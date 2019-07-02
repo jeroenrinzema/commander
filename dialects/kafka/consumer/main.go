@@ -174,25 +174,17 @@ func (client *Client) Claim(message *sarama.ConsumerMessage) error {
 			Ctx:       context.Background(),
 		}
 
-		wg := sync.WaitGroup{}
 		client.topics[topic].mutex.RLock()
-		wg.Add(len(client.topics[topic].subscriptions))
-
 		for _, subscription := range client.topics[topic].subscriptions {
-			go func(subscription *Subscription) {
-				defer wg.Done()
-				select {
-				case subscription.messages <- message:
-					err = <-subscription.marked
-					if err != nil {
-						return
-					}
-				default:
+			select {
+			case subscription.messages <- message:
+				err = <-subscription.marked
+				if err != nil {
+					break
 				}
-			}(subscription)
+			default:
+			}
 		}
-
-		wg.Wait()
 		client.topics[topic].mutex.RUnlock()
 	}
 

@@ -97,13 +97,7 @@ func (consumer *Consumer) Unsubscribe(channel <-chan *types.Message) error {
 			if subscription.messages == channel {
 				collection.mutex.RUnlock()
 				collection.mutex.Lock()
-				/**
-				 * Order is not important:
-				 * If you do not care about ordering, you have the much faster possibility to swap the element to delete
-				 * with the one at the end of the slice and then return the n-1 first elements.
-				 */
-				collection.list[index] = collection.list[len(collection.list)-1]
-				collection.list = collection.list[:len(collection.list)-1]
+				collection.list = append(collection.list[:index], collection.list[index+1:]...)
 				collection.mutex.Unlock()
 				collection.mutex.RLock()
 				break

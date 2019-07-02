@@ -141,3 +141,46 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 		t.Error("the events handle was not called within the deadline")
 	}
 }
+
+// TestWriterProduceEventStream tests if able to write a successfull event stream
+func TestWriterProduceEventStream(t *testing.T) {
+	group, client := NewMockClient()
+	defer client.Close()
+
+	action := "testing"
+
+	command := NewMockCommand(action)
+	writer := NewResponseWriter(group, command)
+
+	messages, marked, closing, err := group.NewConsumer(EventMessage)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	defer closing()
+	stream := make([]*Event, 10)
+
+	go func() {
+		for range stream {
+			if _, err := writer.ProduceEvent(action, 1, nil, nil); err != nil {
+				t.Error(err)
+				return
+			}
+		}
+	}()
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+
+	defer cancel()
+
+	for range stream {
+		select {
+		case <-messages:
+			marked <- nil
+		case <-ctx.Done():
+			t.Error("the events handle was not called within the deadline")
+		}
+	}
+}

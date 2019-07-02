@@ -26,8 +26,6 @@ const (
 	MetaHeader = types.MetaHeader
 	// CommandTimestampHeader kafka message command timestamp header as UNIX
 	CommandTimestampHeader = types.CommandTimestampHeader
-	// EOSHeader kafka message EOS (end of stream) indicator
-	EOSHeader = types.EOSHeader
 )
 
 // Message a message

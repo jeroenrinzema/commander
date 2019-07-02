@@ -43,7 +43,7 @@ func main() {
 
 		id, err := uuid.FromString(string(command.Data))
 		if err != nil {
-			writer.ProduceError("ParseDataError", commander.StatusBadRequest, nil)
+			writer.ProduceErrorEOS("ParseDataError", commander.StatusBadRequest, nil)
 			return
 		}
 
@@ -52,7 +52,7 @@ func main() {
 		key := uuid.Must(uuid.NewV4()).Bytes()
 
 		log.Println("< Available")
-		writer.ProduceEvent("Available", 1, key, []byte(id.String()))
+		writer.ProduceEventEOS("Available", 1, key, []byte(id.String()))
 		return
 	})
 
@@ -69,12 +69,12 @@ func main() {
 		command := commander.NewCommand("Available", 1, key, []byte(item.String()))
 		event, err := warehouse.SyncCommand(command)
 		if err != nil {
-			writer.ProduceError("WarehouseNotAvailable", commander.StatusInternalServerError, err)
+			writer.ProduceErrorEOS("WarehouseNotAvailable", commander.StatusInternalServerError, err)
 			return
 		}
 
 		if event.Status != commander.StatusOK {
-			writer.ProduceError("NotAvailable", commander.StatusNotFound, err)
+			writer.ProduceErrorEOS("NotAvailable", commander.StatusNotFound, err)
 			return
 		}
 
@@ -82,7 +82,7 @@ func main() {
 		response, _ := json.Marshal(items)
 
 		log.Println("< Purchased")
-		writer.ProduceEvent("Purchased", 1, key, response)
+		writer.ProduceEventEOS("Purchased", 1, key, response)
 		return
 	})
 

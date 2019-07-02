@@ -51,7 +51,7 @@ func main() {
 	 */
 	group.HandleFunc(commander.CommandMessage, "example", func(writer commander.ResponseWriter, message interface{}) {
 		key := uuid.Must(uuid.NewV4()).Bytes()
-		writer.ProduceEvent("created", 1, key, nil)
+		writer.ProduceEventEOS("created", 1, key, nil)
 	})
 
 	/**

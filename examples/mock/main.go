@@ -33,7 +33,7 @@ func main() {
 			return
 		}
 
-		writer.ProduceEvent("created", 1, key.Bytes(), nil)
+		writer.ProduceEventEOS("created", 1, key.Bytes(), nil)
 	})
 
 	/**

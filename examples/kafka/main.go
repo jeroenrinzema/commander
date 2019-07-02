@@ -66,7 +66,7 @@ func main() {
 
 		// Event: name, version, key, data
 		// The event key defines to which partition the message should be written
-		writer.ProduceEvent("Available", 1, key.Bytes(), nil)
+		writer.ProduceEventEOS("Available", 1, key.Bytes(), nil)
 	})
 
 	/**

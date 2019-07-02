@@ -1,10 +1,6 @@
 package mock
 
-import (
-	"time"
-
-	"github.com/jeroenrinzema/commander/types"
-)
+import "github.com/jeroenrinzema/commander/types"
 
 // Producer a message producer
 type Producer struct {
@@ -14,7 +10,6 @@ type Producer struct {
 // Publish produces a message to the given topic
 func (producer *Producer) Publish(message *types.Message) error {
 	producer.consumer.consumptions.Add(1)
-	message.Timestamp = time.Now()
 	go producer.consumer.Emit(*message)
 	return nil
 }

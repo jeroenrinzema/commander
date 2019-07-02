@@ -26,10 +26,16 @@ const (
 )
 
 // NewEvent constructs a new event
-func NewEvent(action string, version int8, parent uuid.UUID, key []byte, data []byte) Event {
-	id := uuid.Must(uuid.NewV4())
-	if key == nil {
-		key = id.Bytes()
+func NewEvent(action string, version int8, parent uuid.UUID, key uuid.UUID, data []byte) Event {
+	id, err := uuid.NewV4()
+	if err != nil {
+		Logger.Println("Unable to generate a new uuid!")
+		panic(err)
+	}
+
+	// Fix: unexpected end of JSON input
+	if len(data) == 0 {
+		data = []byte("null")
 	}
 
 	event := Event{
@@ -55,13 +61,12 @@ type Event struct {
 	ID               uuid.UUID         `json:"id"`                // Unique event id
 	Action           string            `json:"action"`            // Event representing action
 	Data             []byte            `json:"data"`              // Passed event data as bytes
-	Key              []byte            `json:"key"`               // Event partition key
+	Key              uuid.UUID         `json:"key"`               // Event partition key
 	Status           StatusCode        `json:"status"`            // Event status code (commander.Status*)
 	Version          int8              `json:"version"`           // Event data schema version
 	Origin           Topic             `json:"-"`                 // Event topic origin
 	Offset           int               `json:"-"`                 // Event message offset
 	Partition        int               `json:"-"`                 // Event message partition
-	EOS              bool              `json:"eos"`               // EOS (end of stream) indicator
 	Meta             string            `json:"meta"`              // Additional event meta message
 	CommandTimestamp time.Time         `json:"command_timestamp"` // Timestamp of parent command append
 	Timestamp        time.Time         `json:"timestamp"`         // Timestamp of event append
@@ -134,24 +139,25 @@ headers:
 				continue
 			}
 
-			time := time.Unix(0, unix)
+			time := time.Unix(unix, 0)
 			event.CommandTimestamp = time
-			continue headers
-		case EOSHeader:
-			if value == "1" {
-				event.EOS = true
-			}
 			continue headers
 		}
 
 		event.Headers[key] = str
 	}
 
+	id, err := uuid.FromString(string(message.Key))
+
+	if err != nil {
+		throw = err
+	}
+
 	if len(event.Action) == 0 {
 		throw = errors.New("No event action is set")
 	}
 
-	event.Key = message.Key
+	event.Key = id
 	event.Data = message.Value
 	event.Origin = message.Topic
 	event.Offset = message.Offset
@@ -172,23 +178,17 @@ func (event *Event) Message(topic Topic) *Message {
 		headers[key] = value
 	}
 
-	eos := "0"
-	if event.EOS {
-		eos = "1"
-	}
-
 	headers[ActionHeader] = event.Action
 	headers[ParentHeader] = event.Parent.String()
 	headers[IDHeader] = event.ID.String()
 	headers[StatusHeader] = strconv.Itoa(int(event.Status))
 	headers[VersionHeader] = strconv.Itoa(int(event.Version))
 	headers[MetaHeader] = event.Meta
-	headers[CommandTimestampHeader] = strconv.Itoa(int(event.CommandTimestamp.UnixNano()))
-	headers[EOSHeader] = eos
+	headers[CommandTimestampHeader] = strconv.Itoa(int(event.CommandTimestamp.Unix()))
 
 	message := &Message{
 		Headers:   headers,
-		Key:       event.Key,
+		Key:       []byte(event.Key.String()),
 		Value:     event.Data,
 		Topic:     topic,
 		Offset:    event.Offset,

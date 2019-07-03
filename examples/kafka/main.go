@@ -84,13 +84,14 @@ func main() {
 
 		command := commander.NewCommand("Available", 1, key.Bytes(), nil)
 		event, next, err := warehouse.SyncCommand(command)
-		defer next(nil)
-
+		
 		if err != nil {
 			w.WriteHeader(500)
 			w.Write([]byte(err.Error()))
 			return
 		}
+
+		next(nil)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(event)

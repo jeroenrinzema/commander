@@ -44,13 +44,15 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		key := uuid.Must(uuid.NewV4()).Bytes()
 		command := commander.NewCommand("example", 1, key, nil)
-		event, err := group.SyncCommand(command)
+		event, next, err := group.SyncCommand(command)
 
 		if err != nil {
 			w.WriteHeader(500)
 			w.Write([]byte(err.Error()))
 			return
 		}
+
+		next(nil)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(event)

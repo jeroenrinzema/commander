@@ -67,11 +67,13 @@ func main() {
 		log.Println("> Purchase")
 
 		command := commander.NewCommand("Available", 1, key, []byte(item.String()))
-		event, err := warehouse.SyncCommand(command)
+		event, next, err := warehouse.SyncCommand(command)
 		if err != nil {
 			writer.ProduceErrorEOS("WarehouseNotAvailable", commander.StatusInternalServerError, err)
 			return
 		}
+
+		next(nil)
 
 		if event.Status != commander.StatusOK {
 			writer.ProduceErrorEOS("NotAvailable", commander.StatusNotFound, err)
@@ -94,13 +96,14 @@ func main() {
 	http.HandleFunc("/purchase", func(w http.ResponseWriter, r *http.Request) {
 		key := uuid.Must(uuid.NewV4()).Bytes()
 		command := commander.NewCommand("Purchase", 1, key, nil)
-		event, err := cart.SyncCommand(command)
-
+		event, next, err := cart.SyncCommand(command)
 		if err != nil {
 			w.WriteHeader(500)
 			w.Write([]byte(err.Error()))
 			return
 		}
+
+		defer next(nil)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(event)

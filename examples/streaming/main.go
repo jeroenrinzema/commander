@@ -77,6 +77,7 @@ func main() {
 
 			json.NewEncoder(w).Encode(event)
 			next(nil)
+
 			if event.EOS {
 				break
 			}

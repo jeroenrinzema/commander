@@ -83,7 +83,8 @@ func main() {
 		}
 
 		command := commander.NewCommand("Available", 1, key.Bytes(), nil)
-		event, err := warehouse.SyncCommand(command)
+		event, next, err := warehouse.SyncCommand(command)
+		defer next(nil)
 
 		if err != nil {
 			w.WriteHeader(500)

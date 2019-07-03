@@ -18,14 +18,14 @@ func TestConsumerConsumption(t *testing.T) {
 	}
 
 	sink := make(chan bool, 1)
-	sub, marked, err := dialect.Consumer().Subscribe(topic)
+	sub, next, err := dialect.Consumer().Subscribe(topic)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	go func() {
 		<-sub
-		marked <- nil
+		next(nil)
 		sink <- true
 	}()
 

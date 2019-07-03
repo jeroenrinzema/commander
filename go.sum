@@ -33,6 +33,8 @@ github.com/jeroenrinzema/commander/examples/mock v0.0.0-20190613124800-6c8bc78e3
 github.com/jeroenrinzema/commander/examples/mock v0.0.0-20190613124800-6c8bc78e3138/go.mod h1:L6VLj8KTUmXw4SmEuuPmmIZ27+zZHH3dEdR+gx/7PgY=
 github.com/jeroenrinzema/commander/examples/mock-multiple-groups v0.0.0-20190613124800-6c8bc78e3138 h1:08/XBwMtn87Z5sG3MuxtoIbRpAE+GlnGbxwmIvnV7yM=
 github.com/jeroenrinzema/commander/examples/mock-multiple-groups v0.0.0-20190613124800-6c8bc78e3138/go.mod h1:0DeSCXOO2GXIi4n+FUWGS6o/pCI/ZBpsKebVuW6hIj8=
+github.com/jeroenrinzema/commander/examples/streaming v0.0.0-20190702094603-24861dd4d416 h1:XjvyVJ1DNxF7FvLzMFNFZ18CGjEYdSHnkPYDotLvTpM=
+github.com/jeroenrinzema/commander/examples/streaming v0.0.0-20190702094603-24861dd4d416/go.mod h1:7463oz3hsyxpJu+n9qvoXo63DISG29e8OXbSD/Jpx10=
 github.com/jeroenrinzema/commander/examples/zipkin v0.0.0-20190613124800-6c8bc78e3138 h1:aoE5z3RydK+y/T9cEDrKhEy/YETIJesMKFXEHg/1ojc=
 github.com/jeroenrinzema/commander/examples/zipkin v0.0.0-20190613124800-6c8bc78e3138/go.mod h1:0kH96eT7K8FRLOQj/93XMym10lFwlLKJD9MSthr90z0=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=

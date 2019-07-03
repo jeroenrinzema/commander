@@ -110,7 +110,7 @@ type Client struct {
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
-func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, chan<- error, error) {
+func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, func(error), error) {
 	subscription := &Subscription{
 		marked:   make(chan error, 1),
 		messages: make(chan *types.Message, 1),
@@ -121,12 +121,14 @@ func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, c
 			client.topics[topic.Name] = NewTopic()
 		}
 
-		client.topics[topic.Name].mutex.Lock()
 		client.topics[topic.Name].subscriptions[subscription.messages] = subscription
-		client.topics[topic.Name].mutex.Unlock()
 	}
 
-	return subscription.messages, subscription.marked, nil
+	next := func(err error) {
+		subscription.marked <- err
+	}
+
+	return subscription.messages, next, nil
 }
 
 // Unsubscribe removes the given channel from the available subscriptions.

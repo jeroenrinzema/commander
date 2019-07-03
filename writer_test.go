@@ -32,7 +32,7 @@ func TestWriterProduceCommand(t *testing.T) {
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
 
-	messages, marked, closing, err := group.NewConsumer(CommandMessage)
+	messages, next, closing, err := group.NewConsumer(CommandMessage)
 	if err != nil {
 		t.Error(err)
 		return
@@ -52,7 +52,7 @@ func TestWriterProduceCommand(t *testing.T) {
 
 	select {
 	case <-messages:
-		marked <- nil
+		next(nil)
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -71,7 +71,7 @@ func TestWriterProduceEvent(t *testing.T) {
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
 
-	messages, marked, closing, err := group.NewConsumer(EventMessage)
+	messages, next, closing, err := group.NewConsumer(EventMessage)
 	if err != nil {
 		t.Error(err)
 		return
@@ -98,7 +98,7 @@ func TestWriterProduceEvent(t *testing.T) {
 			t.Error("The event parent does not match the command id")
 		}
 
-		marked <- nil
+		next(nil)
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -116,7 +116,7 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
 
-	messages, marked, closing, err := group.NewConsumer(EventMessage)
+	messages, next, closing, err := group.NewConsumer(EventMessage)
 	if err != nil {
 		t.Error(err)
 		return
@@ -136,7 +136,7 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 
 	select {
 	case <-messages:
-		marked <- nil
+		next(nil)
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -152,7 +152,7 @@ func TestWriterProduceEventStream(t *testing.T) {
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
 
-	messages, marked, closing, err := group.NewConsumer(EventMessage)
+	messages, next, closing, err := group.NewConsumer(EventMessage)
 	if err != nil {
 		t.Error(err)
 		return
@@ -178,7 +178,7 @@ func TestWriterProduceEventStream(t *testing.T) {
 	for range stream {
 		select {
 		case <-messages:
-			marked <- nil
+			next(nil)
 		case <-ctx.Done():
 			t.Error("the events handle was not called within the deadline")
 		}

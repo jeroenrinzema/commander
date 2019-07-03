@@ -8,6 +8,7 @@ require (
 	github.com/jeroenrinzema/commander/examples/kafka v0.0.0-20190613124800-6c8bc78e3138 // indirect
 	github.com/jeroenrinzema/commander/examples/mock v0.0.0-20190613124800-6c8bc78e3138 // indirect
 	github.com/jeroenrinzema/commander/examples/mock-multiple-groups v0.0.0-20190613124800-6c8bc78e3138 // indirect
+	github.com/jeroenrinzema/commander/examples/streaming v0.0.0-20190702094603-24861dd4d416 // indirect
 	github.com/jeroenrinzema/commander/examples/zipkin v0.0.0-20190613124800-6c8bc78e3138 // indirect
 	github.com/openzipkin/zipkin-go v0.1.6
 )

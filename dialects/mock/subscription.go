@@ -14,6 +14,13 @@ type Subscription struct {
 
 // SubscriptionCollection represents a collection of subscriptions
 type SubscriptionCollection struct {
-	list  []*Subscription
+	list  map[<-chan *types.Message]*Subscription
 	mutex sync.RWMutex
+}
+
+// NewTopic constructs a new subscription collection for a topic
+func NewTopic() *SubscriptionCollection {
+	return &SubscriptionCollection{
+		list: map[<-chan *types.Message]*Subscription{},
+	}
 }

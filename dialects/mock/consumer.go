@@ -9,14 +9,16 @@ import (
 // Consumer a message consumer
 type Consumer struct {
 	subscriptions map[string]*SubscriptionCollection
-	mutex         sync.RWMutex
 	consumptions  sync.WaitGroup
+	mutex         sync.RWMutex
 }
 
 // Emit emits a message to all subscribers of the given topic
 // Once a message is passed to a subscription is
 func (consumer *Consumer) Emit(message types.Message) {
 	defer consumer.consumptions.Done()
+
+	// FIXME: consumer mutex causes performance spikes during benchmarks
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
 
@@ -27,12 +29,12 @@ func (consumer *Consumer) Emit(message types.Message) {
 		return
 	}
 
+	collection.mutex.RLock()
+	defer collection.mutex.RUnlock()
+
 	if len(collection.list) == 0 {
 		return
 	}
-
-	collection.mutex.RLock()
-	defer collection.mutex.RUnlock()
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(collection.list))
@@ -49,6 +51,7 @@ func (consumer *Consumer) Emit(message types.Message) {
 	}
 
 	wg.Wait()
+
 }
 
 // Subscribe creates a new topic subscription that will receive
@@ -56,63 +59,45 @@ func (consumer *Consumer) Emit(message types.Message) {
 // will return a message channel and a close function.
 // Once a message is consumed should the marked channel be called. Pass a nil for a successful consume and
 // a error if a error occurred during processing.
-func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Message, chan<- error, error) {
+func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Message, func(error), error) {
 	subscription := &Subscription{
-		messages: make(chan *types.Message, 1),
-		marked:   make(chan error, 1),
+		messages: make(chan *types.Message, 0),
+		marked:   make(chan error, 0),
 	}
-
-	consumer.mutex.RLock()
-	defer consumer.mutex.RUnlock()
 
 	for _, topic := range topics {
-		collection := consumer.subscriptions[topic.Name]
-
-		if collection == nil {
-			consumer.subscriptions[topic.Name] = &SubscriptionCollection{
-				list: []*Subscription{},
-			}
-
-			collection = consumer.subscriptions[topic.Name]
+		consumer.mutex.Lock()
+		if consumer.subscriptions[topic.Name] == nil {
+			consumer.subscriptions[topic.Name] = NewTopic()
 		}
 
-		collection.mutex.Lock()
-		collection.list = append(collection.list, subscription)
-		collection.mutex.Unlock()
+		consumer.subscriptions[topic.Name].list[subscription.messages] = subscription
+		consumer.mutex.Unlock()
 	}
 
-	return subscription.messages, subscription.marked, nil
+	next := func(err error) {
+		subscription.marked <- err
+	}
+
+	return subscription.messages, next, nil
 }
 
 // Unsubscribe unsubscribes the given channel subscription from the given topic.
 // A boolean is returned that represents if the channel successfully got unsubscribed.
-func (consumer *Consumer) Unsubscribe(channel <-chan *types.Message) error {
+func (consumer *Consumer) Unsubscribe(sub <-chan *types.Message) error {
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
 
 	for _, collection := range consumer.subscriptions {
-		collection.mutex.RLock()
-
-		for index, subscription := range collection.list {
-			if subscription.messages == channel {
-				collection.mutex.RUnlock()
-				collection.mutex.Lock()
-				/**
-				 * Order is not important:
-				 * If you do not care about ordering, you have the much faster possibility to swap the element to delete
-				 * with the one at the end of the slice and then return the n-1 first elements.
-				 */
-				collection.list[index] = collection.list[len(collection.list)-1]
-				collection.list = collection.list[:len(collection.list)-1]
-				collection.mutex.Unlock()
-				collection.mutex.RLock()
-				break
-			}
+		collection.mutex.Lock()
+		subscription, has := collection.list[sub]
+		if has {
+			delete(collection.list, sub)
+			close(subscription.messages)
+			close(subscription.marked)
 		}
-
-		collection.mutex.RUnlock()
+		collection.mutex.Unlock()
 	}
-
 	return nil
 }
 

@@ -55,33 +55,30 @@ func main() {
 
 		// Open a single consumer receiving event messages
 		timeout := 5 * time.Second
-		messages, marked, closing, erro := group.NewConsumerWithDeadline(timeout, commander.EventMessage)
+		messages, next, closing, err := group.NewConsumerWithDeadline(timeout, commander.EventMessage)
+		if err != nil {
+			w.Write([]byte(err.Error()))
+			return
+		}
 
 		defer closing()
 		go group.AsyncCommand(command)
 
 		// Consume and filter messages based on their event ID.
 		// The connection is closed when a timeout is reached of a EOS event is consumed.
-	stream:
-		for {
-			select {
-			case err := <-erro:
-				w.Write([]byte(err.Error()))
-				break stream
-			case message := <-messages:
-				event := commander.Event{}
-				event.Populate(message)
-				
-				if event.Parent != command.ID {
-					marked <- nil
-					break
-				}
+		for message := range messages {
+			event := commander.Event{}
+			event.Populate(message)
+			
+			if event.Parent != command.ID {
+				next(nil)
+				break
+			}
 
-				json.NewEncoder(w).Encode(event)
-				marked <- nil
-				if event.EOS {
-					break stream
-				}
+			json.NewEncoder(w).Encode(event)
+			next(nil)
+			if event.EOS {
+				break
 			}
 		}
 	})

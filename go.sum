@@ -15,6 +15,7 @@ github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFP
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/gofrs/uuid v3.2.0+incompatible h1:y12jRkkFxsd7GpqdSZ+/KCs/fJbqpEXSGd4+jfEaewE=
 github.com/gofrs/uuid v3.2.0+incompatible/go.mod h1:b2aQJv3Z4Fp6yNu3cdSllBxTCLRxnplIgP/c0N/04lM=
+github.com/gogo/protobuf v1.2.0 h1:xU6/SpYbvkNYiptHJYEDRseDLvYE7wSqhYYNy0QSUzI=
 github.com/gogo/protobuf v1.2.0/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
@@ -26,17 +27,6 @@ github.com/gorilla/context v1.1.1/go.mod h1:kBGZzfjB9CEq2AlWe17Uuf7NDRt0dE0s8S51
 github.com/gorilla/mux v1.6.2 h1:Pgr17XVTNXAk3q/r4CpKzC5xBM/qW1uVLV+IhRZpIIk=
 github.com/gorilla/mux v1.6.2/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2zaAs=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
-github.com/jeroenrinzema/commander v1.0.0-rc.25/go.mod h1:jZuguveWYj9hEdc4fWHuuZr64nmJzwX5K4Dr2IPfVJ4=
-github.com/jeroenrinzema/commander/examples/kafka v0.0.0-20190613124800-6c8bc78e3138 h1:ObdXywK+bfmhTz1fj4W3Ut7euIfZ0dQK0DnNLz19wq0=
-github.com/jeroenrinzema/commander/examples/kafka v0.0.0-20190613124800-6c8bc78e3138/go.mod h1:VW4mbxUMl4lofIwZz4mOZglXHzqWQ4HD25qMvAsNEJo=
-github.com/jeroenrinzema/commander/examples/mock v0.0.0-20190613124800-6c8bc78e3138 h1:engaOvobySn7pWGV1qO6MTjfMpfZNvfgTG21oJjp1i0=
-github.com/jeroenrinzema/commander/examples/mock v0.0.0-20190613124800-6c8bc78e3138/go.mod h1:L6VLj8KTUmXw4SmEuuPmmIZ27+zZHH3dEdR+gx/7PgY=
-github.com/jeroenrinzema/commander/examples/mock-multiple-groups v0.0.0-20190613124800-6c8bc78e3138 h1:08/XBwMtn87Z5sG3MuxtoIbRpAE+GlnGbxwmIvnV7yM=
-github.com/jeroenrinzema/commander/examples/mock-multiple-groups v0.0.0-20190613124800-6c8bc78e3138/go.mod h1:0DeSCXOO2GXIi4n+FUWGS6o/pCI/ZBpsKebVuW6hIj8=
-github.com/jeroenrinzema/commander/examples/streaming v0.0.0-20190702094603-24861dd4d416 h1:XjvyVJ1DNxF7FvLzMFNFZ18CGjEYdSHnkPYDotLvTpM=
-github.com/jeroenrinzema/commander/examples/streaming v0.0.0-20190702094603-24861dd4d416/go.mod h1:7463oz3hsyxpJu+n9qvoXo63DISG29e8OXbSD/Jpx10=
-github.com/jeroenrinzema/commander/examples/zipkin v0.0.0-20190613124800-6c8bc78e3138 h1:aoE5z3RydK+y/T9cEDrKhEy/YETIJesMKFXEHg/1ojc=
-github.com/jeroenrinzema/commander/examples/zipkin v0.0.0-20190613124800-6c8bc78e3138/go.mod h1:0kH96eT7K8FRLOQj/93XMym10lFwlLKJD9MSthr90z0=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=

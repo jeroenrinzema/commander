@@ -16,7 +16,7 @@ func NewCommand(action string, version int8, key []byte, data []byte) Command {
 		key = id.Bytes()
 	}
 
-	command := Command{
+	return Command{
 		Key:       key,
 		Headers:   make(map[string]string),
 		ID:        id,
@@ -26,8 +26,6 @@ func NewCommand(action string, version int8, key []byte, data []byte) Command {
 		Timestamp: time.Now(),
 		Ctx:       context.Background(),
 	}
-
-	return command
 }
 
 // Command contains the information of a consumed command.
@@ -44,6 +42,20 @@ type Command struct {
 	EOS       bool              `json:"eos"`       // EOS (end of stream) indicator
 	Timestamp time.Time         `json:"timestamp"` // Timestamp of command append
 	Ctx       context.Context   `json:"-"`
+}
+
+// NewCommand creates a new "child" command that is linked to a stream of commands.
+func (command *Command) NewCommand(action string, version int8, data []byte) Command {
+	return Command{
+		Key:       command.Key,
+		Headers:   make(map[string]string),
+		ID:        command.ID,
+		Action:    action,
+		Version:   version,
+		Data:      data,
+		Timestamp: time.Now(),
+		Ctx:       context.Background(),
+	}
 }
 
 // NewEvent creates a new acknowledged event as a response to this command.

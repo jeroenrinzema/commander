@@ -75,8 +75,11 @@ func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Messag
 		consumer.mutex.Unlock()
 	}
 
+	once := sync.Once{}
 	next := func(err error) {
-		subscription.marked <- err
+		once.Do(func() {
+			subscription.marked <- err
+		})
 	}
 
 	return subscription.messages, next, nil

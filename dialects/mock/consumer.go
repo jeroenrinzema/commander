@@ -42,6 +42,7 @@ func (consumer *Consumer) Emit(message types.Message) {
 	for _, subscription := range collection.list {
 		go func(subscription *Subscription) {
 			defer wg.Done()
+
 			subscription.messages <- &message
 			err := <-subscription.marked
 			if err != nil {
@@ -51,7 +52,6 @@ func (consumer *Consumer) Emit(message types.Message) {
 	}
 
 	wg.Wait()
-
 }
 
 // Subscribe creates a new topic subscription that will receive
@@ -76,13 +76,7 @@ func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Messag
 	}
 
 	next := func(err error) {
-		consumer.mutex.Lock()
-		// Non blocking channel operation
-		select {
-		case subscription.marked <- err:
-		default:
-		}
-		consumer.mutex.Unlock()
+		subscription.marked <- err
 	}
 
 	return subscription.messages, next, nil

@@ -18,7 +18,6 @@ type Consumer struct {
 func (consumer *Consumer) Emit(message types.Message) {
 	defer consumer.consumptions.Done()
 
-	// FIXME: consumer mutex causes performance spikes during benchmarks
 	consumer.mutex.RLock()
 	defer consumer.mutex.RUnlock()
 
@@ -36,22 +35,17 @@ func (consumer *Consumer) Emit(message types.Message) {
 		return
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(collection.list))
+	collection.mutex.RLock()
 
 	for _, subscription := range collection.list {
-		go func(subscription *Subscription) {
-			defer wg.Done()
-
-			subscription.messages <- &message
-			err := <-subscription.marked
-			if err != nil {
-				// TODO: handle error
-			}
-		}(subscription)
+		subscription.messages <- &message
+		err := <-subscription.marked
+		if err != nil {
+			// TODO: handle error
+		}
 	}
 
-	wg.Wait()
+	collection.mutex.RUnlock()
 }
 
 // Subscribe creates a new topic subscription that will receive
@@ -75,11 +69,10 @@ func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Messag
 		consumer.mutex.Unlock()
 	}
 
-	once := sync.Once{}
+	// marked could safely be written to due to the expected
+	// mutex locks while emitting a message.
 	next := func(err error) {
-		once.Do(func() {
-			subscription.marked <- err
-		})
+		subscription.marked <- err
 	}
 
 	return subscription.messages, next, nil

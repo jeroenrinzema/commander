@@ -386,7 +386,7 @@ func (group *Group) NewConsumerWithDeadline(timeout time.Duration, t types.Messa
 		return nil, nil, nil, err
 	}
 
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(timeout))
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	closing := func() {
 		cancel()
 		closer()

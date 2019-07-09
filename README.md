@@ -25,6 +25,8 @@ Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for det
 - **[Mock](https://github.com/jeroenrinzema/commander/tree/master/dialects/mock)** - Commander in-memory Mock consumer/producer.
 - **[Kafka](https://github.com/jeroenrinzema/commander/tree/master/dialects/kafka)** - Commander Kafka consumer/producer build upon the Sarama go Kafka client.
 
+- **[gRPC connector](https://github.com/jeroenrinzema/protoc-gen-commander)** - `protoc` gRPC > Commander connector generator
+
 ## Examples
 
 For more advanced code check out the examples on [Github](https://github.com/jeroenrinzema/commander/tree/master/examples).

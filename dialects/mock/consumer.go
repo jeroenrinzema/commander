@@ -76,7 +76,13 @@ func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Messag
 	}
 
 	next := func(err error) {
-		subscription.marked <- err
+		consumer.mutex.Lock()
+		// Non blocking channel operation
+		select {
+		case subscription.marked <- err:
+		default:
+		}
+		consumer.mutex.Unlock()
 	}
 
 	return subscription.messages, next, nil

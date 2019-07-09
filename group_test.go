@@ -152,20 +152,26 @@ func TestAwaitEvent(t *testing.T) {
 	timeout := 1 * time.Second
 	parent, _ := uuid.NewV4()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+
 	go func() {
-		event := NewEvent("tested", 1, parent, nil, []byte("{}"))
-		err := group.ProduceEvent(event)
+		_, next, err := group.AwaitEvent(timeout, parent, EventMessage)
+
+		defer cancel()
+		defer next(nil)
+
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
 
-	_, next, err := group.AwaitEvent(timeout, parent, EventMessage)
+	event := NewEvent("tested", 1, parent, nil, nil)
+	err := group.ProduceEvent(event)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	next(nil)
+	<-ctx.Done()
 }
 
 // TestAwaitEventAction tests if plausible to await a event action

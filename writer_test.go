@@ -144,9 +144,7 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 
 // TestWriterProduceEventStream tests if able to write a successfull event stream
 func TestWriterProduceEventStream(t *testing.T) {
-	group, client := NewMockClient()
-	defer client.Close()
-
+	group, _ := NewMockClient()
 	action := "testing"
 
 	command := NewMockCommand(action)

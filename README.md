@@ -14,7 +14,7 @@ The mainstream approach people use for interacting with an information system is
 
 **Event Sourcing** ensure that every change to the state of an application is captured in an event object, and that these event objects are themselves stored in the sequence they were applied for the same lifetime as the application state itself.
 
-**Bidirectional streaming** is possible by producing a stream of events from the client -> server or server -> client. Both the server and client could stream at the same time thus allowing bidirectional streaming. The end of a stream is marked by producing a event/command marked as EOS (end of stream).
+**Bidirectional streaming** where both sides send a sequence of messages using a read-write stream. The two streams operate independently, so clients and servers can read and write in whatever order they like: for example, the server could wait to receive all the client messages before writing its responses, or it could alternately read a message then write a message, or some other combination of reads and writes. The order of messages in each stream is preserved.
 
 ## 📚 Usage and documentation
 

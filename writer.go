@@ -114,7 +114,6 @@ func (writer *writer) NewEvent(action string, version int8, key []byte, data []b
 
 func (writer *writer) ProduceError(action string, status StatusCode, err error) (Event, error) {
 	event := writer.NewErrorEvent(action, status, err)
-	event.EOS = true
 
 	err = writer.Group.ProduceEvent(event)
 	return event, err
@@ -122,6 +121,7 @@ func (writer *writer) ProduceError(action string, status StatusCode, err error) 
 
 func (writer *writer) ProduceErrorEOS(action string, status StatusCode, err error) (Event, error) {
 	event := writer.NewErrorEvent(action, status, err)
+	event.EOS = true
 
 	err = writer.Group.ProduceEvent(event)
 	return event, err

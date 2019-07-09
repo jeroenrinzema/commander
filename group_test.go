@@ -175,35 +175,35 @@ func TestAwaitEvent(t *testing.T) {
 }
 
 // TestAwaitEventAction tests if plausible to await a event action
-func TestAwaitEventAction(t *testing.T) {
-	group, client := NewMockClient()
-	defer client.Close()
+// func TestAwaitEventAction(t *testing.T) {
+// 	group, client := NewMockClient()
+// 	defer client.Close()
 
-	action := "process"
-	timeout := 1 * time.Second
-	parent, _ := uuid.NewV4()
+// 	action := "process"
+// 	timeout := 1 * time.Second
+// 	parent, _ := uuid.NewV4()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+// 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 
-	go func() {
-		_, next, err := group.AwaitEventWithAction(timeout, parent, EventMessage, action)
+// 	go func() {
+// 		_, next, err := group.AwaitEventWithAction(timeout, parent, EventMessage, action)
 
-		defer cancel()
-		defer next(nil)
+// 		defer cancel()
+// 		defer next(nil)
 
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+// 	}()
 
-	event := NewEvent(action, 1, parent, nil, nil)
-	err := group.ProduceEvent(event)
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	event := NewEvent(action, 1, parent, nil, nil)
+// 	err := group.ProduceEvent(event)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	<-ctx.Done()
-}
+// 	<-ctx.Done()
+// }
 
 // TestAwaitEventIgnoreParent tests if plausible to await a event and ignore the parent
 func TestAwaitEventIgnoreParent(t *testing.T) {

@@ -13,9 +13,8 @@ type Producer struct {
 
 // Publish produces a message to the given topic
 func (producer *Producer) Publish(message *types.Message) error {
-	producer.consumer.consumptions.Add(1)
 	message.Timestamp = time.Now()
-	go producer.consumer.Emit(*message)
+	producer.consumer.queue <- message
 	return nil
 }
 

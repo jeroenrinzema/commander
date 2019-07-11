@@ -11,25 +11,26 @@ import (
 // This function tests if the message does not get delivered before the sleep period has passed.
 func TestClosingConsumptions(t *testing.T) {
 	group, client := NewMockClient()
-	defer client.Close()
-
 	action := "testing"
 	version := int8(1)
+
+	consuming := make(chan struct{}, 0)
 	delivered := make(chan error, 1)
 
 	group.HandleFunc(EventMessage, action, func(writer ResponseWriter, message interface{}) {
+		close(consuming)
 		time.Sleep(100 * time.Millisecond)
 		delivered <- nil
 	})
 
-	parent, _ := uuid.NewV4()
-	key, _ := uuid.NewV4()
-
-	event := NewEvent(action, version, parent, key.Bytes(), []byte("{}"))
+	parent := uuid.Must(uuid.NewV4())
+	event := NewEvent(action, version, parent, nil, nil)
 	err := group.ProduceEvent(event)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	<-consuming
 
 	err = client.Close()
 	if err != nil {

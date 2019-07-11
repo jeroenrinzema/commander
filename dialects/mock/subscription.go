@@ -1,8 +1,6 @@
 package mock
 
 import (
-	"sync"
-
 	"github.com/jeroenrinzema/commander/types"
 )
 
@@ -14,8 +12,7 @@ type Subscription struct {
 
 // SubscriptionCollection represents a collection of subscriptions
 type SubscriptionCollection struct {
-	list  map[<-chan *types.Message]*Subscription
-	mutex sync.RWMutex
+	list map[<-chan *types.Message]*Subscription
 }
 
 // NewTopic constructs a new subscription collection for a topic

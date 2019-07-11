@@ -100,7 +100,7 @@ func TestSyncCommand(t *testing.T) {
 	})
 
 	event, next, err := group.SyncCommand(command)
-	defer next(nil)
+	next(nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -152,25 +152,21 @@ func TestAwaitEvent(t *testing.T) {
 	timeout := 100 * time.Millisecond
 	parent, _ := uuid.NewV4()
 
-	closer := make(chan struct{}, 0)
 	go func() {
-		_, next, err := group.AwaitEvent(timeout, parent, EventMessage)
-		defer next(nil)
-		defer close(closer)
-
+		event := NewEvent("tested", 1, parent, nil, nil)
+		err := group.ProduceEvent(event)
 		if err != nil {
-			t.Error(err)
-			return
+			t.Fatal(err)
 		}
 	}()
 
-	event := NewEvent("tested", 1, parent, nil, nil)
-	err := group.ProduceEvent(event)
+	_, next, err := group.AwaitEvent(timeout, parent, EventMessage)
+	next(nil)
+
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
-
-	<-closer
 }
 
 // TestAwaitEventAction tests if plausible to await a event action
@@ -179,29 +175,23 @@ func TestAwaitEventAction(t *testing.T) {
 	defer client.Close()
 
 	action := "process"
-	timeout := 1 * time.Second
+	timeout := 100 * time.Millisecond
 	parent, _ := uuid.NewV4()
 
-	closer := make(chan struct{}, 0)
 	go func() {
-		_, next, err := group.AwaitEventWithAction(timeout, parent, EventMessage, action)
-
+		event := NewEvent(action, 1, parent, nil, nil)
+		err := group.ProduceEvent(event)
 		if err != nil {
-			t.Error(err)
-			return
+			t.Fatal(err)
 		}
-
-		next(nil)
-		close(closer)
 	}()
 
-	event := NewEvent(action, 1, parent, nil, nil)
-	err := group.ProduceEvent(event)
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, next, err := group.AwaitEventWithAction(timeout, parent, EventMessage, action)
+	next(nil)
 
-	<-closer
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 // TestAwaitEventIgnoreParent tests if plausible to await a event and ignore the parent
@@ -212,24 +202,16 @@ func TestAwaitEventIgnoreParent(t *testing.T) {
 	timeout := 100 * time.Millisecond
 	parent, _ := uuid.NewV4()
 
-	closer := make(chan struct{}, 0)
-	go func() {
-		_, _, err := group.AwaitEventWithAction(timeout, parent, EventMessage, "me")
-		if err != ErrTimeout {
-			t.Error(err)
-			return
-		}
-
-		close(closer)
-	}()
-
 	event := NewEvent("ignore", 1, parent, nil, nil)
 	err := group.ProduceEvent(event)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	<-closer
+	_, _, err = group.AwaitEventWithAction(timeout, parent, EventMessage, "process")
+	if err != ErrTimeout {
+		t.Error(err)
+	}
 }
 
 // TestEventConsumer tests if events get consumed

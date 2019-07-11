@@ -9,43 +9,38 @@ import (
 // Consumer a message consumer
 type Consumer struct {
 	subscriptions map[string]*SubscriptionCollection
+	workers       int8
+	queue         chan *types.Message
 	consumptions  sync.WaitGroup
 	mutex         sync.RWMutex
 }
 
-// Emit emits a message to all subscribers of the given topic
-// Once a message is passed to a subscription is
-func (consumer *Consumer) Emit(message types.Message) {
-	defer consumer.consumptions.Done()
-
-	consumer.mutex.RLock()
-	defer consumer.mutex.RUnlock()
-
-	topic := message.Topic
-	collection := consumer.subscriptions[topic.Name]
-
-	if collection == nil {
-		return
-	}
-
-	collection.mutex.RLock()
-	defer collection.mutex.RUnlock()
-
-	if len(collection.list) == 0 {
-		return
-	}
-
-	collection.mutex.RLock()
-
-	for _, subscription := range collection.list {
-		subscription.messages <- &message
-		err := <-subscription.marked
-		if err != nil {
-			// TODO: handle error
+// NewWorker spawns a new queue worker
+func (consumer *Consumer) NewWorker() {
+	for message := range consumer.queue {
+		if message == nil {
+			break
 		}
-	}
 
-	collection.mutex.RUnlock()
+		consumer.mutex.RLock()
+		consumer.consumptions.Add(1)
+
+		collection, has := consumer.subscriptions[message.Topic.Name]
+		if !has {
+			continue
+		}
+
+		for _, subscription := range collection.list {
+			subscription.messages <- message
+			err := <-subscription.marked
+			if err != nil {
+				// TODO: handle error
+			}
+		}
+
+		consumer.consumptions.Done()
+		consumer.mutex.RUnlock()
+	}
 }
 
 // Subscribe creates a new topic subscription that will receive
@@ -59,14 +54,21 @@ func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Messag
 		marked:   make(chan error, 0),
 	}
 
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
+
 	for _, topic := range topics {
-		consumer.mutex.Lock()
 		if consumer.subscriptions[topic.Name] == nil {
 			consumer.subscriptions[topic.Name] = NewTopic()
 		}
 
 		consumer.subscriptions[topic.Name].list[subscription.messages] = subscription
-		consumer.mutex.Unlock()
+	}
+
+	// FIXME: currently the working limit is set to one
+	if consumer.workers == 0 {
+		consumer.workers++
+		go consumer.NewWorker()
 	}
 
 	// marked could safely be written to due to the expected
@@ -81,24 +83,31 @@ func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Messag
 // Unsubscribe unsubscribes the given channel subscription from the given topic.
 // A boolean is returned that represents if the channel successfully got unsubscribed.
 func (consumer *Consumer) Unsubscribe(sub <-chan *types.Message) error {
-	consumer.mutex.RLock()
-	defer consumer.mutex.RUnlock()
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
 
 	for _, collection := range consumer.subscriptions {
-		collection.mutex.Lock()
 		subscription, has := collection.list[sub]
 		if has {
 			delete(collection.list, sub)
 			close(subscription.messages)
 			close(subscription.marked)
 		}
-		collection.mutex.Unlock()
 	}
+
 	return nil
 }
 
 // Close closes the kafka consumer, all topic subscriptions and event channels.
 func (consumer *Consumer) Close() error {
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
+
 	consumer.consumptions.Wait()
+	close(consumer.queue)
+
+	for key := range consumer.subscriptions {
+		delete(consumer.subscriptions, key)
+	}
 	return nil
 }

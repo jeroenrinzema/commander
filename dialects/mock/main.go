@@ -8,6 +8,7 @@ import (
 func NewDialect() types.Dialect {
 	consumer := &Consumer{
 		subscriptions: make(map[string]*SubscriptionCollection),
+		queue:         make(chan *types.Message, 100),
 	}
 
 	producer := &Producer{

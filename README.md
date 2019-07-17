@@ -54,10 +54,10 @@ Once the event groups are defined and the dialects are initialized could consume
 
 ```go
 group.HandleFunc("example", commander.CommandTopic, func(writer commander.ResponseWriter, message interface{}) {
-	writer.ProduceEvent("created", 1, uuid.Nil, nil)
+	writer.ProduceEvent("created", 1, nil, nil)
 })
 
-command := commander.NewCommand("example", 1, uuid.Nil, nil)
+command := commander.NewCommand("example", 1, nil, nil)
 group.ProduceCommand(command)
 ```
 

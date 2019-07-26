@@ -30,6 +30,9 @@ const (
 	EOSHeader = types.EOSHeader
 )
 
+// Dialect extention of the Dialect type
+type Dialect = types.Dialect
+
 // Message a message
 type Message = types.Message
 

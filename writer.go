@@ -3,9 +3,8 @@ package commander
 import (
 	"context"
 	"errors"
-	"time"
 
-	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // NewResponseWriter initializes a new response writer for the given value
@@ -40,11 +39,11 @@ type ResponseWriter interface {
 	// ProduceError produces a new error event to the assigned group.
 	// The produced error is one of many events in the event stream.
 	// The produced event is marked as EOS (end of stream).
-	ProduceError(action string, status StatusCode, err error) (Event, error)
+	ProduceError(action string, status types.StatusCode, err error) (Event, error)
 
 	// ProduceError produces a new error event to the assigned group.
 	// The produced error is one of many events in the event stream.
-	ProduceErrorEOS(action string, status StatusCode, err error) (Event, error)
+	ProduceErrorEOS(action string, status types.StatusCode, err error) (Event, error)
 
 	// ProduceCommand produces a new command to the assigned group.
 	// The produced comamnd is one of many commands in the command stream.
@@ -69,7 +68,7 @@ type writer struct {
 	retry   error
 }
 
-func (writer *writer) NewErrorEvent(action string, status StatusCode, err error) Event {
+func (writer *writer) NewErrorEvent(action string, status types.StatusCode, err error) Event {
 	var event Event
 
 	if status == 0 {
@@ -79,25 +78,21 @@ func (writer *writer) NewErrorEvent(action string, status StatusCode, err error)
 	if writer.Command != nil {
 		event = writer.Command.NewError(action, status, err)
 	} else {
-		event = NewEvent(action, 0, uuid.Nil, nil, nil)
+		event = NewEvent(action, 0, "", nil, nil)
 		event.Status = StatusInternalServerError
-
-		if err != nil {
-			event.Meta = err.Error()
-		}
 	}
 
 	return event
 }
 
 func (writer *writer) NewEvent(action string, version int8, key []byte, data []byte) Event {
-	var parent uuid.UUID
-	var timestamp time.Time
+	var timestamp types.ParentTimestamp
+	var parent types.ParentID
 	var ctx context.Context
 
 	if writer.Command != nil {
-		parent = writer.Command.ID
-		timestamp = writer.Command.Timestamp
+		timestamp = types.ParentTimestamp(writer.Command.Timestamp)
+		parent = types.ParentID(writer.Command.ID)
 		ctx = writer.Command.Ctx
 	}
 
@@ -105,21 +100,21 @@ func (writer *writer) NewEvent(action string, version int8, key []byte, data []b
 		key = writer.Command.Key
 	}
 
-	event := NewEvent(action, version, parent, key, data)
-	event.CommandTimestamp = timestamp
+	event := NewEvent(action, types.Version(version), parent, types.Key(key), data)
+	event.ParentTimestamp = timestamp
 	event.Ctx = ctx
 
 	return event
 }
 
-func (writer *writer) ProduceError(action string, status StatusCode, err error) (Event, error) {
+func (writer *writer) ProduceError(action string, status types.StatusCode, err error) (Event, error) {
 	event := writer.NewErrorEvent(action, status, err)
 
 	err = writer.Group.ProduceEvent(event)
 	return event, err
 }
 
-func (writer *writer) ProduceErrorEOS(action string, status StatusCode, err error) (Event, error) {
+func (writer *writer) ProduceErrorEOS(action string, status types.StatusCode, err error) (Event, error) {
 	event := writer.NewErrorEvent(action, status, err)
 	event.EOS = true
 
@@ -143,14 +138,14 @@ func (writer *writer) ProduceEventEOS(action string, version int8, key []byte, d
 }
 
 func (writer *writer) ProduceCommand(action string, version int8, key []byte, data []byte) (Command, error) {
-	command := NewCommand(action, version, key, data)
+	command := NewCommand(action, types.Version(version), types.Key(key), data)
 
 	err := writer.Group.ProduceCommand(command)
 	return command, err
 }
 
 func (writer *writer) ProduceCommandEOS(action string, version int8, key []byte, data []byte) (Command, error) {
-	command := NewCommand(action, version, key, data)
+	command := NewCommand(action, types.Version(version), types.Key(key), data)
 	command.EOS = true
 
 	err := writer.Group.ProduceCommand(command)

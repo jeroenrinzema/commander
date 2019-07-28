@@ -5,22 +5,19 @@ import (
 	"testing"
 
 	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // NewMockCommand produces a new mock command with the given action
 func NewMockCommand(action string) Command {
-	headers := make(map[string]string)
-
-	key := uuid.Must(uuid.NewV4()).Bytes()
-	id := uuid.Must(uuid.NewV4())
+	id := uuid.Must(uuid.NewV4()).String()
+	key := types.Key([]byte(id))
 
 	command := Command{
-		Origin:  Topic{Name: "topic"},
-		Key:     key,
-		Headers: headers,
-		ID:      id,
-		Action:  action,
-		Data:    []byte("{}"),
+		ID:     id,
+		Origin: Topic{Name: "topic"},
+		Key:    key,
+		Action: action,
 	}
 
 	return command
@@ -31,9 +28,9 @@ func TestCommandEventConstruction(t *testing.T) {
 	command := NewMockCommand("action")
 
 	action := "event"
-	version := int8(1)
+	version := types.Version(1)
 
-	event := command.NewEvent(action, version, []byte("{}"))
+	event := command.NewEvent(action, version, nil)
 
 	if event.Action != action {
 		t.Error("Event action does not match")
@@ -43,7 +40,7 @@ func TestCommandEventConstruction(t *testing.T) {
 		t.Error("Event version does not match given version")
 	}
 
-	if event.Parent != command.ID {
+	if event.Parent != types.ParentID(command.ID) {
 		t.Error("Event does not have id of command")
 	}
 
@@ -57,7 +54,7 @@ func TestCommandErrorEventConstruction(t *testing.T) {
 	command := NewMockCommand("action")
 	event := command.NewError("event", StatusImATeapot, errors.New("test error"))
 
-	if event.Parent != command.ID {
+	if event.Parent != types.ParentID(command.ID) {
 		t.Error("Event does not have id of command")
 	}
 
@@ -69,51 +66,22 @@ func TestCommandErrorEventConstruction(t *testing.T) {
 // TestCommandPopulation tests if able to populate a command from a kafka message
 func TestCommandPopulation(t *testing.T) {
 	action := "action"
-	key := uuid.Must(uuid.NewV4()).Bytes()
-	id := uuid.Must(uuid.NewV4())
 
-	message := NewMockCommandMessage("action", key, id.String(), "{}", Topic{Name: "testing"})
+	id := uuid.Must(uuid.NewV4()).String()
+	key := types.Key([]byte(id))
 
-	command := &Command{}
-	command.Populate(&message)
+	message := NewMockCommandMessage("action", key, id, nil, Topic{Name: "testing"})
+	command := NewCommandFromMessage(message)
 
 	if command.Action != action {
 		t.Error("The populated command action is not set correctly")
 	}
 
-	if command.ID.String() != id.String() {
+	if command.ID != id {
 		t.Error("The populated command id is not set correctly")
 	}
 
 	if string(command.Key) != string(key) {
 		t.Error("The populated command key is not set correctly")
-	}
-}
-
-// TestErrorHandlingCommandPopulation tests if errors are thrown when populating a command
-func TestErrorHandlingCommandPopulation(t *testing.T) {
-	var err error
-	var corrupted Message
-	command := &Command{}
-
-	action := "action"
-	key := uuid.Must(uuid.NewV4()).Bytes()
-	id := uuid.Must(uuid.NewV4())
-	value := "{}"
-
-	corrupted = NewMockCommandMessage(action, key, id.String(), value, Topic{Name: "testing"})
-	corrupted.Headers[IDHeader] = ""
-
-	err = command.Populate(&corrupted)
-	if err == nil {
-		t.Error("no error is thrown during corrupted id population")
-	}
-
-	corrupted = NewMockCommandMessage(action, key, id.String(), value, Topic{Name: "testing"})
-	corrupted.Headers[ActionHeader] = ""
-
-	err = command.Populate(&corrupted)
-	if err == nil {
-		t.Error("no error is thrown during corrupted action population")
 	}
 }

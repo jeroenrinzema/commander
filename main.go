@@ -2,11 +2,14 @@ package commander
 
 import (
 	"errors"
-	"io/ioutil"
-	"log"
 
 	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/types"
+)
+
+const (
+	// DebugEnv os debug env key
+	DebugEnv = "DEBUG"
 )
 
 const (
@@ -19,15 +22,6 @@ const (
 var (
 	// ErrTimeout is returned when a timeout is reached when awaiting a responding event
 	ErrTimeout = errors.New("timeout reached")
-
-	// LoggingPrefix holds the commander logging prefix
-	LoggingPrefix = "[Commander] "
-
-	// LoggingFlags holds the logging flag mode
-	LoggingFlags = log.Ldate | log.Ltime | log.Llongfile
-
-	// Logger holds a io message logger
-	Logger = log.New(ioutil.Discard, LoggingPrefix, LoggingFlags)
 )
 
 // NewClient constructs a new commander client.

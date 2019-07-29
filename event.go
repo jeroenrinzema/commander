@@ -74,7 +74,7 @@ type Event struct {
 	Data            []byte                `json:"data"`             // Passed event data as bytes
 	Key             types.Key             `json:"key"`              // Event partition key
 	Version         types.Version         `json:"version"`          // Event data schema version
-	EOS             bool                  `json:"eos"`              // EOS (end of stream) indicator
+	EOS             types.EOS             `json:"eos"`              // EOS (end of stream) indicator
 	Status          types.StatusCode      `json:"status"`           // Event status code (commander.Status*)
 	Origin          types.Topic           `json:"origin"`           // Event topic origin
 	Parent          types.ParentID        `json:"parent"`           // Event command parent id
@@ -96,6 +96,10 @@ func (event *Event) Message(topic Topic) *Message {
 		Timestamp: time.Now(),
 		Ctx:       event.Ctx,
 	}
+
+	message.Ctx = metadata.NewParentIDContext(message.Ctx, event.Parent)
+	message.Ctx = metadata.NewParentTimestampContext(message.Ctx, event.ParentTimestamp)
+	message.Ctx = metadata.NewStatusCodeContext(message.Ctx, event.Status)
 
 	return message
 }

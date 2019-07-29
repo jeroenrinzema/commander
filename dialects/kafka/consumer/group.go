@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/Shopify/sarama"
-	"github.com/jeroenrinzema/commander"
 )
 
 // NewGroupHandle initializes a new GroupHandle
@@ -53,7 +52,6 @@ func (handle *GroupHandle) Connect(brokers []string, topics []string, group stri
 
 	select {
 	case err := <-consumer.Errors():
-		commander.Logger.Println(err)
 		return err
 	case <-handle.ready:
 	}

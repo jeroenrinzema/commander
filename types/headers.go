@@ -1,9 +1,25 @@
 package types
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
-// Header is a mapping from metadata keys to values. Users should use the following two convenience functions New and Pairs to generate Header.
-type Header map[string][]string
+const (
+	// HeaderValueDevider represents the UTF-8 value that is used to devide values
+	HeaderValueDevider = ";"
+)
+
+// HeaderValue a slice of header values
+type HeaderValue []string
+
+// String returns the header values seperated by a ";"
+func (h HeaderValue) String() string {
+	return strings.Join(h, HeaderValueDevider)
+}
+
+// Header is a mapping from metadata keys to values.
+type Header map[string]HeaderValue
 
 // Retries representation of the ammount of attempted retries
 type Retries int32

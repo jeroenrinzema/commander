@@ -163,7 +163,15 @@ func TestAwaitEvent(t *testing.T) {
 		}
 	}()
 
-	_, next, err := group.AwaitEvent(timeout, parent, EventMessage)
+	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	defer closer()
+
+	_, next, err = group.AwaitEvent(messages, next, parent)
 	next(nil)
 
 	if err != nil {
@@ -189,7 +197,15 @@ func TestAwaitEventAction(t *testing.T) {
 		}
 	}()
 
-	_, next, err := group.AwaitEventWithAction(timeout, parent, EventMessage, action)
+	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	defer closer()
+
+	_, next, err = group.AwaitEventWithAction(messages, next, parent, action)
 	next(nil)
 
 	if err != nil {
@@ -211,7 +227,15 @@ func TestAwaitEventIgnoreParent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = group.AwaitEventWithAction(timeout, parent, EventMessage, "process")
+	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	defer closer()
+
+	_, _, err = group.AwaitEventWithAction(messages, next, parent, "process")
 	if err != ErrTimeout {
 		t.Error(err)
 	}

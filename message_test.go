@@ -1,42 +1,40 @@
 package commander
 
 import (
-	"strconv"
+	"context"
+
+	"github.com/jeroenrinzema/commander/metadata"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // NewMockCommandMessage initializes a new mock command message
-func NewMockCommandMessage(action string, key []byte, id string, value string, topic Topic) Message {
-	headers := map[string]string{
-		ActionHeader: action,
-		IDHeader:     id,
-	}
-
-	message := Message{
-		Headers: headers,
-		Key:     []byte(key),
-		Value:   []byte(value),
-		Topic:   topic,
+func NewMockCommandMessage(action string, key types.Key, id string, data []byte, topic Topic) *Message {
+	message := &Message{
+		ID:     id,
+		Action: action,
+		Key:    key,
+		Data:   data,
+		Topic:  topic,
+		Ctx:    context.Background(),
 	}
 
 	return message
 }
 
 // NewMockEventMessage initializes a new mock event message
-func NewMockEventMessage(action string, version int8, parent string, key []byte, id string, value string, topic Topic) Message {
-	headers := map[string]string{
-		ActionHeader:  action,
-		ParentHeader:  parent,
-		IDHeader:      id,
-		StatusHeader:  "200",
-		VersionHeader: strconv.Itoa(int(version)),
+func NewMockEventMessage(action string, version types.Version, parent types.ParentID, key types.Key, id string, data []byte, topic Topic) *Message {
+	message := &Message{
+		ID:      id,
+		Action:  action,
+		Version: version,
+		Key:     key,
+		Data:    data,
+		Topic:   topic,
+		Ctx:     context.Background(),
 	}
 
-	message := Message{
-		Headers: headers,
-		Key:     key,
-		Value:   []byte(value),
-		Topic:   topic,
-	}
+	message.Ctx = metadata.NewParentIDContext(message.Ctx, parent)
+	message.Ctx = metadata.NewStatusCodeContext(message.Ctx, types.StatusOK)
 
 	return message
 }

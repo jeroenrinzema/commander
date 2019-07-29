@@ -5,6 +5,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/dialects/kafka/metadata"
 )
 
 // NewClient constructs a new producer client
@@ -41,26 +42,12 @@ func (client *Client) Connect(brokers []string, config *sarama.Config) error {
 }
 
 // Publish publishes the given message
-func (client *Client) Publish(message *commander.Message) error {
+func (client *Client) Publish(produce *commander.Message) error {
 	client.production.Add(1)
 	defer client.production.Done()
 
-	headers := []sarama.RecordHeader{}
-	for key, value := range message.Headers {
-		headers = append(headers, sarama.RecordHeader{
-			Key:   []byte(key),
-			Value: []byte(value),
-		})
-	}
-
-	m := &sarama.ProducerMessage{
-		Topic:   message.Topic.Name,
-		Key:     sarama.ByteEncoder(message.Key),
-		Value:   sarama.ByteEncoder(message.Value),
-		Headers: headers,
-	}
-
-	client.producer.Input() <- m
+	message := metadata.MessageToMessage(produce)
+	client.producer.Input() <- message
 
 	select {
 	case err := <-client.producer.Errors():

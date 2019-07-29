@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	commander.Logger.SetOutput(os.Stdout)
+	os.Setenv("DEBUG", "true")
 
 	dialect := mock.NewDialect()
 	cart := commander.NewGroup(

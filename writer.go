@@ -88,12 +88,10 @@ func (writer *writer) NewErrorEvent(action string, status types.StatusCode, err 
 func (writer *writer) NewEvent(action string, version int8, key []byte, data []byte) Event {
 	var timestamp types.ParentTimestamp
 	var parent types.ParentID
-	var ctx context.Context
 
 	if writer.Command != nil {
 		timestamp = types.ParentTimestamp(writer.Command.Timestamp)
 		parent = types.ParentID(writer.Command.ID)
-		ctx = writer.Command.Ctx
 	}
 
 	if key == nil && writer.Command != nil {
@@ -102,7 +100,11 @@ func (writer *writer) NewEvent(action string, version int8, key []byte, data []b
 
 	event := NewEvent(action, types.Version(version), parent, types.Key(key), data)
 	event.ParentTimestamp = timestamp
-	event.Ctx = ctx
+	event.Ctx = context.Background()
+
+	if writer.Command != nil {
+		event.Ctx = writer.Command.Ctx
+	}
 
 	return event
 }

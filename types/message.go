@@ -44,6 +44,27 @@ const (
 	CommandMessage
 )
 
+// EOS end of stream
+type EOS bool
+
+// String returns a string representation of EOS
+func (eos *EOS) String() string {
+	if eos == nil || !*eos {
+		return "0"
+	}
+
+	return "1"
+}
+
+// Parse parses the given string value to a EOS type
+func (eos *EOS) Parse(value string) EOS {
+	if value == "" || value == "0" {
+		return false
+	}
+
+	return true
+}
+
 // Message a message
 type Message struct {
 	ID        string          `json:"id"`
@@ -52,7 +73,7 @@ type Message struct {
 	Version   Version         `json:"version"`
 	Data      []byte          `json:"data"`
 	Key       []byte          `json:"key"`
-	EOS       bool            `json:"eos"`
+	EOS       EOS             `json:"eos"`
 	Timestamp time.Time       `json:"timestamp"`
 	Ctx       context.Context `json:"-"`
 }

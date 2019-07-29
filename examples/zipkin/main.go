@@ -20,7 +20,7 @@ var (
 )
 
 func init() {
-	commander.Logger.SetOutput(os.Stdout)
+	os.Setenv("DEBUG", "true")
 
 	flag.StringVar(&ZipkinHost, "host", "http://127.0.0.1:9411/api/v2/spans", "Zipkin host")
 	flag.StringVar(&ServiceName, "name", "example", "Service name")

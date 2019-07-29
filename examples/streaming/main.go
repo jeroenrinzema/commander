@@ -1,11 +1,11 @@
 package main
 
 import (
-	"time"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	commander.Logger.SetOutput(os.Stdout)
+	os.Setenv("DEBUG", "true")
 
 	dialect := mock.NewDialect()
 	group := commander.NewGroup(
@@ -50,7 +50,7 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		key := uuid.Must(uuid.NewV4()).Bytes()
 		command := commander.NewCommand("stream", 1, key, nil)
-		
+
 		defer r.Body.Close()
 
 		// Open a single consumer receiving event messages
@@ -67,10 +67,8 @@ func main() {
 		// Consume and filter messages based on their event ID.
 		// The connection is closed when a timeout is reached of a EOS event is consumed.
 		for message := range messages {
-			event := commander.Event{}
-			event.Populate(message)
-			
-			if event.Parent != command.ID {
+			event := commander.NewEventFromMessage(message)
+			if string(event.Parent) != command.ID {
 				next(nil)
 				break
 			}

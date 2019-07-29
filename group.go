@@ -3,12 +3,14 @@ package commander
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/metadata"
 	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/types"
+	log "github.com/sirupsen/logrus"
 )
 
 // Custom error types
@@ -22,6 +24,19 @@ const (
 	DefaultAttempts = 5
 	// DefaultTimeout represents the default timeout when awaiting a "sync" command to complete
 	DefaultTimeout = 5 * time.Second
+)
+
+// EventType represents a middleware event type
+type EventType string
+
+// Globally available event types
+const (
+	AfterActionConsumption   = EventType("AfterActionConsumption")
+	BeforeActionConsumption  = EventType("BeforeActionConsumption")
+	BeforeMessageConsumption = EventType("BeforeMessageConsumption")
+	AfterMessageConsumed     = EventType("AfterMessageConsumed")
+	BeforePublish            = EventType("BeforePublish")
+	AfterPublish             = EventType("AfterPublish")
 )
 
 // NewGroup initializes a new commander group.
@@ -41,6 +56,11 @@ func NewGroup(t ...Topic) *Group {
 		Timeout: DefaultTimeout,
 		Retries: DefaultAttempts,
 		Topics:  topics,
+		logger:  log.New(),
+	}
+
+	if os.Getenv(DebugEnv) != "" {
+		group.logger.SetLevel(log.DebugLevel)
 	}
 
 	return group
@@ -55,6 +75,7 @@ type Group struct {
 	Timeout    time.Duration
 	Topics     map[types.TopicMode][]types.Topic
 	Retries    int
+	logger     *log.Logger
 }
 
 // Close represents a closing method
@@ -76,6 +97,8 @@ type Handler interface {
 // AsyncCommand creates a command message to the given group command topic
 // and does not await for the responding event. If no command key is set will the command id be used.
 func (group *Group) AsyncCommand(command Command) error {
+	group.logger.Debug("executing async command")
+
 	err := group.ProduceCommand(command)
 	if err != nil {
 		return err
@@ -88,22 +111,28 @@ func (group *Group) AsyncCommand(command Command) error {
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
 func (group *Group) SyncCommand(command Command) (event Event, next Next, err error) {
+	group.logger.Debug("executing sync command")
+
+	messages, next, closer, err := group.NewConsumerWithDeadline(group.Timeout, EventMessage)
+	if err != nil {
+		return event, next, err
+	}
+
+	defer closer()
+
 	err = group.AsyncCommand(command)
 	if err != nil {
 		return event, next, err
 	}
 
-	event, next, err = group.AwaitEOS(group.Timeout, command.ID, EventMessage)
+	event, next, err = group.AwaitEOS(messages, next, types.ParentID(command.ID))
 	return event, next, err
 }
 
 // AwaitEventWithAction awaits till the first event for the given parent id and action is consumed.
 // If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEventWithAction(timeout time.Duration, parent uuid.UUID, t types.MessageType, action string) (event Event, _ Next, err error) {
-	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, t)
-	if err != nil {
-		return event, next, err
-	}
+func (group *Group) AwaitEventWithAction(messages <-chan *types.Message, next Next, parent types.ParentID, action string) (event Event, _ Next, err error) {
+	group.logger.Debug("awaiting action")
 
 	if action == "" {
 		return event, next, ErrNoAction
@@ -115,20 +144,18 @@ func (group *Group) AwaitEventWithAction(timeout time.Duration, parent uuid.UUID
 			return event, next, ErrTimeout
 		}
 
-		if message.Headers[ActionHeader] != action {
+		if message.Action != action {
 			next(nil)
 			continue
 		}
 
-		event = Event{}
-		event.Populate(message)
-
-		if parent != uuid.Nil && event.Parent != parent {
+		id, has := metadata.ParentIDFromContext(message.Ctx)
+		if !has || parent != id {
 			next(nil)
 			continue
 		}
 
-		closer()
+		event = NewEventFromMessage(message)
 		break
 	}
 
@@ -137,11 +164,8 @@ func (group *Group) AwaitEventWithAction(timeout time.Duration, parent uuid.UUID
 
 // AwaitEvent awaits till the first event is consumed for the given parent id.
 // If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, t types.MessageType) (event Event, _ Next, err error) {
-	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, t)
-	if err != nil {
-		return event, next, err
-	}
+func (group *Group) AwaitEvent(messages <-chan *types.Message, next Next, parent types.ParentID) (event Event, _ Next, err error) {
+	group.logger.Debug("awaiting event")
 
 	for {
 		message := <-messages
@@ -149,15 +173,13 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, t types.
 			return event, next, ErrTimeout
 		}
 
-		event = Event{}
-		event.Populate(message)
-
-		if parent != uuid.Nil && event.Parent != parent {
+		id, has := metadata.ParentIDFromContext(message.Ctx)
+		if !has || parent != id {
 			next(nil)
 			continue
 		}
 
-		closer()
+		event = NewEventFromMessage(message)
 		break
 	}
 
@@ -166,11 +188,8 @@ func (group *Group) AwaitEvent(timeout time.Duration, parent uuid.UUID, t types.
 
 // AwaitEOS awaits till the final event stream message is emitted.
 // If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEOS(timeout time.Duration, parent uuid.UUID, t types.MessageType) (event Event, _ Next, err error) {
-	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, t)
-	if err != nil {
-		return event, next, err
-	}
+func (group *Group) AwaitEOS(messages <-chan *types.Message, next Next, parent types.ParentID) (event Event, _ Next, err error) {
+	group.logger.Debug("awaiting EOS")
 
 	for {
 		message := <-messages
@@ -178,20 +197,20 @@ func (group *Group) AwaitEOS(timeout time.Duration, parent uuid.UUID, t types.Me
 			return event, next, ErrTimeout
 		}
 
-		if message.Headers[EOSHeader] != "1" {
+		if !message.EOS {
 			next(nil)
 			continue
 		}
 
-		event = Event{}
-		event.Populate(message)
-
-		if parent != uuid.Nil && event.Parent != parent {
+		id, has := metadata.ParentIDFromContext(message.Ctx)
+		if !has || parent != id {
 			next(nil)
 			continue
 		}
 
-		closer()
+		group.logger.Debug("EOS message reached")
+		event = NewEventFromMessage(message)
+
 		break
 	}
 
@@ -216,10 +235,8 @@ func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) []types.
 // ProduceCommand constructs and produces a command message to the set command topic.
 // A error is returned if anything went wrong in the process. If no command key is set will the command id be used.
 func (group *Group) ProduceCommand(command Command) error {
-	Logger.Println("Producing command")
-
 	if command.Key == nil {
-		command.Key = command.ID.Bytes()
+		command.Key = types.Key([]byte(command.ID))
 	}
 
 	topics := group.FetchTopics(CommandMessage, ProduceMode)
@@ -254,10 +271,8 @@ func (group *Group) ProduceCommand(command Command) error {
 // ProduceEvent produces a event kafka message to the set event topic.
 // A error is returned if anything went wrong in the process.
 func (group *Group) ProduceEvent(event Event) error {
-	Logger.Println("Producing event")
-
 	if event.Key == nil {
-		event.Key = event.ID.Bytes()
+		event.Key = types.Key([]byte(event.ID))
 	}
 
 	topics := group.FetchTopics(EventMessage, ProduceMode)
@@ -292,15 +307,8 @@ func (group *Group) ProduceEvent(event Event) error {
 // Publish publishes the given message to the group producer.
 // All middleware subscriptions are called before publishing the message.
 func (group *Group) Publish(message *Message) error {
-	group.Middleware.Emit(middleware.BeforePublish, &middleware.Event{
-		Value: message,
-		Ctx:   message.Ctx,
-	})
-
-	defer group.Middleware.Emit(middleware.AfterPublish, &middleware.Event{
-		Value: message,
-		Ctx:   message.Ctx,
-	})
+	group.Middleware.Emit(message.Ctx, BeforePublish, message)
+	defer group.Middleware.Emit(message.Ctx, AfterPublish, message)
 
 	err := message.Topic.Dialect.Producer().Publish(message)
 	if err != nil {
@@ -315,6 +323,8 @@ func (group *Group) Publish(message *Message) error {
 // All middleware subscriptions are called before consuming the message.
 // Once a message is consumed should the next function be called to mark a message successfully consumed.
 func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, Next, Close, error) {
+	group.logger.Debugf("new message consumer %d", sort)
+
 	topics := group.FetchTopics(sort, ConsumeMode)
 	if len(topics) == 0 {
 		return make(<-chan *Message, 0), func(error) {}, func() {}, ErrNoTopic
@@ -341,20 +351,14 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 				return
 			}
 
-			mutex.Lock()
+			group.logger.Debug("message consumer consumed message")
 
-			group.Middleware.Emit(middleware.BeforeMessageConsumption, &middleware.Event{
-				Value: message,
-				Ctx:   message.Ctx,
-			})
+			mutex.Lock()
+			group.Middleware.Emit(message.Ctx, BeforeMessageConsumption, message)
 
 			sink <- message
 
-			group.Middleware.Emit(middleware.AfterMessageConsumed, &middleware.Event{
-				Value: message,
-				Ctx:   message.Ctx,
-			})
-
+			group.Middleware.Emit(message.Ctx, AfterMessageConsumed, message)
 			mutex.Unlock()
 		}
 	}()
@@ -381,6 +385,8 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 // Once a message is consumed should the next function be called to mark a successfull consumption.
 // The consumer could be closed premature by calling the close method.
 func (group *Group) NewConsumerWithDeadline(timeout time.Duration, t types.MessageType) (<-chan *types.Message, Next, Close, error) {
+	group.logger.Debugf("new consumer with deadline: %s", timeout)
+
 	messages, next, closer, err := group.NewConsumer(t)
 	if err != nil {
 		return nil, nil, nil, err
@@ -411,36 +417,20 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 
 	go func() {
 		for message := range messages {
-			var value interface{}
-
-			a := string(message.Headers[ActionHeader])
-			if a != action {
+			if message.Action != action {
 				next(nil)
 				continue
 			}
 
-			Logger.Println("Processing action:", a)
+			group.Middleware.Emit(message.Ctx, BeforeActionConsumption, message)
 
-			group.Middleware.Emit(middleware.BeforeActionConsumption, &middleware.Event{
-				Value: message,
-				Ctx:   message.Ctx,
-			})
+			var value interface{}
 
 			switch sort {
 			case EventMessage:
-				event := Event{
-					Ctx: message.Ctx,
-				}
-				event.Populate(message)
-
-				value = event
+				value = NewEventFromMessage(message)
 			case CommandMessage:
-				command := Command{
-					Ctx: message.Ctx,
-				}
-				command.Populate(message)
-
-				value = command
+				value = NewCommandFromMessage(message)
 			}
 
 			writer := NewResponseWriter(group, value)
@@ -450,10 +440,7 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 			err := writer.ShouldRetry()
 			next(err)
 
-			group.Middleware.Emit(middleware.AfterActionConsumption, &middleware.Event{
-				Value: message,
-				Ctx:   message.Ctx,
-			})
+			group.Middleware.Emit(message.Ctx, AfterActionConsumption, message)
 		}
 	}()
 

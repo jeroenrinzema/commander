@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/metadata"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // TestNewResponseWriter tests if able to construct a new resoponse writer
@@ -66,7 +68,6 @@ func TestWriterProduceEvent(t *testing.T) {
 	action := "testing"
 	key, _ := uuid.NewV4()
 	version := int8(1)
-	data := []byte("{}")
 
 	command := NewMockCommand(action)
 	writer := NewResponseWriter(group, command)
@@ -79,7 +80,7 @@ func TestWriterProduceEvent(t *testing.T) {
 
 	defer closing()
 
-	if _, err := writer.ProduceEvent(action, version, key.Bytes(), data); err != nil {
+	if _, err := writer.ProduceEvent(action, version, key.Bytes(), nil); err != nil {
 		t.Error(err)
 		return
 	}
@@ -91,10 +92,8 @@ func TestWriterProduceEvent(t *testing.T) {
 
 	select {
 	case message := <-messages:
-		event := Event{}
-		event.Populate(message)
-
-		if event.Parent != command.ID {
+		parent, _ := metadata.ParentIDFromContext(message.Ctx)
+		if parent != types.ParentID(command.ID) {
 			t.Error("The event parent does not match the command id")
 		}
 

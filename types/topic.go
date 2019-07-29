@@ -42,3 +42,8 @@ type Topic struct {
 func (topic *Topic) HasMode(m TopicMode) bool {
 	return topic.Mode&(m) > 0
 }
+
+// String returns the topic name
+func (topic *Topic) String() string {
+	return topic.Name
+}

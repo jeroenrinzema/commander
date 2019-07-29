@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 // TestClosingConsumptions test if consumptions get closed properly.
@@ -12,7 +13,7 @@ import (
 func TestClosingConsumptions(t *testing.T) {
 	group, client := NewMockClient()
 	action := "testing"
-	version := int8(1)
+	version := types.Version(1)
 
 	consuming := make(chan struct{}, 0)
 	delivered := make(chan error, 1)
@@ -23,7 +24,7 @@ func TestClosingConsumptions(t *testing.T) {
 		delivered <- nil
 	})
 
-	parent := uuid.Must(uuid.NewV4())
+	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
 	event := NewEvent(action, version, parent, nil, nil)
 	err := group.ProduceEvent(event)
 	if err != nil {

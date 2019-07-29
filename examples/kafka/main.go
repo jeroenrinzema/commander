@@ -21,7 +21,8 @@ var (
 )
 
 func init() {
-	commander.Logger.SetOutput(os.Stdout)
+	os.Setenv("DEBUG", "true")
+
 	flag.StringVar(&Brokers, "brokers", "127.0.0.1:9092", "Kafka brokers separated by a ,")
 	flag.StringVar(&Version, "version", "2.1.1", "Kafka cluster version")
 	flag.StringVar(&Group, "group", "", "Optional kafka consumer group")
@@ -84,7 +85,7 @@ func main() {
 
 		command := commander.NewCommand("Available", 1, key.Bytes(), nil)
 		event, next, err := warehouse.SyncCommand(command)
-		
+
 		if err != nil {
 			w.WriteHeader(500)
 			w.Write([]byte(err.Error()))

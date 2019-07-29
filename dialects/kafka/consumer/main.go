@@ -1,15 +1,13 @@
 package consumer
 
 import (
-	"context"
 	"errors"
 	"sync"
 
 	"github.com/Shopify/sarama"
+	"github.com/jeroenrinzema/commander/dialects/kafka/metadata"
 	"github.com/jeroenrinzema/commander/types"
 )
-
-type nothing struct{}
 
 // HandleType represents the type of consumer that is adviced to use for the given connectionstring
 type HandleType int8
@@ -153,42 +151,27 @@ func (client *Client) Unsubscribe(sub <-chan *types.Message) error {
 // Claim consumes and emit's the given Kafka message to the subscribed
 // subscriptions. All subscriptions are awaited untill done. An error
 // is returned if one of the subscriptions failed to process the message.
-func (client *Client) Claim(message *sarama.ConsumerMessage) error {
-	var err error
-	topic := message.Topic
+func (client *Client) Claim(consumed *sarama.ConsumerMessage) (err error) {
+	topic := consumed.Topic
 
-	if client.topics[topic] != nil {
-		headers := map[string]string{}
-		for _, record := range message.Headers {
-			headers[string(record.Key)] = string(record.Value)
-		}
-
-		message := &types.Message{
-			Headers: headers,
-			Topic: types.Topic{
-				Name: message.Topic,
-			},
-			Offset:    int(message.Offset),
-			Partition: int(message.Partition),
-			Value:     message.Value,
-			Key:       message.Key,
-			Timestamp: message.Timestamp,
-			Ctx:       context.Background(),
-		}
-
-		client.topics[topic].mutex.RLock()
-		for _, subscription := range client.topics[topic].subscriptions {
-			select {
-			case subscription.messages <- message:
-				err = <-subscription.marked
-				if err != nil {
-					break
-				}
-			default:
-			}
-		}
-		client.topics[topic].mutex.RUnlock()
+	if client.topics[topic] == nil {
+		return nil
 	}
+
+	message := metadata.MessageFromMessage(consumed)
+
+	client.topics[topic].mutex.RLock()
+	for _, subscription := range client.topics[topic].subscriptions {
+		select {
+		case subscription.messages <- message:
+			err = <-subscription.marked
+			if err != nil {
+				break
+			}
+		default:
+		}
+	}
+	client.topics[topic].mutex.RUnlock()
 
 	return err
 }

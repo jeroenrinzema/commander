@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander/dialects/mock"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 type actionHandle struct {
@@ -45,9 +46,10 @@ func TestProduceEvent(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
-	key, _ := uuid.NewV4()
-	parent, _ := uuid.NewV4()
-	event := NewEvent("tested", 1, parent, key.Bytes(), []byte("{}"))
+	key := types.Key(uuid.Must(uuid.NewV4()).String())
+	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
+
+	event := NewEvent("tested", 1, parent, key, nil)
 
 	group.ProduceEvent(event)
 }
@@ -59,9 +61,10 @@ func TestProduceEventNoTopics(t *testing.T) {
 	client, _ := NewClient(group)
 	defer client.Close()
 
-	key, _ := uuid.NewV4()
-	parent, _ := uuid.NewV4()
-	event := NewEvent("tested", 1, parent, key.Bytes(), []byte("{}"))
+	key := types.Key(uuid.Must(uuid.NewV4()).String())
+	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
+
+	event := NewEvent("tested", 1, parent, key, nil)
 
 	err := group.ProduceEvent(event)
 	if err != ErrNoTopic {
@@ -106,7 +109,7 @@ func TestSyncCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if event.Parent != command.ID {
+	if event.Parent != types.ParentID(command.ID) {
 		t.Fatal("command id and parent do not match")
 	}
 }
@@ -136,7 +139,7 @@ func BenchmarkSyncCommand(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if event.Parent != command.ID {
+		if event.Parent != types.ParentID(command.ID) {
 			b.Fatal("command id and parent do not match")
 		}
 
@@ -150,7 +153,7 @@ func TestAwaitEvent(t *testing.T) {
 	defer client.Close()
 
 	timeout := 100 * time.Millisecond
-	parent, _ := uuid.NewV4()
+	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
 
 	go func() {
 		event := NewEvent("tested", 1, parent, nil, nil)
@@ -160,7 +163,15 @@ func TestAwaitEvent(t *testing.T) {
 		}
 	}()
 
-	_, next, err := group.AwaitEvent(timeout, parent, EventMessage)
+	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	defer closer()
+
+	_, next, err = group.AwaitEvent(messages, next, parent)
 	next(nil)
 
 	if err != nil {
@@ -176,7 +187,7 @@ func TestAwaitEventAction(t *testing.T) {
 
 	action := "process"
 	timeout := 100 * time.Millisecond
-	parent, _ := uuid.NewV4()
+	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
 
 	go func() {
 		event := NewEvent(action, 1, parent, nil, nil)
@@ -186,7 +197,15 @@ func TestAwaitEventAction(t *testing.T) {
 		}
 	}()
 
-	_, next, err := group.AwaitEventWithAction(timeout, parent, EventMessage, action)
+	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	defer closer()
+
+	_, next, err = group.AwaitEventWithAction(messages, next, parent, action)
 	next(nil)
 
 	if err != nil {
@@ -200,7 +219,7 @@ func TestAwaitEventIgnoreParent(t *testing.T) {
 	defer client.Close()
 
 	timeout := 100 * time.Millisecond
-	parent, _ := uuid.NewV4()
+	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
 
 	event := NewEvent("ignore", 1, parent, nil, nil)
 	err := group.ProduceEvent(event)
@@ -208,7 +227,15 @@ func TestAwaitEventIgnoreParent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = group.AwaitEventWithAction(timeout, parent, EventMessage, "process")
+	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	defer closer()
+
+	_, _, err = group.AwaitEventWithAction(messages, next, parent, "process")
 	if err != ErrTimeout {
 		t.Error(err)
 	}
@@ -226,10 +253,10 @@ func TestEventConsumer(t *testing.T) {
 
 	defer close()
 
-	parent, _ := uuid.NewV4()
-	key, _ := uuid.NewV4()
+	key := types.Key(uuid.Must(uuid.NewV4()).String())
+	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
 
-	event := NewEvent("tested", 1, parent, key.Bytes(), []byte("{}"))
+	event := NewEvent("tested", 1, parent, key, nil)
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -294,10 +321,10 @@ func TestEventHandleFunc(t *testing.T) {
 		delivered <- event
 	})
 
-	parent, _ := uuid.NewV4()
-	key, _ := uuid.NewV4()
+	key := types.Key(uuid.Must(uuid.NewV4()).String())
+	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
 
-	event := NewEvent(action, 1, parent, key.Bytes(), []byte("{}"))
+	event := NewEvent(action, 1, parent, key, nil)
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -323,10 +350,10 @@ func TestEventHandle(t *testing.T) {
 	handle := &actionHandle{delivered}
 	group.Handle(EventMessage, action, handle)
 
-	parent, _ := uuid.NewV4()
-	key, _ := uuid.NewV4()
+	key := types.Key(uuid.Must(uuid.NewV4()).String())
+	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
 
-	event := NewEvent(action, 1, parent, key.Bytes(), []byte("{}"))
+	event := NewEvent(action, 1, parent, key, nil)
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -352,10 +379,10 @@ func TestActionEventHandle(t *testing.T) {
 	group.Handle(EventMessage, "create", &actionHandle{delivered})
 	group.Handle(EventMessage, "delete", &actionHandle{failure})
 
-	parent, _ := uuid.NewV4()
-	key, _ := uuid.NewV4()
+	key := types.Key(uuid.Must(uuid.NewV4()).String())
+	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
 
-	event := NewEvent("create", 1, parent, key.Bytes(), []byte("{}"))
+	event := NewEvent("create", 1, parent, key, nil)
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -425,7 +452,7 @@ func TestCommandTimestampPassed(t *testing.T) {
 		event := message.(Event)
 		delivered <- message
 
-		if event.CommandTimestamp.Unix() != timestamp.Unix() {
+		if time.Time(event.ParentTimestamp).Unix() != timestamp.Unix() {
 			t.Fatal("the event timestamp does not match the command timestamp")
 		}
 	})

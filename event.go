@@ -2,44 +2,39 @@ package commander
 
 import (
 	"context"
-	"errors"
-	"strconv"
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/metadata"
+	"github.com/jeroenrinzema/commander/types"
 )
-
-// StatusCode represents an message status code.
-// The status codes are base on the HTTP status code specifications.
-type StatusCode int16
 
 // Status codes that represents the status of a event
 const (
-	StatusOK                  StatusCode = 200
-	StatusBadRequest          StatusCode = 400
-	StatusUnauthorized        StatusCode = 401
-	StatusForbidden           StatusCode = 403
-	StatusNotFound            StatusCode = 404
-	StatusConflict            StatusCode = 409
-	StatusImATeapot           StatusCode = 418
-	StatusInternalServerError StatusCode = 500
+	StatusOK                  = types.StatusOK
+	StatusBadRequest          = types.StatusBadRequest
+	StatusUnauthorized        = types.StatusUnauthorized
+	StatusForbidden           = types.StatusForbidden
+	StatusNotFound            = types.StatusNotFound
+	StatusConflict            = types.StatusConflict
+	StatusImATeapot           = types.StatusImATeapot
+	StatusInternalServerError = types.StatusInternalServerError
 )
 
 // NewEvent constructs a new event
-func NewEvent(action string, version int8, parent uuid.UUID, key []byte, data []byte) Event {
-	id := uuid.Must(uuid.NewV4())
+func NewEvent(action string, version types.Version, parent types.ParentID, key types.Key, data []byte) Event {
+	id := uuid.Must(uuid.NewV4()).String()
 	if key == nil {
-		key = id.Bytes()
+		key = types.Key([]byte(id))
 	}
 
 	event := Event{
-		Parent:  parent,
 		ID:      id,
-		Headers: make(map[string]string),
+		Parent:  parent,
 		Action:  action,
 		Data:    data,
 		Key:     key,
-		Status:  StatusOK,
+		Status:  types.StatusOK,
 		Version: version,
 		Ctx:     context.Background(),
 	}
@@ -47,154 +42,64 @@ func NewEvent(action string, version int8, parent uuid.UUID, key []byte, data []
 	return event
 }
 
+// NewEventFromMessage constructs a new Event and fill the event with the data from the given message.
+func NewEventFromMessage(message *Message) Event {
+	event := Event{}
+
+	parent, _ := metadata.ParentIDFromContext(message.Ctx)
+	parentTimestamp, _ := metadata.ParentTimestampFromContext(message.Ctx)
+	status, _ := metadata.StatusCodeFromContext(message.Ctx)
+
+	event.ID = message.ID
+	event.Action = message.Action
+	event.Data = message.Data
+	event.Key = message.Key
+	event.Version = message.Version
+	event.EOS = message.EOS
+	event.Status = status
+	event.Parent = parent
+	event.ParentTimestamp = parentTimestamp
+	event.Origin = message.Topic
+	event.Timestamp = message.Timestamp
+	event.Ctx = message.Ctx
+
+	return event
+}
+
 // Event contains the information of a consumed event.
 // A event is produced as the result of a command.
 type Event struct {
-	Parent           uuid.UUID         `json:"parent"`            // Event command parent id
-	Headers          map[string]string `json:"headers"`           // Additional event headers
-	ID               uuid.UUID         `json:"id"`                // Unique event id
-	Action           string            `json:"action"`            // Event representing action
-	Data             []byte            `json:"data"`              // Passed event data as bytes
-	Key              []byte            `json:"key"`               // Event partition key
-	Status           StatusCode        `json:"status"`            // Event status code (commander.Status*)
-	Version          int8              `json:"version"`           // Event data schema version
-	Origin           Topic             `json:"-"`                 // Event topic origin
-	Offset           int               `json:"-"`                 // Event message offset
-	Partition        int               `json:"-"`                 // Event message partition
-	EOS              bool              `json:"eos"`               // EOS (end of stream) indicator
-	Meta             string            `json:"meta"`              // Additional event meta message
-	CommandTimestamp time.Time         `json:"command_timestamp"` // Timestamp of parent command append
-	Timestamp        time.Time         `json:"timestamp"`         // Timestamp of event append
-	Ctx              context.Context   `json:"-"`
-}
-
-// Populate the event with the data from the given message.
-// If a error occures during the parsing of the message is the error silently thrown and returned.
-// When a error is thrown is will also a log be logged if an output writer is given to the commander logger.
-func (event *Event) Populate(message *Message) error {
-	Logger.Println("Populating a event from a message")
-
-	event.Headers = make(map[string]string)
-	var throw error
-
-headers:
-	for key, value := range message.Headers {
-		str := string(value)
-
-		switch key {
-		case ActionHeader:
-			event.Action = str
-			continue headers
-		case ParentHeader:
-			parent, err := uuid.FromString(str)
-
-			if err != nil {
-				throw = err
-				continue
-			}
-
-			event.Parent = parent
-			continue headers
-		case IDHeader:
-			id, err := uuid.FromString(str)
-
-			if err != nil {
-				throw = err
-				continue
-			}
-
-			event.ID = id
-			continue headers
-		case StatusHeader:
-			status, err := strconv.ParseInt(str, 10, 16)
-
-			if err != nil {
-				throw = err
-				continue
-			}
-
-			event.Status = StatusCode(int16(status))
-			continue headers
-		case VersionHeader:
-			version, err := strconv.ParseInt(str, 10, 8)
-			if err != nil {
-				throw = err
-				continue
-			}
-
-			event.Version = int8(version)
-			continue headers
-		case MetaHeader:
-			event.Meta = str
-			continue headers
-		case CommandTimestampHeader:
-			unix, err := strconv.ParseInt(str, 10, 64)
-			if err != nil {
-				throw = err
-				continue
-			}
-
-			time := time.Unix(0, unix)
-			event.CommandTimestamp = time
-			continue headers
-		case EOSHeader:
-			if value == "1" {
-				event.EOS = true
-			}
-			continue headers
-		}
-
-		event.Headers[key] = str
-	}
-
-	if len(event.Action) == 0 {
-		throw = errors.New("No event action is set")
-	}
-
-	event.Key = message.Key
-	event.Data = message.Value
-	event.Origin = message.Topic
-	event.Offset = message.Offset
-	event.Partition = message.Partition
-	event.Timestamp = message.Timestamp
-
-	if throw != nil {
-		Logger.Println("A error was thrown when populating the command message:", throw)
-	}
-
-	return throw
+	ID              string                `json:"id"`               // Unique event id
+	Action          string                `json:"action"`           // Event representing action
+	Data            []byte                `json:"data"`             // Passed event data as bytes
+	Key             types.Key             `json:"key"`              // Event partition key
+	Version         types.Version         `json:"version"`          // Event data schema version
+	EOS             types.EOS             `json:"eos"`              // EOS (end of stream) indicator
+	Status          types.StatusCode      `json:"status"`           // Event status code (commander.Status*)
+	Origin          types.Topic           `json:"origin"`           // Event topic origin
+	Parent          types.ParentID        `json:"parent"`           // Event command parent id
+	ParentTimestamp types.ParentTimestamp `json:"parent_timestamp"` // Timestamp of parent command append
+	Timestamp       time.Time             `json:"timestamp"`        // Timestamp of event append
+	Ctx             context.Context       `json:"-"`
 }
 
 // Message constructs a new commander message for the given event
 func (event *Event) Message(topic Topic) *Message {
-	headers := make(map[string]string)
-	for key, value := range event.Headers {
-		headers[key] = value
-	}
-
-	eos := "0"
-	if event.EOS {
-		eos = "1"
-	}
-
-	headers[ActionHeader] = event.Action
-	headers[ParentHeader] = event.Parent.String()
-	headers[IDHeader] = event.ID.String()
-	headers[StatusHeader] = strconv.Itoa(int(event.Status))
-	headers[VersionHeader] = strconv.Itoa(int(event.Version))
-	headers[MetaHeader] = event.Meta
-	headers[CommandTimestampHeader] = strconv.Itoa(int(event.CommandTimestamp.UnixNano()))
-	headers[EOSHeader] = eos
-
 	message := &Message{
-		Headers:   headers,
+		ID:        event.ID,
+		Action:    event.Action,
+		Data:      event.Data,
 		Key:       event.Key,
-		Value:     event.Data,
+		Version:   event.Version,
+		EOS:       event.EOS,
 		Topic:     topic,
-		Offset:    event.Offset,
-		Partition: event.Partition,
+		Timestamp: time.Now(),
 		Ctx:       event.Ctx,
 	}
+
+	message.Ctx = metadata.NewParentIDContext(message.Ctx, event.Parent)
+	message.Ctx = metadata.NewParentTimestampContext(message.Ctx, event.ParentTimestamp)
+	message.Ctx = metadata.NewStatusCodeContext(message.Ctx, event.Status)
 
 	return message
 }

@@ -11,24 +11,8 @@ const (
 	CommandMessage = types.CommandMessage
 )
 
-const (
-	// ParentHeader kafka message parent header
-	ParentHeader = types.ParentHeader
-	// ActionHeader kafka message action header
-	ActionHeader = types.ActionHeader
-	// IDHeader kafka message id header
-	IDHeader = types.IDHeader
-	// StatusHeader kafka message status header
-	StatusHeader = types.StatusHeader
-	// VersionHeader kafka message version header
-	VersionHeader = types.VersionHeader
-	// MetaHeader kafka message meta header
-	MetaHeader = types.MetaHeader
-	// CommandTimestampHeader kafka message command timestamp header as UNIX
-	CommandTimestampHeader = types.CommandTimestampHeader
-	// EOSHeader kafka message EOS (end of stream) indicator
-	EOSHeader = types.EOSHeader
-)
+// Dialect extention of the Dialect type
+type Dialect = types.Dialect
 
 // Message a message
 type Message = types.Message

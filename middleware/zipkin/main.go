@@ -57,13 +57,12 @@ type Zipkin struct {
 	Config   Config
 }
 
-// Controller is a middleware controller that set's up the needed middleware
-// event subscriptions.
-func (service *Zipkin) Controller(subscribe middleware.Subscribe) {
-	subscribe(commander.BeforeActionConsumption, service.BeforeConsume)
-	subscribe(commander.AfterActionConsumption, service.AfterConsume)
-	subscribe(commander.BeforePublish, service.BeforePublish)
-	subscribe(commander.AfterPublish, service.AfterPublish)
+// Use let the current instance use the given middleware client
+func (service *Zipkin) Use(client *middleware.Client) {
+	client.Subscribe(commander.BeforeActionConsumption, service.BeforeConsume)
+	client.Subscribe(commander.AfterActionConsumption, service.AfterConsume)
+	client.Subscribe(commander.BeforePublish, service.BeforePublish)
+	client.Subscribe(commander.AfterPublish, service.AfterPublish)
 }
 
 // Close closes the Zipkin reporter

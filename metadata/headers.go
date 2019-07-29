@@ -16,7 +16,11 @@ func NewHeaderContext(ctx context.Context, header types.Header) context.Context 
 // AppendToHeaderContext returns a new context with the provided Header merged
 // with any existing metadata in the context.
 func AppendToHeaderContext(ctx context.Context, kv types.Header) context.Context {
-	header, _ := ctx.Value(CtxHeader).(types.Header)
+	header, has := ctx.Value(CtxHeader).(types.Header)
+	if !has {
+		header = types.Header{}
+	}
+
 	for key, value := range kv {
 		header[key] = value
 	}

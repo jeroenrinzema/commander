@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/jeroenrinzema/commander/middleware/zipkin/metadata"
+
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/dialects/mock"
@@ -66,9 +68,9 @@ func main() {
 		key := uuid.Must(uuid.NewV4()).Bytes()
 
 		command := commander.NewCommand("example", 1, key, nil)
-		command.Headers = zipkin.ConstructMessageHeaders(span.Context())
-		event, next, err := group.SyncCommand(command)
+		command.Ctx = metadata.NewSpanConsumeContext(command.Ctx, span)
 
+		event, next, err := group.SyncCommand(command)
 		if err != nil {
 			w.WriteHeader(500)
 			w.Write([]byte(err.Error()))
@@ -76,6 +78,13 @@ func main() {
 		}
 
 		next(nil)
+
+		span, has := metadata.SpanConsumeFromContext(event.Ctx)
+		if has {
+			ctx := span.Context()
+			w.Header().Set("X-Tracing", ctx.TraceID.String())
+			w.Header().Set("X-Span-Id", ctx.ID.String())
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(event)

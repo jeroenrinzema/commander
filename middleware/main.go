@@ -5,6 +5,11 @@ import (
 	"sync"
 )
 
+// Controller middleware controller
+type Controller interface {
+	Use(*Client)
+}
+
 // Handle represents a middleware handle
 type Handle func(ctx context.Context, message interface{})
 
@@ -66,7 +71,7 @@ func (client *Client) Subscribe(event interface{}, handle Handle) {
 	client.events[event].subscriptions = append(client.events[event].subscriptions, handle)
 }
 
-// // Use calles the given middleware controller to initialize the middleware
-// func (client *Client) Use() {
-// 	service.Controller(client.Subscribe)
-// }
+// Use calles the given middleware controller to initialize the middleware
+func (client *Client) Use(controller Controller) {
+	controller.Use(client)
+}

@@ -1,17 +1,10 @@
 package kafka
 
 import (
-	"errors"
-
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander/dialects/kafka/consumer"
 	"github.com/jeroenrinzema/commander/dialects/kafka/producer"
 	"github.com/jeroenrinzema/commander/types"
-)
-
-// Error types
-var (
-	ErrNotOpened = errors.New("error Kafka dialect not opened")
 )
 
 // Dialect represents the kafka dialect
@@ -40,6 +33,8 @@ func NewDialect(connectionstring string) (*Dialect, error) {
 	dialect := &Dialect{
 		Connection: connection,
 		Config:     sarama.NewConfig(),
+		consumer:   consumer.NewClient(connection.Brokers, connection.Group),
+		producer:   producer.NewClient(),
 	}
 
 	dialect.Config.Version = connection.Version
@@ -50,19 +45,11 @@ func NewDialect(connectionstring string) (*Dialect, error) {
 
 // Consumer returns the dialect as consumer
 func (dialect *Dialect) Consumer() types.Consumer {
-	if dialect.consumer == nil {
-		panic(ErrNotOpened)
-	}
-
 	return dialect.consumer
 }
 
 // Producer returns the dialect as producer
 func (dialect *Dialect) Producer() types.Producer {
-	if dialect.producer == nil {
-		panic(ErrNotOpened)
-	}
-
 	return dialect.producer
 }
 
@@ -72,19 +59,16 @@ func (dialect *Dialect) Assigned(topic types.Topic) {
 }
 
 // Open opens a kafka consumer and producer
-func (dialect *Dialect) Open() error {
-	consumer, err := consumer.NewClient(dialect.Connection.Brokers, dialect.Connection.Group, dialect.Connection.InitialOffset, dialect.Config, dialect.Topics...)
+func (dialect *Dialect) Open() (err error) {
+	err = dialect.consumer.Connect(dialect.Connection.InitialOffset, dialect.Config, dialect.Topics...)
 	if err != nil {
 		return err
 	}
 
-	producer, err := producer.NewClient(dialect.Connection.Brokers, dialect.Config)
+	err = dialect.producer.Connect(dialect.Connection.Brokers, dialect.Config)
 	if err != nil {
 		return err
 	}
-
-	dialect.consumer = consumer
-	dialect.producer = producer
 
 	return nil
 }

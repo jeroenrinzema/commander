@@ -9,14 +9,9 @@ import (
 )
 
 // NewClient constructs a new producer client
-func NewClient(brokers []string, config *sarama.Config) (*Client, error) {
+func NewClient() *Client {
 	client := &Client{}
-	err := client.Connect(brokers, config)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
+	return client
 }
 
 // Client produces kafka messages

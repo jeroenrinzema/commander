@@ -1,7 +1,6 @@
 package consumer
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/Shopify/sarama"
@@ -19,55 +18,14 @@ const (
 )
 
 // NewClient initializes a new consumer client and a Kafka consumer
-func NewClient(brokers []string, group string, initialOffset int64, config *sarama.Config, ts ...types.Topic) (*Client, error) {
-	topics := []string{}
-	for _, topic := range ts {
-		topics = append(topics, topic.Name)
-	}
-
+func NewClient(brokers []string, group string) *Client {
 	client := &Client{
 		brokers: brokers,
 		topics:  make(map[string]*Topic),
+		group:   group,
 	}
 
-	if len(topics) == 0 {
-		return client, nil
-	}
-
-	handle := MatchHandleType(brokers, group, config)
-	switch handle {
-	case GroupConsumerHandle:
-		handle := NewGroupHandle(client)
-		err := handle.Connect(brokers, topics, group, config)
-		if err != nil {
-			return nil, err
-		}
-
-		client.handle = handle
-	case PartitionConsumerHandle:
-		handle := NewPartitionHandle(client)
-		err := handle.Connect(brokers, topics, initialOffset, config)
-		if err != nil {
-			return nil, err
-		}
-
-		client.handle = handle
-	}
-
-	if client.handle == nil {
-		return nil, errors.New("No consumer handle has been set up")
-	}
-
-	return client, nil
-}
-
-// MatchHandleType creates an advice of which handle type should be used for consumption
-func MatchHandleType(brokers []string, group string, config *sarama.Config) HandleType {
-	if group != "" {
-		return GroupConsumerHandle
-	}
-
-	return PartitionConsumerHandle
+	return client
 }
 
 // Handle represents a Kafka consumer handle
@@ -105,6 +63,35 @@ type Client struct {
 	brokers []string
 	topics  map[string]*Topic
 	ready   chan bool
+	group   string
+}
+
+// Connect opens a new Kafka consumer
+func (client *Client) Connect(initialOffset int64, config *sarama.Config, ts ...types.Topic) error {
+	topics := []string{}
+	for _, topic := range ts {
+		topics = append(topics, topic.Name)
+	}
+
+	if client.group != "" {
+		handle := NewGroupHandle(client)
+		err := handle.Connect(client.brokers, topics, client.group, config)
+		if err != nil {
+			return err
+		}
+
+		client.handle = handle
+		return nil
+	}
+
+	handle := NewPartitionHandle(client)
+	err := handle.Connect(client.brokers, topics, initialOffset, config)
+	if err != nil {
+		return err
+	}
+
+	client.handle = handle
+	return nil
 }
 
 // Subscribe subscribes to the given topics and returs a message channel

@@ -50,7 +50,7 @@ type Command struct {
 	Data      []byte          `json:"data"`      // Passed command data as bytes
 	Version   types.Version   `json:"version"`   // Command data schema version
 	Origin    types.Topic     `json:"-"`         // Command topic origin
-	EOS       bool            `json:"eos"`       // EOS (end of stream) indicator
+	EOS       types.EOS       `json:"eos"`       // EOS (end of stream) indicator
 	Timestamp time.Time       `json:"timestamp"` // Timestamp of command append
 	Ctx       context.Context `json:"-"`
 }
@@ -100,6 +100,7 @@ func (command *Command) Message(topic Topic) *Message {
 		Version:   command.Version,
 		Topic:     topic,
 		Timestamp: time.Now(),
+		EOS:       command.EOS,
 		Ctx:       command.Ctx,
 	}
 

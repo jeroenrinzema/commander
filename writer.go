@@ -28,35 +28,43 @@ var (
 // ResponseWriter writes events or commands back to the assigned group.
 type ResponseWriter interface {
 	// ProduceEvent creates and produces a new event to the assigned group.
-	// The produced event is one of many events in the event stream.
+	// The produced event is marked as EOS (end of stream).
 	ProduceEvent(action string, version int8, key []byte, data []byte) (Event, error)
 
-	// ProduceEvent creates and produces a new event to the assigned group.
+	// ProduceEventStream creates and produces a new event to the assigned group.
 	// The produced event is one of many events in the event stream.
-	// The produced event is marked as EOS (end of stream).
+	ProduceEventStream(action string, version int8, key []byte, data []byte) (Event, error)
+
+	// ProduceEventEOS alias of ProduceEvent
 	ProduceEventEOS(action string, version int8, key []byte, data []byte) (Event, error)
 
 	// ProduceError produces a new error event to the assigned group.
-	// The produced error is one of many events in the event stream.
-	// The produced event is marked as EOS (end of stream).
+	// The produced error event is marked as EOS (end of stream).
 	ProduceError(action string, status types.StatusCode, err error) (Event, error)
 
-	// ProduceError produces a new error event to the assigned group.
+	// ProduceErrorStream produces a new error event to the assigned group.
 	// The produced error is one of many events in the event stream.
+	ProduceErrorStream(action string, status types.StatusCode, err error) (Event, error)
+
+	// ProduceErrorEOS alias of ProduceError
 	ProduceErrorEOS(action string, status types.StatusCode, err error) (Event, error)
 
 	// ProduceCommand produces a new command to the assigned group.
-	// The produced comamnd is one of many commands in the command stream.
-	// The produced event is marked as EOS (end of stream).
+	// The produced error event is marked as EOS (end of stream).
 	ProduceCommand(action string, version int8, key []byte, data []byte) (Command, error)
 
-	// ProduceCommand produces a new command to the assigned group.
+	// ProduceCommandStream produces a new command to the assigned group.
 	// The produced comamnd is one of many commands in the command stream.
+	ProduceCommandStream(action string, version int8, key []byte, data []byte) (Command, error)
+
+	// ProduceCommandEOS alias of ProduceCommand
 	ProduceCommandEOS(action string, version int8, key []byte, data []byte) (Command, error)
 
 	// Retry marks the message to be retried. An error could be given to be passed to the dialect
 	Retry(err error)
+}
 
+type retry interface {
 	// ShouldRetry returns if the writer has marked the message to be retried
 	ShouldRetry() error
 }
@@ -110,10 +118,7 @@ func (writer *writer) NewEvent(action string, version int8, key []byte, data []b
 }
 
 func (writer *writer) ProduceError(action string, status types.StatusCode, err error) (Event, error) {
-	event := writer.NewErrorEvent(action, status, err)
-
-	err = writer.Group.ProduceEvent(event)
-	return event, err
+	return writer.ProduceErrorEOS(action, status, err)
 }
 
 func (writer *writer) ProduceErrorEOS(action string, status types.StatusCode, err error) (Event, error) {
@@ -124,11 +129,15 @@ func (writer *writer) ProduceErrorEOS(action string, status types.StatusCode, er
 	return event, err
 }
 
-func (writer *writer) ProduceEvent(action string, version int8, key []byte, data []byte) (Event, error) {
-	event := writer.NewEvent(action, version, key, data)
+func (writer *writer) ProduceErrorStream(action string, status types.StatusCode, err error) (Event, error) {
+	event := writer.NewErrorEvent(action, status, err)
 
-	err := writer.Group.ProduceEvent(event)
+	err = writer.Group.ProduceEvent(event)
 	return event, err
+}
+
+func (writer *writer) ProduceEvent(action string, version int8, key []byte, data []byte) (Event, error) {
+	return writer.ProduceEventEOS(action, version, key, data)
 }
 
 func (writer *writer) ProduceEventEOS(action string, version int8, key []byte, data []byte) (Event, error) {
@@ -139,16 +148,27 @@ func (writer *writer) ProduceEventEOS(action string, version int8, key []byte, d
 	return event, err
 }
 
-func (writer *writer) ProduceCommand(action string, version int8, key []byte, data []byte) (Command, error) {
-	command := NewCommand(action, types.Version(version), types.Key(key), data)
+func (writer *writer) ProduceEventStream(action string, version int8, key []byte, data []byte) (Event, error) {
+	event := writer.NewEvent(action, version, key, data)
 
-	err := writer.Group.ProduceCommand(command)
-	return command, err
+	err := writer.Group.ProduceEvent(event)
+	return event, err
+}
+
+func (writer *writer) ProduceCommand(action string, version int8, key []byte, data []byte) (Command, error) {
+	return writer.ProduceCommandEOS(action, version, key, data)
 }
 
 func (writer *writer) ProduceCommandEOS(action string, version int8, key []byte, data []byte) (Command, error) {
 	command := NewCommand(action, types.Version(version), types.Key(key), data)
 	command.EOS = true
+
+	err := writer.Group.ProduceCommand(command)
+	return command, err
+}
+
+func (writer *writer) ProduceCommandStream(action string, version int8, key []byte, data []byte) (Command, error) {
+	command := NewCommand(action, types.Version(version), types.Key(key), data)
 
 	err := writer.Group.ProduceCommand(command)
 	return command, err

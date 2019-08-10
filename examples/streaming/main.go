@@ -35,7 +35,7 @@ func main() {
 		}
 
 		for i := 0; i < 4; i++ {
-			writer.ProduceEvent("action", 1, key.Bytes(), nil)
+			writer.ProduceEventStream("action", 1, key.Bytes(), nil)
 			time.Sleep(100 * time.Millisecond)
 		}
 

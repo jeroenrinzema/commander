@@ -437,7 +437,8 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 			callback(writer, value)
 
 			// Check if the message is marked to be retried
-			err := writer.ShouldRetry()
+			res := writer.(retry)
+			err := res.ShouldRetry()
 			next(err)
 
 			group.Middleware.Emit(message.Ctx, AfterActionConsumption, message)

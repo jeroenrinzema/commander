@@ -16,7 +16,7 @@ func NewClient() *Client {
 
 // Client produces kafka messages
 type Client struct {
-	producer   sarama.AsyncProducer
+	producer   sarama.SyncProducer
 	brokers    []string
 	config     *sarama.Config
 	production sync.WaitGroup
@@ -24,7 +24,7 @@ type Client struct {
 
 // Connect initializes and opens a new Sarama producer group.
 func (client *Client) Connect(brokers []string, config *sarama.Config) error {
-	producer, err := sarama.NewAsyncProducer(brokers, config)
+	producer, err := sarama.NewSyncProducer(brokers, config)
 	if err != nil {
 		return err
 	}
@@ -42,16 +42,8 @@ func (client *Client) Publish(produce *commander.Message) error {
 	defer client.production.Done()
 
 	message := metadata.MessageToMessage(produce)
-	client.producer.Input() <- message
-
-	select {
-	case err := <-client.producer.Errors():
-		return err
-	case <-client.producer.Successes():
-		// Continue
-	}
-
-	return nil
+	_, _, err := client.producer.SendMessage(message)
+	return err
 }
 
 // Close closes the Kafka client producer

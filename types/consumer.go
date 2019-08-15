@@ -5,9 +5,8 @@ type Consumer interface {
 	// Subscribe creates a new topic subscription that will receive
 	// messages consumed by the consumer of the given topic. This method
 	// will return a message channel and a close function.
-	// Once a message is successfully processed could the next message be called by calling next.
-	// Pass a nil for a successful consume and a error if a error occurred during processing.
-	Subscribe(...Topic) (subscription <-chan *Message, next func(error), err error)
+	// Once a message is successfully processed should the next message be called.
+	Subscribe(...Topic) (subscription <-chan *Message, err error)
 
 	// Unsubscribe unsubscribes the given channel subscription from the given topic.
 	// A boolean is returned that represents if the channel successfully got unsubscribed.

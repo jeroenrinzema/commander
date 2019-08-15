@@ -1,10 +1,10 @@
 package commander
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander/types"
 )
 
@@ -13,32 +13,27 @@ import (
 func TestClosingConsumptions(t *testing.T) {
 	group, client := NewMockClient()
 	action := "testing"
-	version := types.Version(1)
 
-	consuming := make(chan struct{}, 0)
-	delivered := make(chan error, 1)
+	var delivered uint32
 
-	group.HandleFunc(EventMessage, action, func(writer ResponseWriter, message interface{}) {
-		close(consuming)
+	group.HandleFunc(EventMessage, action, func(message *Message, writer Writer) {
 		time.Sleep(100 * time.Millisecond)
-		delivered <- nil
+		atomic.AddUint32(&delivered, 1)
 	})
 
-	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
-	event := NewEvent(action, version, parent, nil, nil)
+	event := types.NewMessage(action, 1, nil, nil)
 	err := group.ProduceEvent(event)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
-
-	<-consuming
 
 	err = client.Close()
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 
-	if len(delivered) == 0 {
-		t.Fatal("the client did not close safely")
+	count := atomic.LoadUint32(&delivered)
+	if count == 0 {
+		t.Error("the client did not close safely")
 	}
 }

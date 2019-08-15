@@ -8,7 +8,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander"
-	"github.com/jeroenrinzema/commander/metadata"
 	"github.com/jeroenrinzema/commander/types"
 )
 
@@ -50,7 +49,7 @@ headers:
 				continue headers
 			}
 
-			message.Ctx = metadata.NewStatusCodeContext(message.Ctx, types.StatusCode(status))
+			message.Status = types.StatusCode(status)
 			break
 		case HeaderVersion:
 			version, err := strconv.ParseInt(string(record.Value), 10, 8)
@@ -64,7 +63,7 @@ headers:
 			message.EOS = message.EOS.Parse(string(record.Value))
 			break
 		case HeaderParentID:
-			message.Ctx = metadata.NewParentIDContext(message.Ctx, types.ParentID(record.Value))
+			message.Ctx = types.NewParentIDContext(message.Ctx, types.ParentID(record.Value))
 			break
 		case HeaderParentTimestamp:
 			unix, err := strconv.ParseInt(string(record.Value), 10, 64)
@@ -73,7 +72,7 @@ headers:
 			}
 
 			time := types.ParentTimestamp(time.Unix(0, unix))
-			message.Ctx = metadata.NewParentTimestampContext(message.Ctx, time)
+			message.Ctx = types.NewParentTimestampContext(message.Ctx, time)
 			break
 		default:
 			headers[key] = strings.Split(string(record.Value), types.HeaderValueDevider)
@@ -103,17 +102,13 @@ func MessageToMessage(produce *commander.Message) *sarama.ProducerMessage {
 			Key:   []byte(HeaderEOS),
 			Value: []byte(produce.EOS.String()),
 		},
-	}
-
-	status, has := metadata.StatusCodeFromContext(produce.Ctx)
-	if has {
-		headers = append(headers, sarama.RecordHeader{
+		sarama.RecordHeader{
 			Key:   []byte(HeaderStatusCode),
-			Value: []byte(strconv.Itoa(int(status))),
-		})
+			Value: []byte(strconv.Itoa(int(produce.Status))),
+		},
 	}
 
-	parent, has := metadata.ParentIDFromContext(produce.Ctx)
+	parent, has := types.ParentIDFromContext(produce.Ctx)
 	if has {
 		headers = append(headers, sarama.RecordHeader{
 			Key:   []byte(HeaderParentID),
@@ -121,7 +116,7 @@ func MessageToMessage(produce *commander.Message) *sarama.ProducerMessage {
 		})
 	}
 
-	timestamp, has := metadata.ParentTimestampFromContext(produce.Ctx)
+	timestamp, has := types.ParentTimestampFromContext(produce.Ctx)
 	if has {
 		headers = append(headers, sarama.RecordHeader{
 			Key:   []byte(HeaderParentTimestamp),
@@ -129,7 +124,7 @@ func MessageToMessage(produce *commander.Message) *sarama.ProducerMessage {
 		})
 	}
 
-	kv, has := metadata.HeaderFromContext(produce.Ctx)
+	kv, has := types.HeaderFromContext(produce.Ctx)
 	if has {
 		for key, value := range kv {
 			headers = append(headers, sarama.RecordHeader{

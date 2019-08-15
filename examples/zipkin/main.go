@@ -51,9 +51,9 @@ func main() {
 	 * HandleFunc handles an "example" command. Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	group.HandleFunc(commander.CommandMessage, "example", func(writer commander.ResponseWriter, message interface{}) {
+	group.HandleFunc(commander.CommandMessage, "example", func(message *commander.Message, writer commander.Writer) {
 		key := uuid.Must(uuid.NewV4()).Bytes()
-		writer.ProduceEventEOS("created", 1, key, nil)
+		writer.Event("created", 1, key, nil)
 	})
 
 	/**
@@ -67,17 +67,17 @@ func main() {
 
 		key := uuid.Must(uuid.NewV4()).Bytes()
 
-		command := commander.NewCommand("example", 1, key, nil)
+		command := commander.NewMessage("example", 1, key, nil)
 		command.Ctx = metadata.NewSpanConsumeContext(command.Ctx, span)
 
-		event, next, err := group.SyncCommand(command)
+		event, err := group.SyncCommand(command)
 		if err != nil {
 			w.WriteHeader(500)
 			w.Write([]byte(err.Error()))
 			return
 		}
 
-		next(nil)
+		event.Next()
 
 		span, has := metadata.SpanConsumeFromContext(event.Ctx)
 		if has {

@@ -1,187 +1,135 @@
 package commander
 
 import (
-	"context"
-	"errors"
-
 	"github.com/jeroenrinzema/commander/types"
 )
 
-// NewResponseWriter initializes a new response writer for the given value
-func NewResponseWriter(group *Group, value interface{}) ResponseWriter {
+// NewWriter initializes a new response writer for the given value
+func NewWriter(group *Group, parent *Message) Writer {
 	writer := &writer{
-		Group: group,
-	}
-
-	if command, ok := value.(Command); ok {
-		writer.Command = &command
+		group:  group,
+		parent: parent,
 	}
 
 	return writer
 }
 
-var (
-	// ErrDefaultRetry represents the default retry error message
-	ErrDefaultRetry = errors.New("message marked to be retried")
-)
-
-// ResponseWriter writes events or commands back to the assigned group.
-type ResponseWriter interface {
-	// ProduceEvent creates and produces a new event to the assigned group.
+// Writer handle implementation for a given group and message
+type Writer interface {
+	// Event creates and produces a new event to the assigned group.
 	// The produced event is marked as EOS (end of stream).
-	ProduceEvent(action string, version int8, key []byte, data []byte) (Event, error)
+	Event(action string, version int8, key []byte, data []byte) (*Message, error)
 
-	// ProduceEventStream creates and produces a new event to the assigned group.
+	// EventStream creates and produces a new event to the assigned group.
 	// The produced event is one of many events in the event stream.
-	ProduceEventStream(action string, version int8, key []byte, data []byte) (Event, error)
+	EventStream(action string, version int8, key []byte, data []byte) (*Message, error)
 
-	// ProduceEventEOS alias of ProduceEvent
-	ProduceEventEOS(action string, version int8, key []byte, data []byte) (Event, error)
+	// EventEOS alias of Event
+	EventEOS(action string, version int8, key []byte, data []byte) (*Message, error)
 
-	// ProduceError produces a new error event to the assigned group.
+	// Error produces a new error event to the assigned group.
 	// The produced error event is marked as EOS (end of stream).
-	ProduceError(action string, status types.StatusCode, err error) (Event, error)
+	Error(action string, status types.StatusCode, err error) (*Message, error)
 
-	// ProduceErrorStream produces a new error event to the assigned group.
+	// ErrorStream produces a new error event to the assigned group.
 	// The produced error is one of many events in the event stream.
-	ProduceErrorStream(action string, status types.StatusCode, err error) (Event, error)
+	ErrorStream(action string, status types.StatusCode, err error) (*Message, error)
 
-	// ProduceErrorEOS alias of ProduceError
-	ProduceErrorEOS(action string, status types.StatusCode, err error) (Event, error)
+	// ErrorEOS alias of Error
+	ErrorEOS(action string, status types.StatusCode, err error) (*Message, error)
 
-	// ProduceCommand produces a new command to the assigned group.
+	// Command produces a new command to the assigned group.
 	// The produced error event is marked as EOS (end of stream).
-	ProduceCommand(action string, version int8, key []byte, data []byte) (Command, error)
+	Command(action string, version int8, key []byte, data []byte) (*Message, error)
 
-	// ProduceCommandStream produces a new command to the assigned group.
+	// CommandStream produces a new command to the assigned group.
 	// The produced comamnd is one of many commands in the command stream.
-	ProduceCommandStream(action string, version int8, key []byte, data []byte) (Command, error)
+	CommandStream(action string, version int8, key []byte, data []byte) (*Message, error)
 
-	// ProduceCommandEOS alias of ProduceCommand
-	ProduceCommandEOS(action string, version int8, key []byte, data []byte) (Command, error)
-
-	// Retry marks the message to be retried. An error could be given to be passed to the dialect
-	Retry(err error)
-}
-
-type retry interface {
-	// ShouldRetry returns if the writer has marked the message to be retried
-	ShouldRetry() error
+	// CommandEOS alias of Command
+	CommandEOS(action string, version int8, key []byte, data []byte) (*Message, error)
 }
 
 // Writer is a struct representing the ResponseWriter interface
 type writer struct {
-	Group   *Group
-	Command *Command
-	retry   error
+	group  *Group
+	parent *Message
 }
 
-func (writer *writer) NewErrorEvent(action string, status types.StatusCode, err error) Event {
-	var event Event
-
-	if status == 0 {
-		status = StatusInternalServerError
+// NewMessage constructs a new message or a child of the parent.
+func (writer *writer) NewMessage(action string, version int8, key []byte, data []byte) (message *Message) {
+	if writer.parent != nil {
+		message = writer.parent.NewMessage(action, types.Version(version), types.Key(key), data)
+		return
 	}
 
-	if writer.Command != nil {
-		event = writer.Command.NewError(action, status, err)
-	} else {
-		event = NewEvent(action, 0, "", nil, nil)
-		event.Status = StatusInternalServerError
+	message = types.NewMessage(action, version, key, data)
+	return
+}
+
+func (writer *writer) Error(action string, status types.StatusCode, err error) (*Message, error) {
+	return writer.ErrorEOS(action, status, err)
+}
+
+func (writer *writer) ErrorEOS(action string, status types.StatusCode, err error) (*Message, error) {
+	if status == types.NullStatusCode {
+		status = types.StatusInternalServerError
 	}
 
-	return event
+	message := writer.NewMessage(action, 0, nil, []byte(err.Error()))
+	message.Status = status
+	message.EOS = true
+
+	err = writer.group.ProduceEvent(message)
+	return message, err
 }
 
-func (writer *writer) NewEvent(action string, version int8, key []byte, data []byte) Event {
-	var timestamp types.ParentTimestamp
-	var parent types.ParentID
-
-	if writer.Command != nil {
-		timestamp = types.ParentTimestamp(writer.Command.Timestamp)
-		parent = types.ParentID(writer.Command.ID)
+func (writer *writer) ErrorStream(action string, status types.StatusCode, err error) (*Message, error) {
+	if status == types.NullStatusCode {
+		status = types.StatusInternalServerError
 	}
 
-	if key == nil && writer.Command != nil {
-		key = writer.Command.Key
-	}
+	message := writer.NewMessage(action, 0, nil, []byte(err.Error()))
+	message.Status = status
 
-	event := NewEvent(action, types.Version(version), parent, types.Key(key), data)
-	event.ParentTimestamp = timestamp
-	event.Ctx = context.Background()
-
-	if writer.Command != nil {
-		event.Ctx = writer.Command.Ctx
-	}
-
-	return event
+	err = writer.group.ProduceEvent(message)
+	return message, err
 }
 
-func (writer *writer) ProduceError(action string, status types.StatusCode, err error) (Event, error) {
-	return writer.ProduceErrorEOS(action, status, err)
+func (writer *writer) Event(action string, version int8, key []byte, data []byte) (*Message, error) {
+	return writer.EventEOS(action, version, key, data)
 }
 
-func (writer *writer) ProduceErrorEOS(action string, status types.StatusCode, err error) (Event, error) {
-	event := writer.NewErrorEvent(action, status, err)
-	event.EOS = true
+func (writer *writer) EventEOS(action string, version int8, key []byte, data []byte) (*Message, error) {
+	message := writer.NewMessage(action, version, key, data)
+	message.EOS = true
 
-	err = writer.Group.ProduceEvent(event)
-	return event, err
+	err := writer.group.ProduceEvent(message)
+	return message, err
 }
 
-func (writer *writer) ProduceErrorStream(action string, status types.StatusCode, err error) (Event, error) {
-	event := writer.NewErrorEvent(action, status, err)
+func (writer *writer) EventStream(action string, version int8, key []byte, data []byte) (*Message, error) {
+	message := writer.NewMessage(action, version, key, data)
 
-	err = writer.Group.ProduceEvent(event)
-	return event, err
+	err := writer.group.ProduceEvent(message)
+	return message, err
 }
 
-func (writer *writer) ProduceEvent(action string, version int8, key []byte, data []byte) (Event, error) {
-	return writer.ProduceEventEOS(action, version, key, data)
+func (writer *writer) Command(action string, version int8, key []byte, data []byte) (*Message, error) {
+	return writer.CommandEOS(action, version, key, data)
 }
 
-func (writer *writer) ProduceEventEOS(action string, version int8, key []byte, data []byte) (Event, error) {
-	event := writer.NewEvent(action, version, key, data)
-	event.EOS = true
+func (writer *writer) CommandEOS(action string, version int8, key []byte, data []byte) (*Message, error) {
+	message := writer.NewMessage(action, version, key, data)
+	message.EOS = true
 
-	err := writer.Group.ProduceEvent(event)
-	return event, err
+	err := writer.group.ProduceCommand(message)
+	return message, err
 }
 
-func (writer *writer) ProduceEventStream(action string, version int8, key []byte, data []byte) (Event, error) {
-	event := writer.NewEvent(action, version, key, data)
+func (writer *writer) CommandStream(action string, version int8, key []byte, data []byte) (*Message, error) {
+	message := writer.NewMessage(action, version, key, data)
 
-	err := writer.Group.ProduceEvent(event)
-	return event, err
-}
-
-func (writer *writer) ProduceCommand(action string, version int8, key []byte, data []byte) (Command, error) {
-	return writer.ProduceCommandEOS(action, version, key, data)
-}
-
-func (writer *writer) ProduceCommandEOS(action string, version int8, key []byte, data []byte) (Command, error) {
-	command := NewCommand(action, types.Version(version), types.Key(key), data)
-	command.EOS = true
-
-	err := writer.Group.ProduceCommand(command)
-	return command, err
-}
-
-func (writer *writer) ProduceCommandStream(action string, version int8, key []byte, data []byte) (Command, error) {
-	command := NewCommand(action, types.Version(version), types.Key(key), data)
-
-	err := writer.Group.ProduceCommand(command)
-	return command, err
-}
-
-func (writer *writer) Retry(err error) {
-	if err == nil {
-		err = ErrDefaultRetry
-	}
-
-	writer.retry = err
-}
-
-func (writer *writer) ShouldRetry() error {
-	return writer.retry
+	err := writer.group.ProduceCommand(message)
+	return message, err
 }

@@ -7,7 +7,7 @@ import (
 )
 
 // NewSpanConsumeContext creates a new context with Span attached. If used
-// NewSpanConsumeContext will overwrite any previously-appended metadata.
+// NewSpanConsumeContext will overwrite any previously-appended types.
 func NewSpanConsumeContext(ctx context.Context, span zipkin.Span) context.Context {
 	return context.WithValue(ctx, CtxSpanConsume, span)
 }
@@ -20,7 +20,7 @@ func SpanConsumeFromContext(ctx context.Context) (span zipkin.Span, ok bool) {
 }
 
 // NewSpanProduceContext creates a new context with Span attached. If used
-// NewSpanProduceContext will overwrite any previously-appended metadata.
+// NewSpanProduceContext will overwrite any previously-appended types.
 func NewSpanProduceContext(ctx context.Context, span zipkin.Span) context.Context {
 	return context.WithValue(ctx, CtxSpanProduce, span)
 }

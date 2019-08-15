@@ -17,16 +17,17 @@ func TestConsumerConsumption(t *testing.T) {
 		Ctx:   context.Background(),
 	}
 
-	sink := make(chan bool, 1)
-	sub, next, err := dialect.Consumer().Subscribe(topic)
+	sink := make(chan bool)
+	messages, err := dialect.Consumer().Subscribe(topic)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	go func() {
-		<-sub
-		next(nil)
-		sink <- true
+		for message := range messages {
+			message.Next()
+			close(sink)
+		}
 	}()
 
 	dialect.Producer().Publish(&message)

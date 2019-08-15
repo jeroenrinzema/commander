@@ -57,17 +57,17 @@ func main() {
 	 * HandleFunc handles an "Available" command. Once a command with the action "Available" is
 	 * processed will a event with the action "created" be produced to the events topic.
 	 */
-	warehouse.HandleFunc(commander.CommandMessage, "Available", func(writer commander.ResponseWriter, message interface{}) {
+	warehouse.HandleFunc(commander.CommandMessage, "Available", func(message *commander.Message, writer commander.Writer) {
 		key, err := uuid.NewV4()
 		if err != nil {
 			// Mark the message to be retried, this will reset the offset of the message topic, parition to the original message offset
-			writer.Retry(err)
+			message.Retry(err)
 			return
 		}
 
 		// Event: name, version, key, data
 		// The event key defines to which partition the message should be written
-		writer.ProduceEventEOS("Available", 1, key.Bytes(), nil)
+		writer.Event("Available", 1, key.Bytes(), nil)
 	})
 
 	/**
@@ -83,8 +83,8 @@ func main() {
 			return
 		}
 
-		command := commander.NewCommand("Available", 1, key.Bytes(), nil)
-		event, next, err := warehouse.SyncCommand(command)
+		command := commander.NewMessage("Available", 1, key.Bytes(), nil)
+		event, err := warehouse.SyncCommand(command)
 
 		if err != nil {
 			w.WriteHeader(500)
@@ -92,7 +92,7 @@ func main() {
 			return
 		}
 
-		next(nil)
+		event.Next()
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(event)
@@ -109,7 +109,7 @@ func main() {
 			return
 		}
 
-		command := commander.NewCommand("Available", 1, key.Bytes(), nil)
+		command := commander.NewMessage("Available", 1, key.Bytes(), nil)
 		err = warehouse.AsyncCommand(command)
 
 		if err != nil {

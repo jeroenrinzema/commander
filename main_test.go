@@ -34,6 +34,6 @@ func TestClosingConsumptions(t *testing.T) {
 
 	count := atomic.LoadUint32(&delivered)
 	if count == 0 {
-		t.Error("the client did not close safely")
+		t.Error("the client did not close safely unexpected delivery count:", count)
 	}
 }

@@ -118,19 +118,22 @@ func (message *Message) NewError(action string, status StatusCode, err error) *M
 
 // NewMessage construct a new event message with the given message as parent
 func (message *Message) NewMessage(action string, version Version, key Key, data []byte) *Message {
-	child := &(*message)
+	child := &Message{}
 	child.Ctx = context.Background()
 
 	child.Ctx = NewParentIDContext(child.Ctx, ParentID(message.ID))
 	child.Ctx = NewParentTimestampContext(child.Ctx, ParentTimestamp(message.Timestamp))
 
+	child.ID = uuid.Must(uuid.NewV4()).String()
 	child.Action = action
 	child.Status = StatusOK
 	child.Data = data
 	child.Timestamp = time.Now()
+	child.Version = message.Version
+	child.Key = key
 
-	if key != nil {
-		child.Key = key
+	if child.Key == nil {
+		child.Key = message.Key
 	}
 
 	if version == NullVersion {

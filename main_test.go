@@ -17,7 +17,9 @@ func TestClosingConsumptions(t *testing.T) {
 	var delivered uint32
 
 	group.HandleFunc(EventMessage, action, func(message *Message, writer Writer) {
+		t.Log("received message, going to sleep for 100ms")
 		time.Sleep(100 * time.Millisecond)
+		t.Log("woke up and mark message as delivered")
 		atomic.AddUint32(&delivered, 1)
 	})
 
@@ -34,6 +36,6 @@ func TestClosingConsumptions(t *testing.T) {
 
 	count := atomic.LoadUint32(&delivered)
 	if count == 0 {
-		t.Error("the client did not close safely unexpected delivery count:", count)
+		t.Error("the client did not close safely unexpected, delivery count:", count)
 	}
 }

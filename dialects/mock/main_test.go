@@ -6,6 +6,8 @@ import "testing"
 func TestNewDialectConstruction(t *testing.T) {
 	dialect := NewDialect()
 
+	dialect.Open()
+
 	if dialect.Consumer() == nil {
 		t.Fatal("no dialect consumer")
 	}

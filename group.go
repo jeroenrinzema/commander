@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jeroenrinzema/commander/metadata"
+	"github.com/jeroenrinzema/commander/circuit"
 	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/types"
 	log "github.com/sirupsen/logrus"
@@ -82,24 +82,22 @@ type Group struct {
 type Close func()
 
 // Next indicates that the next message could be called
-type Next func(error)
+type Next func()
 
-// Handle represents a message handle method
-// The interface could contain a *Event or *Command struct
-// regarding to the topic type that is being consumed.
-type Handle func(ResponseWriter, interface{})
+// Handle message handle message, writer implementation
+type Handle func(*Message, Writer)
 
-// Handler prodvides a interface to handle Messages
+// Handler interface handle wrapper
 type Handler interface {
-	Process(writer ResponseWriter, message interface{})
+	Handle(*Message, Writer)
 }
 
-// AsyncCommand creates a command message to the given group command topic
+// AsyncCommand produces a message to the given group command topic
 // and does not await for the responding event. If no command key is set will the command id be used.
-func (group *Group) AsyncCommand(command Command) error {
+func (group *Group) AsyncCommand(message *Message) error {
 	group.logger.Debug("executing async command")
 
-	err := group.ProduceCommand(command)
+	err := group.ProduceCommand(message)
 	if err != nil {
 		return err
 	}
@@ -107,114 +105,110 @@ func (group *Group) AsyncCommand(command Command) error {
 	return nil
 }
 
-// SyncCommand creates a command message to the given group and awaits
+// SyncCommand produces a message to the given group command topic and awaits
 // its responding event message. If no message is received within the set timeout period
 // will a timeout be thrown.
-func (group *Group) SyncCommand(command Command) (event Event, next Next, err error) {
+func (group *Group) SyncCommand(message *Message) (event *Message, err error) {
 	group.logger.Debug("executing sync command")
 
-	messages, next, closer, err := group.NewConsumerWithDeadline(group.Timeout, EventMessage)
+	messages, closer, err := group.NewConsumerWithDeadline(group.Timeout, EventMessage)
 	if err != nil {
-		return event, next, err
+		return event, err
 	}
 
 	defer closer()
 
-	err = group.AsyncCommand(command)
+	err = group.AsyncCommand(message)
 	if err != nil {
-		return event, next, err
+		return event, err
 	}
 
-	event, next, err = group.AwaitEOS(messages, next, types.ParentID(command.ID))
-	return event, next, err
+	event, err = group.AwaitEOS(messages, types.ParentID(message.ID))
+	return event, err
 }
 
 // AwaitEventWithAction awaits till the first event for the given parent id and action is consumed.
 // If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEventWithAction(messages <-chan *types.Message, next Next, parent types.ParentID, action string) (event Event, _ Next, err error) {
+func (group *Group) AwaitEventWithAction(messages <-chan *types.Message, parent types.ParentID, action string) (message *Message, err error) {
 	group.logger.Debug("awaiting action")
 
 	if action == "" {
-		return event, next, ErrNoAction
+		return message, ErrNoAction
 	}
 
 	for {
-		message := <-messages
+		message = <-messages
 		if message == nil {
-			return event, next, ErrTimeout
+			return nil, ErrTimeout
 		}
 
 		if message.Action != action {
-			next(nil)
+			message.Next()
 			continue
 		}
 
-		id, has := metadata.ParentIDFromContext(message.Ctx)
+		id, has := types.ParentIDFromContext(message.Ctx)
 		if !has || parent != id {
-			next(nil)
+			message.Next()
 			continue
 		}
 
-		event = NewEventFromMessage(message)
 		break
 	}
 
-	return event, next, nil
+	return message, nil
 }
 
-// AwaitEvent awaits till the first event is consumed for the given parent id.
+// AwaitMessage awaits till the first message is consumed for the given parent id.
 // If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEvent(messages <-chan *types.Message, next Next, parent types.ParentID) (event Event, _ Next, err error) {
-	group.logger.Debug("awaiting event")
+func (group *Group) AwaitMessage(messages <-chan *types.Message, parent types.ParentID) (message *Message, err error) {
+	group.logger.Debug("awaiting message")
 
 	for {
-		message := <-messages
+		message = <-messages
 		if message == nil {
-			return event, next, ErrTimeout
+			return nil, ErrTimeout
 		}
 
-		id, has := metadata.ParentIDFromContext(message.Ctx)
+		id, has := types.ParentIDFromContext(message.Ctx)
 		if !has || parent != id {
-			next(nil)
+			message.Next()
 			continue
 		}
 
-		event = NewEventFromMessage(message)
 		break
 	}
 
-	return event, next, nil
+	return message, nil
 }
 
 // AwaitEOS awaits till the final event stream message is emitted.
 // If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEOS(messages <-chan *types.Message, next Next, parent types.ParentID) (event Event, _ Next, err error) {
+func (group *Group) AwaitEOS(messages <-chan *types.Message, parent types.ParentID) (message *Message, err error) {
 	group.logger.Debug("awaiting EOS")
 
 	for {
-		message := <-messages
+		message = <-messages
 		if message == nil {
-			return event, next, ErrTimeout
+			return message, ErrTimeout
 		}
 
 		if !message.EOS {
-			next(nil)
+			message.Next()
 			continue
 		}
 
-		id, has := metadata.ParentIDFromContext(message.Ctx)
+		id, has := types.ParentIDFromContext(message.Ctx)
 		if !has || parent != id {
-			next(nil)
+			message.Next()
 			continue
 		}
 
 		group.logger.Debug("EOS message reached")
-		event = NewEventFromMessage(message)
-
 		break
 	}
 
-	return event, next, nil
+	return message, nil
 }
 
 // FetchTopics fetches the available topics for the given mode and the given type
@@ -232,11 +226,11 @@ func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) []types.
 	return topics
 }
 
-// ProduceCommand constructs and produces a command message to the set command topic.
+// ProduceCommand produce a message to the given group command topic.
 // A error is returned if anything went wrong in the process. If no command key is set will the command id be used.
-func (group *Group) ProduceCommand(command Command) error {
-	if command.Key == nil {
-		command.Key = types.Key([]byte(command.ID))
+func (group *Group) ProduceCommand(message *Message) error {
+	if message.Key == nil {
+		message.Key = types.Key([]byte(message.ID))
 	}
 
 	topics := group.FetchTopics(CommandMessage, ProduceMode)
@@ -245,9 +239,10 @@ func (group *Group) ProduceCommand(command Command) error {
 	}
 
 	// NOTE: Support for multiple produce topics?
+	// Possible, but error handling has to be easily handled when errors occures at one of the topics in the process of publishing
 	topic := topics[0]
+	message.Topic = topic
 
-	message := command.Message(topic)
 	amount := group.Retries
 	if amount == 0 {
 		amount = DefaultAttempts
@@ -270,9 +265,9 @@ func (group *Group) ProduceCommand(command Command) error {
 
 // ProduceEvent produces a event kafka message to the set event topic.
 // A error is returned if anything went wrong in the process.
-func (group *Group) ProduceEvent(event Event) error {
-	if event.Key == nil {
-		event.Key = types.Key([]byte(event.ID))
+func (group *Group) ProduceEvent(message *Message) error {
+	if message.Key == nil {
+		message.Key = types.Key([]byte(message.ID))
 	}
 
 	topics := group.FetchTopics(EventMessage, ProduceMode)
@@ -281,9 +276,10 @@ func (group *Group) ProduceEvent(event Event) error {
 	}
 
 	// NOTE: Support for multiple produce topics?
+	// Possible, but error handling has to be easily handled when errors occures at one of the topics in the process of publishing
 	topic := topics[0]
+	message.Topic = topic
 
-	message := event.Message(topic)
 	amount := group.Retries
 	if amount == 0 {
 		amount = DefaultAttempts
@@ -322,32 +318,32 @@ func (group *Group) Publish(message *Message) error {
 // All received messages are published over the returned messages channel.
 // All middleware subscriptions are called before consuming the message.
 // Once a message is consumed should the next function be called to mark a message successfully consumed.
-func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, Next, Close, error) {
-	group.logger.Debugf("new message consumer %d", sort)
+func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, Close, error) {
+	group.logger.Debugf("new message consumer: %d", sort)
 
 	topics := group.FetchTopics(sort, ConsumeMode)
 	if len(topics) == 0 {
-		return make(<-chan *Message, 0), func(error) {}, func() {}, ErrNoTopic
+		return make(<-chan *Message, 0), func() {}, ErrNoTopic
 	}
 
 	// NOTE: support multiple topics for consumption?
 	topic := topics[0]
 
 	sink := make(chan *Message, 0)
-	messages, next, err := topic.Dialect.Consumer().Subscribe(topics...)
+	messages, err := topic.Dialect.Consumer().Subscribe(topics...)
 	if err != nil {
 		close(sink)
 
-		return sink, func(error) {}, func() {}, err
+		return sink, func() {}, err
 	}
 
 	mutex := sync.Mutex{}
-	breaker := Breaker{}
+	breaker := circuit.Breaker{}
 
 	go func() {
 		for message := range messages {
 			if !breaker.Safe() {
-				next(nil)
+				message.Next()
 				return
 			}
 
@@ -377,19 +373,19 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 		go topic.Dialect.Consumer().Unsubscribe(messages)
 	}
 
-	return sink, next, closer, nil
+	return sink, closer, nil
 }
 
 // NewConsumerWithDeadline consumes events of the given message type for the given duration.
 // The message channel is closed once the deadline is reached.
 // Once a message is consumed should the next function be called to mark a successfull consumption.
 // The consumer could be closed premature by calling the close method.
-func (group *Group) NewConsumerWithDeadline(timeout time.Duration, t types.MessageType) (<-chan *types.Message, Next, Close, error) {
+func (group *Group) NewConsumerWithDeadline(timeout time.Duration, t types.MessageType) (<-chan *types.Message, Close, error) {
 	group.logger.Debugf("new consumer with deadline: %s", timeout)
 
-	messages, next, closer, err := group.NewConsumer(t)
+	messages, closer, err := group.NewConsumer(t)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -403,14 +399,16 @@ func (group *Group) NewConsumerWithDeadline(timeout time.Duration, t types.Messa
 		closing()
 	}()
 
-	return messages, next, closing, nil
+	return messages, closing, nil
 }
 
 // HandleFunc awaits messages from the given MessageType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
 func (group *Group) HandleFunc(sort types.MessageType, action string, callback Handle) (Close, error) {
-	messages, next, closing, err := group.NewConsumer(sort)
+	group.logger.Debugf("setting up new consumer handle: %d, %s", sort, action)
+
+	messages, closing, err := group.NewConsumer(sort)
 	if err != nil {
 		return nil, err
 	}
@@ -418,28 +416,16 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 	go func() {
 		for message := range messages {
 			if message.Action != action {
-				next(nil)
+				message.Next()
 				continue
 			}
 
 			group.Middleware.Emit(message.Ctx, BeforeActionConsumption, message)
 
-			var value interface{}
+			writer := NewWriter(group, message)
+			callback(message, writer)
 
-			switch sort {
-			case EventMessage:
-				value = NewEventFromMessage(message)
-			case CommandMessage:
-				value = NewCommandFromMessage(message)
-			}
-
-			writer := NewResponseWriter(group, value)
-			callback(writer, value)
-
-			// Check if the message is marked to be retried
-			res := writer.(retry)
-			err := res.ShouldRetry()
-			next(err)
+			message.Next()
 
 			group.Middleware.Emit(message.Ctx, AfterActionConsumption, message)
 		}
@@ -452,5 +438,5 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
 func (group *Group) Handle(sort types.MessageType, action string, handler Handler) (Close, error) {
-	return group.HandleFunc(sort, action, handler.Process)
+	return group.HandleFunc(sort, action, handler.Handle)
 }

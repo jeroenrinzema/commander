@@ -1,4 +1,4 @@
-package commander
+package circuit
 
 import (
 	"sync"

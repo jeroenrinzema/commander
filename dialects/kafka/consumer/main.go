@@ -1,11 +1,17 @@
 package consumer
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander/dialects/kafka/metadata"
 	"github.com/jeroenrinzema/commander/types"
+)
+
+var (
+	// ErrRetry error retry type representation
+	ErrRetry = errors.New("retry message")
 )
 
 // HandleType represents the type of consumer that is adviced to use for the given connectionstring
@@ -41,7 +47,6 @@ type Claimer interface {
 // Subscription represents a consumer topic(s) subscription
 type Subscription struct {
 	messages chan *types.Message
-	marked   chan error
 }
 
 // Topic represents a thread safe list of subscriptions
@@ -95,10 +100,9 @@ func (client *Client) Connect(initialOffset int64, config *sarama.Config, ts ...
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
-func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, func(error), error) {
+func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, error) {
 	subscription := &Subscription{
-		marked:   make(chan error, 1),
-		messages: make(chan *types.Message, 1),
+		messages: make(chan *types.Message, 0),
 	}
 
 	for _, topic := range topics {
@@ -109,11 +113,7 @@ func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, f
 		client.topics[topic.Name].subscriptions[subscription.messages] = subscription
 	}
 
-	next := func(err error) {
-		subscription.marked <- err
-	}
-
-	return subscription.messages, next, nil
+	return subscription.messages, nil
 }
 
 // Unsubscribe removes the given channel from the available subscriptions.
@@ -126,7 +126,6 @@ func (client *Client) Unsubscribe(sub <-chan *types.Message) error {
 			if has {
 				delete(topic.subscriptions, sub)
 				close(subscription.messages)
-				close(subscription.marked)
 			}
 			topic.mutex.Unlock()
 		}(topic, sub)
@@ -148,19 +147,21 @@ func (client *Client) Claim(consumed *sarama.ConsumerMessage) (err error) {
 	message := metadata.MessageFromMessage(consumed)
 
 	client.topics[topic].mutex.RLock()
+	defer client.topics[topic].mutex.RUnlock()
+
 	for _, subscription := range client.topics[topic].subscriptions {
+		message.Async()
 		select {
 		case subscription.messages <- message:
-			err = <-subscription.marked
-			if err != nil {
-				break
+			result := message.Await()
+			if result != nil {
+				return ErrRetry
 			}
 		default:
 		}
 	}
-	client.topics[topic].mutex.RUnlock()
 
-	return err
+	return nil
 }
 
 // Close closes the Kafka consumer

@@ -10,6 +10,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/dialects/mock"
+	"github.com/jeroenrinzema/commander/types"
 )
 
 func main() {
@@ -28,18 +29,18 @@ func main() {
 	 * HandleFunc handles an "stream" command. Once a command with the action "stream" is
 	 * processed will a event stream be started producing one event every 500ms untill 5 events are produced.
 	 */
-	group.HandleFunc(commander.CommandMessage, "stream", func(writer commander.ResponseWriter, message interface{}) {
+	group.HandleFunc(commander.CommandMessage, "stream", func(message *commander.Message, writer commander.Writer) {
 		key, err := uuid.NewV4()
 		if err != nil {
 			return
 		}
 
 		for i := 0; i < 4; i++ {
-			writer.ProduceEventStream("action", 1, key.Bytes(), nil)
+			writer.EventStream("action", 1, key.Bytes(), nil)
 			time.Sleep(100 * time.Millisecond)
 		}
 
-		writer.ProduceEventEOS("final", 1, key.Bytes(), nil)
+		writer.Event("final", 1, key.Bytes(), nil)
 	})
 
 	/**
@@ -49,13 +50,13 @@ func main() {
 	 */
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		key := uuid.Must(uuid.NewV4()).Bytes()
-		command := commander.NewCommand("stream", 1, key, nil)
+		command := commander.NewMessage("stream", 1, key, nil)
 
 		defer r.Body.Close()
 
 		// Open a single consumer receiving event messages
 		timeout := 5 * time.Second
-		messages, next, closing, err := group.NewConsumerWithDeadline(timeout, commander.EventMessage)
+		messages, closing, err := group.NewConsumerWithDeadline(timeout, commander.EventMessage)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
@@ -67,16 +68,16 @@ func main() {
 		// Consume and filter messages based on their event ID.
 		// The connection is closed when a timeout is reached of a EOS event is consumed.
 		for message := range messages {
-			event := commander.NewEventFromMessage(message)
-			if string(event.Parent) != command.ID {
-				next(nil)
+			parent, has := types.ParentIDFromContext(message.Ctx)
+			if !has || parent != types.ParentID(message.ID) {
+				message.Next()
 				break
 			}
 
-			json.NewEncoder(w).Encode(event)
-			next(nil)
+			json.NewEncoder(w).Encode(message)
+			message.Next()
 
-			if event.EOS {
+			if message.EOS {
 				break
 			}
 		}

@@ -4,43 +4,53 @@ import (
 	"sync"
 
 	"github.com/jeroenrinzema/commander/types"
+	log "github.com/sirupsen/logrus"
 )
 
 // Consumer a message consumer
 type Consumer struct {
 	subscriptions map[string]*SubscriptionCollection
 	workers       int8
-	queue         chan *types.Message
 	consumptions  sync.WaitGroup
 	mutex         sync.RWMutex
+	logger        *log.Logger
 }
 
-// NewWorker spawns a new queue worker
-func (consumer *Consumer) NewWorker() {
-	for message := range consumer.queue {
-		if message == nil {
-			break
-		}
+// Emit emits the given message to the subscribed consumers
+func (consumer *Consumer) Emit(message *types.Message) {
+	consumer.logger.Debug("emitting message!")
 
-		consumer.mutex.RLock()
-		consumer.consumptions.Add(1)
+	consumer.mutex.RLock()
+	consumer.consumptions.Add(1)
+	defer consumer.consumptions.Done()
 
-		collection, has := consumer.subscriptions[message.Topic.Name]
-		if !has {
-			continue
-		}
-
-		for _, subscription := range collection.list {
-			subscription.messages <- message
-			err := <-subscription.marked
-			if err != nil {
-				// TODO: handle error
-			}
-		}
-
-		consumer.consumptions.Done()
+	collection, has := consumer.subscriptions[message.Topic.Name]
+	if !has {
 		consumer.mutex.RUnlock()
+		return
 	}
+
+	length := len(collection.list)
+	if length == 0 {
+		consumer.mutex.RUnlock()
+		return
+	}
+
+	resolved := make(chan struct{}, 0)
+
+	go func(collection *SubscriptionCollection, message *types.Message) {
+		collection.mutex.Lock()
+		for _, subscription := range collection.list {
+			message.Async()
+			subscription.messages <- message
+			message.Await()
+		}
+		collection.mutex.Unlock()
+		close(resolved)
+	}(collection, message)
+
+	consumer.mutex.RUnlock()
+	<-resolved
 }
 
 // Subscribe creates a new topic subscription that will receive
@@ -48,10 +58,9 @@ func (consumer *Consumer) NewWorker() {
 // will return a message channel and a close function.
 // Once a message is consumed should the marked channel be called. Pass a nil for a successful consume and
 // a error if a error occurred during processing.
-func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Message, func(error), error) {
+func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Message, error) {
 	subscription := &Subscription{
 		messages: make(chan *types.Message, 0),
-		marked:   make(chan error, 0),
 	}
 
 	consumer.mutex.Lock()
@@ -65,33 +74,25 @@ func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Messag
 		consumer.subscriptions[topic.Name].list[subscription.messages] = subscription
 	}
 
-	// FIXME: currently the working limit is set to one
-	if consumer.workers == 0 {
-		consumer.workers++
-		go consumer.NewWorker()
-	}
-
-	// marked could safely be written to due to the expected
-	// mutex locks while emitting a message.
-	next := func(err error) {
-		subscription.marked <- err
-	}
-
-	return subscription.messages, next, nil
+	consumer.logger.Debugf("subscribing to: %+v, %v", topics, subscription.messages)
+	return subscription.messages, nil
 }
 
 // Unsubscribe unsubscribes the given channel subscription from the given topic.
 // A boolean is returned that represents if the channel successfully got unsubscribed.
 func (consumer *Consumer) Unsubscribe(sub <-chan *types.Message) error {
+	consumer.logger.Debugf("unsubscribe: %v", sub)
+
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
 	for _, collection := range consumer.subscriptions {
 		subscription, has := collection.list[sub]
 		if has {
+			collection.mutex.Lock()
 			delete(collection.list, sub)
 			close(subscription.messages)
-			close(subscription.marked)
+			collection.mutex.Unlock()
 		}
 	}
 
@@ -100,14 +101,15 @@ func (consumer *Consumer) Unsubscribe(sub <-chan *types.Message) error {
 
 // Close closes the kafka consumer, all topic subscriptions and event channels.
 func (consumer *Consumer) Close() error {
+	consumer.logger.Info("closing mock dialect consumer")
+
 	consumer.mutex.Lock()
 	defer consumer.mutex.Unlock()
 
 	consumer.consumptions.Wait()
-	close(consumer.queue)
 
-	for key := range consumer.subscriptions {
-		delete(consumer.subscriptions, key)
+	for topic := range consumer.subscriptions {
+		delete(consumer.subscriptions, topic)
 	}
 	return nil
 }

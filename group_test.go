@@ -5,16 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander/dialects/mock"
 	"github.com/jeroenrinzema/commander/types"
 )
 
-type actionHandle struct {
+type handler struct {
 	messages chan interface{}
 }
 
-func (handle *actionHandle) Process(writer ResponseWriter, message interface{}) {
+func (handle *handler) Handle(message *Message, writer Writer) {
 	handle.messages <- message
 }
 
@@ -35,10 +34,12 @@ func TestProduceCommand(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
-	key, _ := uuid.NewV4()
-	command := NewCommand("testing", 1, key.Bytes(), []byte("{}"))
+	message := types.NewMessage("testing", 1, nil, nil)
 
-	group.ProduceCommand(command)
+	err := group.ProduceCommand(message)
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 // TestProduceEvent tests if able to produce a event
@@ -46,12 +47,13 @@ func TestProduceEvent(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
-	key := types.Key(uuid.Must(uuid.NewV4()).String())
-	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
+	parent := types.NewMessage("parent", 1, nil, nil)
+	child := parent.NewMessage("tested", 1, nil, nil)
 
-	event := NewEvent("tested", 1, parent, key, nil)
-
-	group.ProduceEvent(event)
+	err := group.ProduceEvent(child)
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 // TestProduceEventNoTopics tests if a error is returned when no topics for production are found
@@ -61,10 +63,8 @@ func TestProduceEventNoTopics(t *testing.T) {
 	client, _ := NewClient(group)
 	defer client.Close()
 
-	key := types.Key(uuid.Must(uuid.NewV4()).String())
-	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
-
-	event := NewEvent("tested", 1, parent, key, nil)
+	parent := types.NewMessage("parent", 1, nil, nil)
+	event := parent.NewMessage("tested", 1, nil, nil)
 
 	err := group.ProduceEvent(event)
 	if err != ErrNoTopic {
@@ -77,9 +77,9 @@ func TestAsyncCommand(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
-	command := NewMockCommand("action")
-	err := group.AsyncCommand(command)
+	message := types.NewMessage("tested", 1, nil, nil)
 
+	err := group.AsyncCommand(message)
 	if err != nil {
 		t.Error(err)
 	}
@@ -90,27 +90,28 @@ func TestSyncCommand(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
-	action := "command"
-	key, _ := uuid.NewV4()
-	command := NewCommand(action, 1, key.Bytes(), nil)
-	command.EOS = true
+	action := "testing"
 
-	group.HandleFunc(CommandMessage, action, func(writer ResponseWriter, message interface{}) {
-		_, err := writer.ProduceEventEOS(action, 1, nil, nil)
+	message := types.NewMessage(action, 1, nil, nil)
+	message.EOS = true
+
+	group.HandleFunc(CommandMessage, action, func(message *Message, writer Writer) {
+		_, err := writer.Event(action, 1, nil, nil)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	})
 
-	event, next, err := group.SyncCommand(command)
-	next(nil)
+	event, err := group.SyncCommand(message)
+	event.Next()
 
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 
-	if event.Parent != types.ParentID(command.ID) {
-		t.Fatal("command id and parent do not match")
+	parent, has := types.ParentIDFromContext(event.Ctx)
+	if !has || parent != types.ParentID(message.ID) {
+		t.Error("command id and parent do not match")
 	}
 }
 
@@ -119,31 +120,31 @@ func BenchmarkSyncCommand(b *testing.B) {
 	defer client.Close()
 
 	action := "command"
-	key, _ := uuid.NewV4()
-	command := NewCommand(action, 1, key.Bytes(), nil)
-	command.EOS = true
 
-	group.HandleFunc(CommandMessage, action, func(writer ResponseWriter, message interface{}) {
-		_, err := writer.ProduceEventEOS(action, 1, nil, nil)
+	message := types.NewMessage(action, 1, nil, nil)
+	message.EOS = true
+
+	group.HandleFunc(CommandMessage, action, func(message *Message, writer Writer) {
+		_, err := writer.Event(action, 1, nil, nil)
 		if err != nil {
-			b.Fatal(err)
+			b.Error(err)
 		}
 	})
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		event, next, err := group.SyncCommand(command)
-
+		event, err := group.SyncCommand(message)
 		if err != nil {
-			b.Fatal(err)
+			b.Error(err)
 		}
 
-		if event.Parent != types.ParentID(command.ID) {
-			b.Fatal("command id and parent do not match")
+		parent, has := types.ParentIDFromContext(event.Ctx)
+		if !has || parent != types.ParentID(message.ID) {
+			b.Error("command id and parent do not match")
 		}
 
-		next(nil)
+		event.Next()
 	}
 }
 
@@ -153,17 +154,17 @@ func TestAwaitEvent(t *testing.T) {
 	defer client.Close()
 
 	timeout := 100 * time.Millisecond
-	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
+	parent := types.NewMessage("parent", 1, nil, nil)
 
 	go func() {
-		event := NewEvent("tested", 1, parent, nil, nil)
+		event := parent.NewMessage("tested", 1, nil, nil)
 		err := group.ProduceEvent(event)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
 
-	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
+	messages, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -171,8 +172,8 @@ func TestAwaitEvent(t *testing.T) {
 
 	defer closer()
 
-	_, next, err = group.AwaitEvent(messages, next, parent)
-	next(nil)
+	message, err := group.AwaitMessage(messages, types.ParentID(parent.ID))
+	message.Next()
 
 	if err != nil {
 		t.Fatal(err)
@@ -187,17 +188,17 @@ func TestAwaitEventAction(t *testing.T) {
 
 	action := "process"
 	timeout := 100 * time.Millisecond
-	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
+	parent := types.NewMessage(action, 1, nil, nil)
 
 	go func() {
-		event := NewEvent(action, 1, parent, nil, nil)
+		event := parent.NewMessage(action, 1, nil, nil)
 		err := group.ProduceEvent(event)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
 
-	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
+	messages, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -205,40 +206,44 @@ func TestAwaitEventAction(t *testing.T) {
 
 	defer closer()
 
-	_, next, err = group.AwaitEventWithAction(messages, next, parent, action)
-	next(nil)
-
+	message, err := group.AwaitEventWithAction(messages, types.ParentID(parent.ID), action)
 	if err != nil {
 		t.Error(err)
 	}
+
+	message.Next()
 }
 
-// TestAwaitEventIgnoreParent tests if plausible to await a event and ignore the parent
+// TestAwaitEventIgnoreParent tests if plausible to await a event with action
 func TestAwaitEventIgnoreParent(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
 	timeout := 100 * time.Millisecond
-	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
+	parent := types.NewMessage("parent", 1, nil, nil)
 
-	event := NewEvent("ignore", 1, parent, nil, nil)
-	err := group.ProduceEvent(event)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	messages, next, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
+	messages, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 
+	go func() {
+		event := parent.NewMessage("ignore", 1, nil, nil)
+		err := group.ProduceEvent(event)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+
 	defer closer()
 
-	_, _, err = group.AwaitEventWithAction(messages, next, parent, "process")
+	message, err := group.AwaitEventWithAction(messages, types.ParentID(parent.ID), "process")
 	if err != ErrTimeout {
 		t.Error(err)
 	}
+
+	message.Next()
 }
 
 // TestEventConsumer tests if events get consumed
@@ -246,17 +251,15 @@ func TestEventConsumer(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
-	events, next, close, err := group.NewConsumer(EventMessage)
+	events, close, err := group.NewConsumer(EventMessage)
 	if err != nil {
 		panic(err)
 	}
 
 	defer close()
 
-	key := types.Key(uuid.Must(uuid.NewV4()).String())
-	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
-
-	event := NewEvent("tested", 1, parent, key, nil)
+	parent := types.NewMessage("parent", 1, nil, nil)
+	event := parent.NewMessage("tested", 1, nil, nil)
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -266,12 +269,11 @@ func TestEventConsumer(t *testing.T) {
 	defer cancel()
 
 	select {
-	case <-events:
+	case event := <-events:
+		event.Next()
 	case <-ctx.Done():
 		t.Error("no message was consumed within the deadline")
 	}
-
-	next(nil)
 }
 
 // TestCommandConsumer tests if commands get consumed
@@ -279,15 +281,14 @@ func TestCommandConsumer(t *testing.T) {
 	group, client := NewMockClient()
 	defer client.Close()
 
-	commands, next, close, err := group.NewConsumer(CommandMessage)
+	messages, close, err := group.NewConsumer(CommandMessage)
 	if err != nil {
 		panic(err)
 	}
 
 	defer close()
 
-	key, _ := uuid.NewV4()
-	command := NewCommand("testing", 1, key.Bytes(), []byte("{}"))
+	command := types.NewMessage("testing", 1, nil, nil)
 	group.ProduceCommand(command)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -296,12 +297,11 @@ func TestCommandConsumer(t *testing.T) {
 	defer cancel()
 
 	select {
-	case <-commands:
+	case message := <-messages:
+		message.Next()
 	case <-ctx.Done():
 		t.Error("no message was consumed within the deadline")
 	}
-
-	next(nil)
 }
 
 // TestEventHandleFunc tests if a event handle func get's called
@@ -310,21 +310,13 @@ func TestEventHandleFunc(t *testing.T) {
 	defer client.Close()
 
 	action := "testing"
-	delivered := make(chan Event, 1)
+	delivered := make(chan *Message, 1)
 
-	group.HandleFunc(EventMessage, action, func(writer ResponseWriter, message interface{}) {
-		event, ok := message.(Event)
-		if !ok {
-			t.Error("the received message is not a event")
-		}
-
-		delivered <- event
+	group.HandleFunc(EventMessage, action, func(message *Message, writer Writer) {
+		delivered <- message
 	})
 
-	key := types.Key(uuid.Must(uuid.NewV4()).String())
-	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
-
-	event := NewEvent(action, 1, parent, key, nil)
+	event := types.NewMessage(action, 1, nil, nil)
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -347,13 +339,10 @@ func TestEventHandle(t *testing.T) {
 	action := "testing"
 	delivered := make(chan interface{}, 1)
 
-	handle := &actionHandle{delivered}
+	handle := &handler{delivered}
 	group.Handle(EventMessage, action, handle)
 
-	key := types.Key(uuid.Must(uuid.NewV4()).String())
-	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
-
-	event := NewEvent(action, 1, parent, key, nil)
+	event := types.NewMessage(action, 1, nil, nil)
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -376,13 +365,10 @@ func TestActionEventHandle(t *testing.T) {
 	delivered := make(chan interface{}, 2)
 	failure := make(chan interface{}, 2)
 
-	group.Handle(EventMessage, "create", &actionHandle{delivered})
-	group.Handle(EventMessage, "delete", &actionHandle{failure})
+	group.Handle(EventMessage, "create", &handler{delivered})
+	group.Handle(EventMessage, "delete", &handler{failure})
 
-	key := types.Key(uuid.Must(uuid.NewV4()).String())
-	parent := types.ParentID(uuid.Must(uuid.NewV4()).String())
-
-	event := NewEvent("create", 1, parent, key, nil)
+	event := types.NewMessage("create", 1, nil, nil)
 	group.ProduceEvent(event)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -407,12 +393,10 @@ func TestActionCommandHandle(t *testing.T) {
 	delivered := make(chan interface{}, 1)
 	failure := make(chan interface{}, 1)
 
-	group.Handle(CommandMessage, "delete", &actionHandle{failure})
-	group.Handle(CommandMessage, "create", &actionHandle{delivered})
+	group.Handle(CommandMessage, "delete", &handler{failure})
+	group.Handle(CommandMessage, "create", &handler{delivered})
 
-	key, _ := uuid.NewV4()
-
-	command := NewCommand("create", 1, key.Bytes(), []byte("{}"))
+	command := types.NewMessage("create", 1, nil, nil)
 	group.ProduceCommand(command)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -435,26 +419,26 @@ func TestCommandTimestampPassed(t *testing.T) {
 	defer client.Close()
 
 	var timestamp time.Time
-
-	// Command object to be checked upon
-	key, _ := uuid.NewV4()
-	command := NewCommand("command", 1, key.Bytes(), []byte("{}"))
+	command := types.NewMessage("command", 1, nil, nil)
 
 	delivered := make(chan interface{}, 1)
-	group.HandleFunc(CommandMessage, "command", func(writer ResponseWriter, message interface{}) {
-		command := message.(Command)
-		timestamp = command.Timestamp
+	group.HandleFunc(CommandMessage, "command", func(message *Message, writer Writer) {
+		timestamp = message.Timestamp
 
-		writer.ProduceEvent("event", 1, nil, nil)
+		writer.Event("event", 1, nil, nil)
 	})
 
-	group.HandleFunc(EventMessage, "event", func(writer ResponseWriter, message interface{}) {
-		event := message.(Event)
-		delivered <- message
-
-		if time.Time(event.ParentTimestamp).Unix() != timestamp.Unix() {
-			t.Fatal("the event timestamp does not match the command timestamp")
+	group.HandleFunc(EventMessage, "event", func(message *Message, writer Writer) {
+		parent, has := types.ParentTimestampFromContext(message.Ctx)
+		if !has {
+			t.Error("timestamp is not set")
 		}
+
+		if time.Time(parent).Unix() != timestamp.Unix() {
+			t.Error("the event timestamp does not match the command timestamp")
+		}
+
+		delivered <- message
 	})
 
 	group.ProduceCommand(command)
@@ -473,65 +457,29 @@ func TestCommandTimestampPassed(t *testing.T) {
 
 // TestMessageMarked tests if the command timestamp is passed to the produced event
 func TestMessageMarked(t *testing.T) {
-	group, _ := NewMockClient()
-	id := func() []byte { return uuid.Must(uuid.NewV4()).Bytes() }
-
-	first := NewCommand("command", 1, id(), []byte("{}"))
-	second := NewCommand("command", 1, id(), []byte("{}"))
-
-	delivered := make(chan interface{}, 2)
-
-	group.HandleFunc(CommandMessage, "command", func(writer ResponseWriter, message interface{}) {
-		time.Sleep(100 * time.Millisecond)
-		delivered <- message
-	})
-
-	group.ProduceCommand(first)
-	group.ProduceCommand(second)
-
-	deadline := time.Now().Add(50 * time.Millisecond)
-	ctx, cancel := context.WithDeadline(context.Background(), deadline)
-
-	defer cancel()
-
-	select {
-	case <-ctx.Done():
-		if len(delivered) == 2 {
-			t.Fatal("the events are unexpectedly consumed")
-		}
-	}
+	message := types.NewMessage("testing", 1, nil, nil)
+	message.Async()
+	go func() {
+		message.Next()
+	}()
+	message.Await()
 }
 
-// // TestEventStream tests if able to consume and await a event stream
-// func TestEventStream(t *testing.T) {
-// 	var event Event
+// TestNewConsumer tests if able to create a new consumer
+func TestNewConsumer(t *testing.T) {
+	group, client := NewMockClient()
+	defer client.Close()
 
-// 	group, client := NewMockClient()
-// 	defer client.Close()
+	var err error
 
-// 	group.HandleFunc(CommandMessage, "command", func(writer ResponseWriter, message interface{}) {
-// 		writer.ProduceEvent("action", 1, nil, nil)
-// 		event, _ = writer.ProduceEventEOS("action", 1, nil, nil)
-// 		writer.ProduceEvent("action", 1, nil, nil)
-// 	})
+	_, _, err = group.NewConsumer(EventMessage)
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	command := NewCommand("command", 1, nil, nil)
-// 	err := group.ProduceCommand(command)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	timeout := 500 * time.Millisecond
-// 	events, marked, erro := group.AwaitEOS(timeout, command.ID, EventMessage)
-
-// 	select {
-// 	case err := <-erro:
-// 		t.Fatal(err)
-// 	case res := <-events:
-// 		if res.ID != event.ID {
-// 			t.Fatal("returned event is not the expected event")
-// 		}
-
-// 		marked <- nil
-// 	}
-// }
+	unkown := types.MessageType(0)
+	_, _, err = group.NewConsumer(unkown)
+	if err != ErrNoTopic {
+		t.Error("unexpected error", err)
+	}
+}

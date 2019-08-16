@@ -1,23 +1,38 @@
 package mock
 
 import (
+	"os"
+
 	"github.com/jeroenrinzema/commander/types"
+	log "github.com/sirupsen/logrus"
+)
+
+const (
+	// DebugEnv os debug env key
+	DebugEnv = "DEBUG"
 )
 
 // NewDialect constructs a new in-memory mocking dialect
 func NewDialect() types.Dialect {
+	logger := log.New()
+	if os.Getenv(DebugEnv) != "" {
+		logger.SetLevel(log.DebugLevel)
+	}
+
 	consumer := &Consumer{
 		subscriptions: make(map[string]*SubscriptionCollection),
-		queue:         make(chan *types.Message, 100),
+		logger:        logger,
 	}
 
 	producer := &Producer{
 		consumer: consumer,
+		logger:   logger,
 	}
 
 	dialect := &Dialect{
 		consumer: consumer,
 		producer: producer,
+		logger:   logger,
 	}
 
 	return dialect
@@ -27,6 +42,7 @@ func NewDialect() types.Dialect {
 type Dialect struct {
 	consumer *Consumer
 	producer *Producer
+	logger   *log.Logger
 }
 
 // Open notifies a dialect to open the dialect.

@@ -3,7 +3,10 @@ package types
 import (
 	"context"
 	"strconv"
+	"sync"
 	"time"
+
+	"github.com/gofrs/uuid"
 )
 
 // Version message version
@@ -65,9 +68,30 @@ func (eos *EOS) Parse(value string) EOS {
 	return true
 }
 
-// Message a message
+// NewMessage constructs a new message
+func NewMessage(action string, version int8, key []byte, data []byte) *Message {
+	// NOTE: take a look at other ways of generating id's
+	id := uuid.Must(uuid.NewV4()).String()
+
+	if key == nil {
+		key = []byte(id)
+	}
+
+	return &Message{
+		Ctx:     context.Background(),
+		ID:      id,
+		Action:  action,
+		Version: Version(version),
+		Key:     key,
+		Data:    data,
+		async:   make(chan struct{}, 0),
+	}
+}
+
+// Message representation
 type Message struct {
 	ID        string          `json:"id"`
+	Status    StatusCode      `json:"status"`
 	Topic     Topic           `json:"topic"`
 	Action    string          `json:"action"`
 	Version   Version         `json:"version"`
@@ -76,4 +100,103 @@ type Message struct {
 	EOS       EOS             `json:"eos"`
 	Timestamp time.Time       `json:"timestamp"`
 	Ctx       context.Context `json:"-"`
+
+	// NOTE: include message topic origin?
+	async  chan struct{}
+	result error
+	once   sync.Once
+	mutex  sync.RWMutex
+}
+
+// NewError construct a new error message with the given message as parent
+func (message *Message) NewError(action string, status StatusCode, err error) *Message {
+	child := message.NewMessage(action, message.Version, message.Key, []byte(err.Error()))
+	child.Status = status
+
+	return child
+}
+
+// NewMessage construct a new event message with the given message as parent
+func (message *Message) NewMessage(action string, version Version, key Key, data []byte) *Message {
+	child := &Message{}
+	child.Ctx = context.Background()
+
+	child.Ctx = NewParentIDContext(child.Ctx, ParentID(message.ID))
+	child.Ctx = NewParentTimestampContext(child.Ctx, ParentTimestamp(message.Timestamp))
+
+	child.ID = uuid.Must(uuid.NewV4()).String()
+	child.Action = action
+	child.Status = StatusOK
+	child.Data = data
+	child.Timestamp = time.Now()
+	child.Version = message.Version
+	child.Key = key
+
+	if child.Key == nil {
+		child.Key = message.Key
+	}
+
+	if version == NullVersion {
+		child.Version = message.Version
+	}
+
+	return child
+}
+
+// Async set's up a new async that awaits untill resolved
+func (message *Message) Async() {
+	if message == nil {
+		return
+	}
+
+	message.mutex.Lock()
+	defer message.mutex.Unlock()
+
+	message.once = sync.Once{}
+	message.async = make(chan struct{}, 0)
+	return
+}
+
+// Retry mark the message as resolved and attempt to retry the message
+func (message *Message) Retry(err error) {
+	if message == nil {
+		return
+	}
+
+	message.resolve(err)
+}
+
+// Next mark the message as resolved
+func (message *Message) Next() {
+	if message == nil {
+		return
+	}
+
+	message.resolve(nil)
+}
+
+func (message *Message) resolve(err error) {
+	if message == nil {
+		return
+	}
+
+	message.mutex.RLock()
+	defer message.mutex.RUnlock()
+
+	message.once.Do(func() {
+		message.result = err
+		close(message.async)
+	})
+}
+
+// Await await untill the message is resolved
+func (message *Message) Await() error {
+	if message == nil {
+		return nil
+	}
+
+	message.mutex.RLock()
+	defer message.mutex.RUnlock()
+	<-message.async
+	return message.result
 }

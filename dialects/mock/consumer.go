@@ -20,10 +20,10 @@ type Consumer struct {
 func (consumer *Consumer) Emit(message *types.Message) {
 	consumer.logger.Debug("emitting message!")
 
+	consumer.mutex.RLock()
 	consumer.consumptions.Add(1)
 	defer consumer.consumptions.Done()
 
-	consumer.mutex.RLock()
 	collection, has := consumer.subscriptions[message.Topic.Name]
 	if !has {
 		consumer.mutex.RUnlock()

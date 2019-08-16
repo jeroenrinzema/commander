@@ -207,11 +207,11 @@ func TestAwaitEventAction(t *testing.T) {
 	defer closer()
 
 	message, err := group.AwaitEventWithAction(messages, types.ParentID(parent.ID), action)
-	message.Next()
-
 	if err != nil {
 		t.Error(err)
 	}
+
+	message.Next()
 }
 
 // // TestAwaitEventIgnoreParent tests if plausible to await a event with action

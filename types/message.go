@@ -144,26 +144,42 @@ func (message *Message) NewMessage(action string, version Version, key Key, data
 }
 
 // Async set's up a new async that awaits untill resolved
-func (message *Message) Async() *Message {
+func (message *Message) Async() {
+	if message == nil {
+		return
+	}
+
 	message.mutex.Lock()
 	defer message.mutex.Unlock()
 
 	message.once = sync.Once{}
 	message.async = make(chan struct{}, 0)
-	return message
+	return
 }
 
 // Retry mark the message as resolved and attempt to retry the message
 func (message *Message) Retry(err error) {
+	if message == nil {
+		return
+	}
+
 	message.resolve(err)
 }
 
 // Next mark the message as resolved
 func (message *Message) Next() {
+	if message == nil {
+		return
+	}
+
 	message.resolve(nil)
 }
 
 func (message *Message) resolve(err error) {
+	if message == nil {
+		return
+	}
+
 	message.mutex.RLock()
 	defer message.mutex.RUnlock()
 
@@ -175,6 +191,10 @@ func (message *Message) resolve(err error) {
 
 // Await await untill the message is resolved
 func (message *Message) Await() error {
+	if message == nil {
+		return nil
+	}
+
 	message.mutex.RLock()
 	defer message.mutex.RUnlock()
 	<-message.async

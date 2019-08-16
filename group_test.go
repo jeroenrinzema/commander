@@ -214,35 +214,37 @@ func TestAwaitEventAction(t *testing.T) {
 	message.Next()
 }
 
-// // TestAwaitEventIgnoreParent tests if plausible to await a event with action
-// func TestAwaitEventIgnoreParent(t *testing.T) {
-// 	group, client := NewMockClient()
-// 	defer client.Close()
+// TestAwaitEventIgnoreParent tests if plausible to await a event with action
+func TestAwaitEventIgnoreParent(t *testing.T) {
+	group, client := NewMockClient()
+	defer client.Close()
 
-// 	timeout := 100 * time.Millisecond
-// 	parent := types.NewMessage("parent", 1, nil, nil)
+	timeout := 100 * time.Millisecond
+	parent := types.NewMessage("parent", 1, nil, nil)
 
-// 	messages, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 		return
-// 	}
+	messages, closer, err := group.NewConsumerWithDeadline(timeout, EventMessage)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
 
-// 	go func() {
-// 		event := parent.NewMessage("ignore", 1, nil, nil)
-// 		err := group.ProduceEvent(event)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 	}()
+	go func() {
+		event := parent.NewMessage("ignore", 1, nil, nil)
+		err := group.ProduceEvent(event)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 
-// 	defer closer()
+	defer closer()
 
-// 	_, err = group.AwaitEventWithAction(messages, types.ParentID(parent.ID), "process")
-// 	if err != ErrTimeout {
-// 		t.Error(err)
-// 	}
-// }
+	message, err := group.AwaitEventWithAction(messages, types.ParentID(parent.ID), "process")
+	if err != ErrTimeout {
+		t.Error(err)
+	}
+
+	message.Next()
+}
 
 // TestEventConsumer tests if events get consumed
 func TestEventConsumer(t *testing.T) {
@@ -461,4 +463,23 @@ func TestMessageMarked(t *testing.T) {
 		message.Next()
 	}()
 	message.Await()
+}
+
+// TestNewConsumer tests if able to create a new consumer
+func TestNewConsumer(t *testing.T) {
+	group, client := NewMockClient()
+	defer client.Close()
+
+	var err error
+
+	_, _, err = group.NewConsumer(EventMessage)
+	if err != nil {
+		t.Error(err)
+	}
+
+	unkown := types.MessageType(0)
+	_, _, err = group.NewConsumer(unkown)
+	if err != ErrNoTopic {
+		t.Error("unexpected error", err)
+	}
 }

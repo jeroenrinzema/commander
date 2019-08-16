@@ -36,8 +36,7 @@ func (consumer *Consumer) Emit(message *types.Message) {
 		return
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(collection.list))
+	resolved := make(chan struct{}, 0)
 
 	go func(collection *SubscriptionCollection, message *types.Message) {
 		collection.mutex.Lock()
@@ -45,13 +44,13 @@ func (consumer *Consumer) Emit(message *types.Message) {
 			message.Async()
 			subscription.messages <- message
 			message.Await()
-			wg.Done()
 		}
 		collection.mutex.Unlock()
+		close(resolved)
 	}(collection, message)
 
 	consumer.mutex.RUnlock()
-	wg.Wait()
+	<-resolved
 }
 
 // Subscribe creates a new topic subscription that will receive

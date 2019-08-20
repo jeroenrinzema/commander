@@ -43,8 +43,8 @@ Let's first set up a simple commander group.
 ```go
 dialect := mock.NewDialect()
 group := commander.NewGroup(
-	NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode),
-	NewTopic("event", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
+	commander.NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode),
+	commander.NewTopic("event", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
 )
 
 client, err := commander.NewClient(group)
@@ -53,8 +53,8 @@ client, err := commander.NewClient(group)
 Once the event groups are defined and the dialects are initialized could consumers/producers be setup.
 
 ```go
-group.HandleFunc("example", commander.CommandTopic, func(writer commander.ResponseWriter, message interface{}) {
-	writer.ProduceEvent("created", 1, nil, nil)
+group.HandleFunc("example", commander.CommandTopic, func(message *commander.Message, writer commander.Writer) {
+	writer.Event("created", 1, nil, nil)
 })
 
 command := commander.NewCommand("example", 1, nil, nil)

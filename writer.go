@@ -77,7 +77,12 @@ func (writer *writer) ErrorEOS(action string, status types.StatusCode, err error
 		status = types.StatusInternalServerError
 	}
 
-	message := writer.NewMessage(action, 0, nil, []byte(err.Error()))
+	var payload []byte
+	if err != nil {
+		payload = []byte(err.Error())
+	}
+
+	message := writer.NewMessage(action, 0, nil, payload)
 	message.Status = status
 	message.EOS = true
 
@@ -90,7 +95,12 @@ func (writer *writer) ErrorStream(action string, status types.StatusCode, err er
 		status = types.StatusInternalServerError
 	}
 
-	message := writer.NewMessage(action, 0, nil, []byte(err.Error()))
+	var payload []byte
+	if err != nil {
+		payload = []byte(err.Error())
+	}
+
+	message := writer.NewMessage(action, 0, nil, payload)
 	message.Status = status
 
 	err = writer.group.ProduceEvent(message)

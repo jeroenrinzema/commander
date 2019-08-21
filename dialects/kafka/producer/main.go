@@ -17,21 +17,19 @@ func NewClient() *Client {
 // Client produces kafka messages
 type Client struct {
 	producer   sarama.SyncProducer
-	brokers    []string
-	config     *sarama.Config
+	conn       sarama.Client
 	production sync.WaitGroup
 }
 
 // Connect initializes and opens a new Sarama producer group.
-func (client *Client) Connect(brokers []string, config *sarama.Config) error {
-	producer, err := sarama.NewSyncProducer(brokers, config)
+func (client *Client) Connect(conn sarama.Client) error {
+	producer, err := sarama.NewSyncProducerFromClient(conn)
 	if err != nil {
 		return err
 	}
 
 	client.producer = producer
-	client.brokers = brokers
-	client.config = config
+	client.conn = conn
 
 	return nil
 }

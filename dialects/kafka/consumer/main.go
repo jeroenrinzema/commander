@@ -68,19 +68,22 @@ type Client struct {
 	brokers []string
 	topics  map[string]*Topic
 	ready   chan bool
+	conn    sarama.Client
 	group   string
 }
 
 // Connect opens a new Kafka consumer
-func (client *Client) Connect(initialOffset int64, config *sarama.Config, ts ...types.Topic) error {
+func (client *Client) Connect(conn sarama.Client, initialOffset int64, ts ...types.Topic) error {
 	topics := []string{}
 	for _, topic := range ts {
 		topics = append(topics, topic.Name)
 	}
 
+	client.conn = conn
+
 	if client.group != "" {
 		handle := NewGroupHandle(client)
-		err := handle.Connect(client.brokers, topics, client.group, config)
+		err := handle.Connect(conn, topics, client.group)
 		if err != nil {
 			return err
 		}
@@ -90,7 +93,7 @@ func (client *Client) Connect(initialOffset int64, config *sarama.Config, ts ...
 	}
 
 	handle := NewPartitionHandle(client)
-	err := handle.Connect(client.brokers, topics, initialOffset, config)
+	err := handle.Connect(conn, topics, initialOffset)
 	if err != nil {
 		return err
 	}

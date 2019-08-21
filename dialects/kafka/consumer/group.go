@@ -2,10 +2,10 @@ package consumer
 
 import (
 	"context"
-	"log"
 	"sync"
 
 	"github.com/Shopify/sarama"
+	"github.com/sirupsen/logrus"
 )
 
 // NewGroupHandle initializes a new GroupHandle
@@ -24,15 +24,14 @@ type GroupHandle struct {
 	consumer     sarama.ConsumerGroup
 	group        string
 	ready        chan bool
-	config       *sarama.Config
 	consumptions sync.WaitGroup
 	closing      bool
 }
 
 // Connect initializes a new Sarama consumer group and awaits till the consumer
 // group is set up and ready to consume messages.
-func (handle *GroupHandle) Connect(brokers []string, topics []string, group string, config *sarama.Config) error {
-	consumer, err := sarama.NewConsumerGroup(brokers, group, config)
+func (handle *GroupHandle) Connect(conn sarama.Client, topics []string, group string) error {
+	consumer, err := sarama.NewConsumerGroupFromClient(group, conn)
 	if err != nil {
 		return err
 	}
@@ -45,8 +44,9 @@ func (handle *GroupHandle) Connect(brokers []string, topics []string, group stri
 
 			ctx := context.Background()
 			err := consumer.Consume(ctx, topics, handle)
-
-			log.Println(err)
+			if err != nil {
+				logrus.Error(err)
+			}
 		}
 	}()
 
@@ -58,7 +58,6 @@ func (handle *GroupHandle) Connect(brokers []string, topics []string, group stri
 
 	handle.consumer = consumer
 	handle.group = group
-	handle.config = config
 
 	return nil
 }

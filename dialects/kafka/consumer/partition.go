@@ -185,8 +185,8 @@ func (handle *PartitionHandle) Rebalance() error {
 
 // Connect initializes a new Sarama partition consumer and awaits till the consumer
 // group is set up and ready to consume messages.
-func (handle *PartitionHandle) Connect(brokers []string, topics []string, initialOffset int64, config *sarama.Config) error {
-	consumer, err := sarama.NewConsumer(brokers, config)
+func (handle *PartitionHandle) Connect(conn sarama.Client, topics []string, initialOffset int64) error {
+	consumer, err := sarama.NewConsumerFromClient(conn)
 	if err != nil {
 		return err
 	}

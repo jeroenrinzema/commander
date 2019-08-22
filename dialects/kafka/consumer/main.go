@@ -72,8 +72,22 @@ type Client struct {
 	group   string
 }
 
+// Healthy checks the health of the Kafka client
+func (client *Client) Healthy() bool {
+	if len(client.conn.Brokers()) == 0 {
+		return false
+	}
+
+	return true
+}
+
 // Connect opens a new Kafka consumer
-func (client *Client) Connect(conn sarama.Client, initialOffset int64, ts ...types.Topic) error {
+func (client *Client) Connect(brokers []string, config *sarama.Config, initialOffset int64, ts ...types.Topic) error {
+	conn, err := sarama.NewClient(brokers, config)
+	if err != nil {
+		return err
+	}
+
 	topics := []string{}
 	for _, topic := range ts {
 		topics = append(topics, topic.Name)
@@ -93,7 +107,7 @@ func (client *Client) Connect(conn sarama.Client, initialOffset int64, ts ...typ
 	}
 
 	handle := NewPartitionHandle(client)
-	err := handle.Connect(conn, topics, initialOffset)
+	err = handle.Connect(conn, topics, initialOffset)
 	if err != nil {
 		return err
 	}

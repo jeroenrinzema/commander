@@ -13,7 +13,6 @@ type Dialect struct {
 	Topics     []types.Topic
 	Config     *sarama.Config
 
-	conn     sarama.Client
 	consumer *consumer.Client
 	producer *producer.Client
 }
@@ -60,23 +59,17 @@ func (dialect *Dialect) Assigned(topic types.Topic) {
 }
 
 // Open opens a kafka consumer and producer
-func (dialect *Dialect) Open() error {
-	conn, err := sarama.NewClient(dialect.Connection.Brokers, dialect.Config)
+func (dialect *Dialect) Open() (err error) {
+	err = dialect.consumer.Connect(dialect.Connection.Brokers, dialect.Config, dialect.Connection.InitialOffset, dialect.Topics...)
 	if err != nil {
 		return err
 	}
 
-	err = dialect.consumer.Connect(conn, dialect.Connection.InitialOffset, dialect.Topics...)
+	err = dialect.producer.Connect(dialect.Connection.Brokers, dialect.Config)
 	if err != nil {
 		return err
 	}
 
-	err = dialect.producer.Connect(conn)
-	if err != nil {
-		return err
-	}
-
-	dialect.conn = conn
 	return nil
 }
 
@@ -99,12 +92,15 @@ func (dialect *Dialect) Close() error {
 
 // Healthy returns a boolean that reprisents if the dialect is healthy
 func (dialect *Dialect) Healthy() bool {
-	if dialect.conn == nil {
+	if dialect.consumer == nil && dialect.producer == nil {
 		return false
 	}
 
-	brokers := dialect.conn.Brokers()
-	if len(brokers) == 0 {
+	if dialect.consumer != nil && !dialect.consumer.Healthy() {
+		return false
+	}
+
+	if dialect.producer != nil && !dialect.producer.Healthy() {
 		return false
 	}
 

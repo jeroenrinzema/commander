@@ -21,8 +21,22 @@ type Client struct {
 	production sync.WaitGroup
 }
 
+// Healthy checks the health of the Kafka client
+func (client *Client) Healthy() bool {
+	if len(client.conn.Brokers()) == 0 {
+		return false
+	}
+
+	return true
+}
+
 // Connect initializes and opens a new Sarama producer group.
-func (client *Client) Connect(conn sarama.Client) error {
+func (client *Client) Connect(brokers []string, config *sarama.Config) error {
+	conn, err := sarama.NewClient(brokers, config)
+	if err != nil {
+		return err
+	}
+
 	producer, err := sarama.NewSyncProducerFromClient(conn)
 	if err != nil {
 		return err

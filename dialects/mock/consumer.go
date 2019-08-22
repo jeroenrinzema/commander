@@ -20,19 +20,20 @@ type Consumer struct {
 func (consumer *Consumer) Emit(message *types.Message) {
 	consumer.logger.Debug("emitting message!")
 
-	consumer.mutex.RLock()
+	consumer.mutex.Lock()
 	consumer.consumptions.Add(1)
+
 	defer consumer.consumptions.Done()
 
 	collection, has := consumer.subscriptions[message.Topic.Name]
 	if !has {
-		consumer.mutex.RUnlock()
+		consumer.mutex.Unlock()
 		return
 	}
 
 	length := len(collection.list)
 	if length == 0 {
-		consumer.mutex.RUnlock()
+		consumer.mutex.Unlock()
 		return
 	}
 
@@ -49,7 +50,7 @@ func (consumer *Consumer) Emit(message *types.Message) {
 		close(resolved)
 	}(collection, message)
 
-	consumer.mutex.RUnlock()
+	consumer.mutex.Unlock()
 	<-resolved
 }
 

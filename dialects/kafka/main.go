@@ -60,7 +60,7 @@ func (dialect *Dialect) Assigned(topic types.Topic) {
 
 // Open opens a kafka consumer and producer
 func (dialect *Dialect) Open() (err error) {
-	err = dialect.consumer.Connect(dialect.Connection.InitialOffset, dialect.Config, dialect.Topics...)
+	err = dialect.consumer.Connect(dialect.Connection.Brokers, dialect.Config, dialect.Connection.InitialOffset, dialect.Topics...)
 	if err != nil {
 		return err
 	}
@@ -92,5 +92,17 @@ func (dialect *Dialect) Close() error {
 
 // Healthy returns a boolean that reprisents if the dialect is healthy
 func (dialect *Dialect) Healthy() bool {
+	if dialect.consumer == nil && dialect.producer == nil {
+		return false
+	}
+
+	if dialect.consumer != nil && !dialect.consumer.Healthy() {
+		return false
+	}
+
+	if dialect.producer != nil && !dialect.producer.Healthy() {
+		return false
+	}
+
 	return true
 }

@@ -17,7 +17,8 @@ group := commander.NewGroup(
 )
 
 // A context definition allows to define a group of options
-// which could easily be "unpacked" when needed.
+// which could easily be "unpacked" when needed. The ContextDefinition function
+// wraps the given options in a slice.
 definition := commander.ContextDefinition(
 	commander.WithJSONCodec(),
 	commander.WithTimeout(1*time.Second),

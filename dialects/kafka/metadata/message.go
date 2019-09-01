@@ -21,9 +21,7 @@ func MessageFromMessage(consumed *sarama.ConsumerMessage) *commander.Message {
 	})
 
 	message := &types.Message{
-		Topic: types.Topic{
-			Name: consumed.Topic,
-		},
+		Topic:     types.NewTopic(consumed.Topic, nil, types.EventMessage, types.DefaultMode),
 		Data:      consumed.Value,
 		Key:       consumed.Key,
 		Timestamp: consumed.Timestamp,
@@ -135,7 +133,7 @@ func MessageToMessage(produce *commander.Message) *sarama.ProducerMessage {
 	}
 
 	return &sarama.ProducerMessage{
-		Topic:   produce.Topic.Name,
+		Topic:   produce.Topic.Name(),
 		Key:     sarama.ByteEncoder(produce.Key),
 		Value:   sarama.ByteEncoder(produce.Data),
 		Headers: headers,

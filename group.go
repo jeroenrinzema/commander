@@ -216,7 +216,7 @@ func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) []types.
 	topics := []Topic{}
 
 	for _, topic := range group.Topics[m] {
-		if topic.Type != t {
+		if topic.Type() != t {
 			continue
 		}
 
@@ -306,7 +306,7 @@ func (group *Group) Publish(message *Message) error {
 	group.Middleware.Emit(message.Ctx, BeforePublish, message)
 	defer group.Middleware.Emit(message.Ctx, AfterPublish, message)
 
-	err := message.Topic.Dialect.Producer().Publish(message)
+	err := message.Topic.Dialect().Producer().Publish(message)
 	if err != nil {
 		return err
 	}
@@ -330,7 +330,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 	topic := topics[0]
 
 	sink := make(chan *Message, 0)
-	messages, err := topic.Dialect.Consumer().Subscribe(topics...)
+	messages, err := topic.Dialect().Consumer().Subscribe(topics...)
 	if err != nil {
 		close(sink)
 
@@ -370,7 +370,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 		breaker.Open()
 		close(sink)
 
-		go topic.Dialect.Consumer().Unsubscribe(messages)
+		go topic.Dialect().Consumer().Unsubscribe(messages)
 	}
 
 	return sink, closer, nil

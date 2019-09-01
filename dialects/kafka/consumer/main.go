@@ -90,7 +90,7 @@ func (client *Client) Connect(brokers []string, config *sarama.Config, initialOf
 
 	topics := []string{}
 	for _, topic := range ts {
-		topics = append(topics, topic.Name)
+		topics = append(topics, topic.Name())
 	}
 
 	client.conn = conn
@@ -123,11 +123,11 @@ func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, e
 	}
 
 	for _, topic := range topics {
-		if client.topics[topic.Name] == nil {
-			client.topics[topic.Name] = NewTopic()
+		if client.topics[topic.Name()] == nil {
+			client.topics[topic.Name()] = NewTopic()
 		}
 
-		client.topics[topic.Name].subscriptions[subscription.messages] = subscription
+		client.topics[topic.Name()].subscriptions[subscription.messages] = subscription
 	}
 
 	return subscription.messages, nil

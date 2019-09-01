@@ -19,31 +19,56 @@ func NewTopic(name string, dialect Dialect, t MessageType, m TopicMode) Topic {
 		m = DefaultMode
 	}
 
-	topic := Topic{
-		Name:    name,
-		Dialect: dialect,
-		Type:    t,
-		Mode:    m,
+	topic := &topic{
+		name:     name,
+		dialect:  dialect,
+		messages: t,
+		mode:     m,
 	}
 
 	dialect.Assigned(topic)
 	return topic
 }
 
-// Topic contains information of a kafka topic
-type Topic struct {
-	Name    string
-	Dialect Dialect
-	Type    MessageType
-	Mode    TopicMode
+// Topic represents a subject for a dialect including it's
+// consumer/producer mode.
+type Topic interface {
+	// Dialect returns the topic Dialect
+	Dialect() Dialect
+	// Type returns the topic type
+	Type() MessageType
+	// Mode returns the topic mode
+	Mode() TopicMode
+	// HasMode checks if the topic represents the given topic type
+	HasMode(TopicMode) bool
+	// Name returns the topic name
+	Name() string
 }
 
-// HasMode checks if the topic represents the given topic type
-func (topic *Topic) HasMode(m TopicMode) bool {
-	return topic.Mode&(m) > 0
+// Topic interface implementation
+type topic struct {
+	name     string
+	dialect  Dialect
+	messages MessageType
+	mode     TopicMode
 }
 
-// String returns the topic name
-func (topic *Topic) String() string {
-	return topic.Name
+func (topic *topic) Dialect() Dialect {
+	return topic.dialect
+}
+
+func (topic *topic) Type() MessageType {
+	return topic.messages
+}
+
+func (topic *topic) Mode() TopicMode {
+	return topic.mode
+}
+
+func (topic *topic) HasMode(m TopicMode) bool {
+	return topic.mode&(m) > 0
+}
+
+func (topic *topic) Name() string {
+	return topic.name
 }

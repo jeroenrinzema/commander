@@ -46,12 +46,12 @@ func NewClient(groups ...*Group) (*Client, error) {
 topic:
 	for _, topic := range topics {
 		for _, dialect := range dialects {
-			if topic.Dialect == dialect {
+			if topic.Dialect() == dialect {
 				continue topic
 			}
 		}
 
-		dialects = append(dialects, topic.Dialect)
+		dialects = append(dialects, topic.Dialect())
 	}
 
 	for _, dialect := range dialects {
@@ -77,12 +77,12 @@ func (client *Client) Close() error {
 	for _, group := range client.Groups {
 		for _, topics := range group.Topics {
 			for _, topic := range topics {
-				if dialects[topic.Dialect] {
+				if dialects[topic.Dialect()] {
 					continue
 				}
 
-				topic.Dialect.Close()
-				dialects[topic.Dialect] = true
+				topic.Dialect().Close()
+				dialects[topic.Dialect()] = true
 			}
 		}
 	}

@@ -31,5 +31,10 @@ group.HandleContext(
 	commander.WithCallback(callback),
 )
 
+// A context middleware could subscribe to one of the following events:
+// before, during and after. These events are all called on their given context (dialect, group, handle)
+// Options could be set to define additional information (implementation inspiration: https://github.com/grpc/grpc-go/blob/master/dialoptions.go#L41)
+// Different context options could be created such as ServerOption, DialectOption, GroupOption
+
 group.HandleContext(...definition, commander.WithCallback(callback))
 ```

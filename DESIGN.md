@@ -11,29 +11,15 @@ dialect := kafka.NewDialect(
 
 group := commander.NewGroup(
 	commander.WithTimeout(1*time.Second),
-	commander.WithJSONCodec(), // Codec default schema implementation should be defined
+	commander.WithJSONCodec(),
 	commander.NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode|commander.ProduceMode),
 	commander.NewTopic("events", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
 )
 
-// A context definition allows to define a group of options
-// which could easily be "unpacked" when needed. The ContextDefinition function
-// wraps the given options in a slice.
-definition := commander.ContextDefinition(
-	commander.WithJSONCodec(),
-	commander.WithTimeout(1*time.Second),
-)
-
+// Various options could be defined at different levels of the package
 group.HandleContext(
-	commander.WithAction("create")
-	commander.WithInterface(schema)
+	commander.WithAction("create"),
+	commander.WithMessageSchema(schema), // Custom message schema for the given handle context (ex: JSON struct)
 	commander.WithCallback(callback),
 )
-
-// A context middleware could subscribe to one of the following events:
-// before, during and after. These events are all called on their given context (dialect, group, handle)
-// Options could be set to define additional information (implementation inspiration: https://github.com/grpc/grpc-go/blob/master/dialoptions.go#L41)
-// Different context options could be created such as ServerOption, DialectOption, GroupOption
-
-group.HandleContext(...definition, commander.WithCallback(callback))
 ```

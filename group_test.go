@@ -458,7 +458,7 @@ func TestCommandTimestampPassed(t *testing.T) {
 // TestMessageMarked tests if the command timestamp is passed to the produced event
 func TestMessageMarked(t *testing.T) {
 	message := types.NewMessage("testing", 1, nil, nil)
-	message.Async()
+	message.Reset()
 	go func() {
 		message.Next()
 	}()

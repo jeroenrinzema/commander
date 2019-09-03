@@ -167,7 +167,8 @@ func (client *Client) Claim(consumed *sarama.ConsumerMessage) (err error) {
 	defer client.topics[topic].mutex.RUnlock()
 
 	for _, subscription := range client.topics[topic].subscriptions {
-		message.Async()
+		message.Reset()
+
 		select {
 		case subscription.messages <- message:
 			result := message.Await()

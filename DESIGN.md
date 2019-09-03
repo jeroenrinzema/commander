@@ -11,7 +11,7 @@ dialect := kafka.NewDialect(
 
 group := commander.NewGroup(
 	commander.WithTimeout(1*time.Second),
-	commander.WithJSONCodec(),
+	commander.WithJSONCodec(), // Codec default schema implementation should be defined
 	commander.NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode|commander.ProduceMode),
 	commander.NewTopic("events", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
 )
@@ -26,8 +26,7 @@ definition := commander.ContextDefinition(
 
 group.HandleContext(
 	commander.WithAction("create")
-	commander.WithJSONCodec(),
-	commander.WithTimeout(1*time.Second),
+	commander.WithInterface(schema)
 	commander.WithCallback(callback),
 )
 

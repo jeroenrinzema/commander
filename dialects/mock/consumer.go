@@ -42,7 +42,7 @@ func (consumer *Consumer) Emit(message *types.Message) {
 	go func(collection *SubscriptionCollection, message *types.Message) {
 		collection.mutex.Lock()
 		for _, subscription := range collection.list {
-			message.Async()
+			message.Reset()
 			subscription.messages <- message
 			message.Await()
 		}

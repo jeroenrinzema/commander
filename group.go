@@ -40,25 +40,19 @@ const (
 )
 
 // NewGroup initializes a new commander group.
-func NewGroup(t ...Topic) *Group {
-	topics := make(map[types.TopicMode][]types.Topic)
-	for _, topic := range t {
-		if topic.HasMode(ConsumeMode) {
-			topics[ConsumeMode] = append(topics[ConsumeMode], topic)
-		}
-
-		if topic.HasMode(ProduceMode) {
-			topics[ProduceMode] = append(topics[ProduceMode], topic)
-		}
-	}
+func NewGroup(definitions ...types.GroupOption) *Group {
+	options := types.NewGroupOptions(definitions)
 
 	group := &Group{
-		Timeout: DefaultTimeout,
-		Retries: DefaultAttempts,
-		Topics:  topics,
+		Timeout: options.Timeout,
+		Retries: options.Retries,
+		Topics:  options.Topics,
+		Codec:   options.Codec,
 		logger:  log.New(),
 	}
 
+	// NOTE: possible creation of a "universal" logger interface that could easily be implemented.
+	// Log levels should be defined/set outside of commander
 	if os.Getenv(DebugEnv) != "" {
 		group.logger.SetLevel(log.DebugLevel)
 	}
@@ -73,24 +67,23 @@ func NewGroup(t ...Topic) *Group {
 type Group struct {
 	Middleware *middleware.Client
 	Timeout    time.Duration
-	Topics     map[types.TopicMode][]types.Topic
-	Retries    int
+	Topics     []types.Topic
+	Codec      types.Codec
+	Retries    int8
 	logger     *log.Logger
 }
 
 // Close represents a closing method
-type Close func()
+type Close = types.Close
 
 // Next indicates that the next message could be called
-type Next func()
+type Next = types.Next
 
 // Handle message handle message, writer implementation
-type Handle func(*Message, Writer)
+type Handle = types.Handle
 
 // Handler interface handle wrapper
-type Handler interface {
-	Handle(*Message, Writer)
-}
+type Handler = types.Handler
 
 // AsyncCommand produces a message to the given group command topic
 // and does not await for the responding event. If no command key is set will the command id be used.
@@ -215,8 +208,12 @@ func (group *Group) AwaitEOS(messages <-chan *types.Message, parent types.Parent
 func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) []types.Topic {
 	topics := []Topic{}
 
-	for _, topic := range group.Topics[m] {
+	for _, topic := range group.Topics {
 		if topic.Type() != t {
+			continue
+		}
+
+		if !topic.HasMode(m) {
 			continue
 		}
 
@@ -402,28 +399,50 @@ func (group *Group) NewConsumerWithDeadline(timeout time.Duration, t types.Messa
 	return messages, closing, nil
 }
 
+// Handle awaits messages from the given MessageType and action.
+// Once a message is received is the callback method called with the received command.
+// The handle is closed once the consumer receives a close signal.
+func (group *Group) Handle(sort types.MessageType, action string, handler Handler) (Close, error) {
+	return group.HandleFunc(sort, action, handler.Handle)
+}
+
 // HandleFunc awaits messages from the given MessageType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
 func (group *Group) HandleFunc(sort types.MessageType, action string, callback Handle) (Close, error) {
-	group.logger.Debugf("setting up new consumer handle: %d, %s", sort, action)
+	return group.HandleContext(
+		WithAction(action),
+		WithMessageType(sort),
+		WithCallback(callback),
+		WithMessageSchema(group.Codec.Schema()),
+	)
+}
 
-	messages, closing, err := group.NewConsumer(sort)
+// HandleContext constructs a handle context based on the given definitions.
+func (group *Group) HandleContext(definitions ...types.HandleOption) (Close, error) {
+	options := types.NewHandleOptions(definitions)
+	group.logger.Debugf("setting up new consumer handle: %d, %s", options.MessageType, options.Action)
+
+	messages, closing, err := group.NewConsumer(options.MessageType)
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
 		for message := range messages {
-			if message.Action != action {
+			if options.Action != "" && message.Action != options.Action {
 				message.Next()
 				continue
 			}
 
+			// FIXME: options.Schema is now a shared value
+			group.Codec.Unmarshal(message.Data, &options.Schema)
+			message.NewCodec(options.Schema)
+
 			group.Middleware.Emit(message.Ctx, BeforeActionConsumption, message)
 
 			writer := NewWriter(group, message)
-			callback(message, writer)
+			options.Callback(message, writer)
 
 			message.Next()
 
@@ -432,11 +451,4 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 	}()
 
 	return closing, nil
-}
-
-// Handle awaits messages from the given MessageType and action.
-// Once a message is received is the callback method called with the received command.
-// The handle is closed once the consumer receives a close signal.
-func (group *Group) Handle(sort types.MessageType, action string, handler Handler) (Close, error) {
-	return group.HandleFunc(sort, action, handler.Handle)
 }

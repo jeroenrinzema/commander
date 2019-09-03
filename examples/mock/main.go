@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
@@ -16,12 +17,26 @@ func main() {
 
 	dialect := mock.NewDialect()
 	group := commander.NewGroup(
+		commander.WithTimeout(1*time.Second),
+		commander.WithJSONCodec(),
 		commander.NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode|commander.ProduceMode),
 		commander.NewTopic("events", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
 	)
 
 	client, _ := commander.NewClient(group)
 	defer client.Close()
+
+	type request struct {
+		Message string `json:"message"`
+	}
+
+	// NOTE: the message schema is shared but should be isolated for each single context
+	group.HandleContext(
+		commander.WithAction("sample"),
+		commander.WithMessageType(commander.CommandMessage),
+		commander.WithMessageSchema(request{}),
+		commander.WithCallback(func(message *commander.Message, writer commander.Writer) {}),
+	)
 
 	/**
 	 * HandleFunc handles an "example" command. Once a command with the action "example" is

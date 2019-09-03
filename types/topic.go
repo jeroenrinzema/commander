@@ -43,6 +43,8 @@ type Topic interface {
 	HasMode(TopicMode) bool
 	// Name returns the topic name
 	Name() string
+	// Apply applies the topic to the given group configuration
+	Apply(*GroupOptions)
 }
 
 // Topic interface implementation
@@ -51,6 +53,10 @@ type topic struct {
 	dialect  Dialect
 	messages MessageType
 	mode     TopicMode
+}
+
+func (topic *topic) Apply(options *GroupOptions) {
+	options.Topics = append(options.Topics, topic)
 }
 
 func (topic *topic) Dialect() Dialect {

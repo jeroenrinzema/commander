@@ -102,21 +102,21 @@ type Message struct {
 	Ctx       context.Context `json:"-"`
 
 	// NOTE: include message topic origin?
-	codec  interface{}
+	schema interface{}
 	async  chan struct{}
 	result error
 	once   sync.Once
 	mutex  sync.RWMutex
 }
 
-// Codec returns the decoded message codec
-func (message *Message) Codec() interface{} {
-	return message.codec
+// Schema returns the decoded message schema
+func (message *Message) Schema() interface{} {
+	return message.schema
 }
 
-// NewCodec overrides the message codec with the given value
-func (message *Message) NewCodec(v interface{}) {
-	message.codec = v
+// NewSchema overrides the message schema with the given value
+func (message *Message) NewSchema(v interface{}) {
+	message.schema = v
 }
 
 // NewError construct a new error message with the given message as parent

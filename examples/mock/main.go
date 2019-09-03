@@ -35,7 +35,9 @@ func main() {
 		commander.WithAction("sample"),
 		commander.WithMessageType(commander.CommandMessage),
 		commander.WithMessageSchema(request{}),
-		commander.WithCallback(func(message *commander.Message, writer commander.Writer) {}),
+		commander.WithCallback(func(message *commander.Message, writer commander.Writer) {
+			message.Schema() // returns decoded map[string]interface{}
+		}),
 	)
 
 	/**

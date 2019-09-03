@@ -437,7 +437,7 @@ func (group *Group) HandleContext(definitions ...types.HandleOption) (Close, err
 
 			// FIXME: options.Schema is now a shared value
 			group.Codec.Unmarshal(message.Data, &options.Schema)
-			message.NewCodec(options.Schema)
+			message.NewSchema(options.Schema)
 
 			group.Middleware.Emit(message.Ctx, BeforeActionConsumption, message)
 

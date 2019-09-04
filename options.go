@@ -59,14 +59,14 @@ func WithCallback(h types.Handle) types.HandleOption {
 }
 
 type schema struct {
-	value interface{}
+	handle func() interface{}
 }
 
 func (s *schema) Apply(options *types.HandleOptions) {
-	options.Schema = s.value
+	options.Schema = s.handle
 }
 
 // WithMessageSchema returns a HandleOptions that configures the message schema for a handle
-func WithMessageSchema(v interface{}) types.HandleOption {
-	return &schema{v}
+func WithMessageSchema(f func() interface{}) types.HandleOption {
+	return &schema{f}
 }

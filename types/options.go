@@ -63,6 +63,6 @@ type HandleOption interface {
 type HandleOptions struct {
 	Action      string
 	MessageType MessageType
-	Schema      interface{}
+	Schema      func() interface{}
 	Callback    Handle
 }

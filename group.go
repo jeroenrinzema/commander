@@ -414,7 +414,9 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 		WithAction(action),
 		WithMessageType(sort),
 		WithCallback(callback),
-		WithMessageSchema(group.Codec.Schema()),
+		WithMessageSchema(func() interface{} {
+			return group.Codec.Schema()
+		}),
 	)
 }
 
@@ -435,9 +437,8 @@ func (group *Group) HandleContext(definitions ...types.HandleOption) (Close, err
 				continue
 			}
 
-			// FIXME: options.Schema is now a shared value
 			group.Codec.Unmarshal(message.Data, &options.Schema)
-			message.NewSchema(options.Schema)
+			message.NewSchema(options.Schema())
 
 			group.Middleware.Emit(message.Ctx, BeforeActionConsumption, message)
 

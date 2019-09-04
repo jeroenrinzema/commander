@@ -34,7 +34,9 @@ func main() {
 	group.HandleContext(
 		commander.WithAction("sample"),
 		commander.WithMessageType(commander.CommandMessage),
-		commander.WithMessageSchema(request{}),
+		commander.WithMessageSchema(func() interface{} {
+			return request{}
+		}),
 		commander.WithCallback(func(message *commander.Message, writer commander.Writer) {
 			message.Schema() // returns decoded map[string]interface{}
 		}),

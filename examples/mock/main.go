@@ -30,7 +30,6 @@ func main() {
 		Message string `json:"message"`
 	}
 
-	// NOTE: the message schema is shared but should be isolated for each single context
 	group.HandleContext(
 		commander.WithAction("sample"),
 		commander.WithMessageType(commander.CommandMessage),

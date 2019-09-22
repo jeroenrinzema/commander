@@ -14,8 +14,8 @@ func (t *timeout) Apply(options *types.GroupOptions) {
 	options.Timeout = t.duration
 }
 
-// WithTimeout returns a GroupOption that configures the timeout period for the given group
-func WithTimeout(d time.Duration) types.GroupOption {
+// WithAwaitTimeout returns a GroupOption that configures the timeout period for the given group
+func WithAwaitTimeout(d time.Duration) types.GroupOption {
 	return &timeout{d}
 }
 

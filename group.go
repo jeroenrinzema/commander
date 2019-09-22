@@ -19,13 +19,6 @@ var (
 	ErrNoAction = errors.New("no action defined")
 )
 
-const (
-	// DefaultAttempts represents the default amount of retry attempts
-	DefaultAttempts = 5
-	// DefaultTimeout represents the default timeout when awaiting a "sync" command to complete
-	DefaultTimeout = 5 * time.Second
-)
-
 // EventType represents a middleware event type
 type EventType string
 
@@ -240,13 +233,8 @@ func (group *Group) ProduceCommand(message *Message) error {
 	topic := topics[0]
 	message.Topic = topic
 
-	amount := group.Retries
-	if amount == 0 {
-		amount = DefaultAttempts
-	}
-
 	retry := Retry{
-		Amount: amount,
+		Amount: group.Retries,
 	}
 
 	err := retry.Attempt(func() error {
@@ -277,13 +265,8 @@ func (group *Group) ProduceEvent(message *Message) error {
 	topic := topics[0]
 	message.Topic = topic
 
-	amount := group.Retries
-	if amount == 0 {
-		amount = DefaultAttempts
-	}
-
 	retry := Retry{
-		Amount: amount,
+		Amount: group.Retries,
 	}
 
 	err := retry.Attempt(func() error {

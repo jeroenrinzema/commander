@@ -17,8 +17,8 @@ func main() {
 
 	dialect := mock.NewDialect()
 	group := commander.NewGroup(
-		commander.WithTimeout(1*time.Second),
 		commander.WithJSONCodec(),
+		commander.WithAwaitTimeout(1*time.Second),
 		commander.NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode|commander.ProduceMode),
 		commander.NewTopic("events", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
 	)
@@ -33,9 +33,7 @@ func main() {
 	group.HandleContext(
 		commander.WithAction("sample"),
 		commander.WithMessageType(commander.CommandMessage),
-		commander.WithMessageSchema(func() interface{} {
-			return request{}
-		}),
+		commander.WithMessageSchema(func() interface{} { return request{} }),
 		commander.WithCallback(func(message *commander.Message, writer commander.Writer) {
 			message.Schema() // returns decoded map[string]interface{}
 		}),

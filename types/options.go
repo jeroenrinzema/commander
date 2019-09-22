@@ -2,6 +2,13 @@ package types
 
 import "time"
 
+const (
+	// DefaultRetries represents the default amount of retry attempts
+	DefaultRetries = 5
+	// DefaultTimeout represents the default timeout when awaiting a "sync" command to complete
+	DefaultTimeout = 5 * time.Second
+)
+
 // NewServerOptions applies the given serve options to construct a new server options definition
 func NewServerOptions(options []ServerOption) (result *ServerOptions) {
 	result = &ServerOptions{}
@@ -24,10 +31,16 @@ type ServerOptions struct {
 
 // NewGroupOptions applies the given serve options to construct a new group options definition
 func NewGroupOptions(options []GroupOption) (result *GroupOptions) {
-	result = &GroupOptions{}
+	result = &GroupOptions{
+		Timeout: DefaultTimeout,
+		Retries: DefaultRetries,
+		Codec:   DefaultCodec(),
+	}
+
 	for _, option := range options {
 		option.Apply(result)
 	}
+
 	return result
 }
 

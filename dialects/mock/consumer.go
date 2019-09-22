@@ -25,7 +25,7 @@ func (consumer *Consumer) Emit(message *types.Message) {
 
 	defer consumer.consumptions.Done()
 
-	collection, has := consumer.subscriptions[message.Topic.Name]
+	collection, has := consumer.subscriptions[message.Topic.Name()]
 	if !has {
 		consumer.mutex.Unlock()
 		return
@@ -42,7 +42,7 @@ func (consumer *Consumer) Emit(message *types.Message) {
 	go func(collection *SubscriptionCollection, message *types.Message) {
 		collection.mutex.Lock()
 		for _, subscription := range collection.list {
-			message.Async()
+			message.Reset()
 			subscription.messages <- message
 			message.Await()
 		}
@@ -68,11 +68,11 @@ func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Messag
 	defer consumer.mutex.Unlock()
 
 	for _, topic := range topics {
-		if consumer.subscriptions[topic.Name] == nil {
-			consumer.subscriptions[topic.Name] = NewTopic()
+		if consumer.subscriptions[topic.Name()] == nil {
+			consumer.subscriptions[topic.Name()] = NewTopic()
 		}
 
-		consumer.subscriptions[topic.Name].list[subscription.messages] = subscription
+		consumer.subscriptions[topic.Name()].list[subscription.messages] = subscription
 	}
 
 	consumer.logger.Debugf("subscribing to: %+v, %v", topics, subscription.messages)

@@ -102,10 +102,21 @@ type Message struct {
 	Ctx       context.Context `json:"-"`
 
 	// NOTE: include message topic origin?
+	schema interface{}
 	async  chan struct{}
 	result error
 	once   sync.Once
 	mutex  sync.RWMutex
+}
+
+// Schema returns the decoded message schema
+func (message *Message) Schema() interface{} {
+	return message.schema
+}
+
+// NewSchema overrides the message schema with the given value
+func (message *Message) NewSchema(v interface{}) {
+	message.schema = v
 }
 
 // NewError construct a new error message with the given message as parent
@@ -143,8 +154,8 @@ func (message *Message) NewMessage(action string, version Version, key Key, data
 	return child
 }
 
-// Async set's up a new async that awaits untill resolved
-func (message *Message) Async() {
+// Reset set's up a new async resolver that awaits untill resolved
+func (message *Message) Reset() {
 	if message == nil {
 		return
 	}

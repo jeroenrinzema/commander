@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
@@ -16,6 +17,8 @@ func main() {
 
 	dialect := mock.NewDialect()
 	group := commander.NewGroup(
+		commander.WithJSONCodec(),
+		commander.WithAwaitTimeout(1*time.Second),
 		commander.NewTopic("commands", dialect, commander.CommandMessage, commander.ConsumeMode|commander.ProduceMode),
 		commander.NewTopic("events", dialect, commander.EventMessage, commander.ConsumeMode|commander.ProduceMode),
 	)
@@ -44,7 +47,7 @@ func main() {
 	 */
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		key := uuid.Must(uuid.NewV4()).Bytes()
-		command := commander.NewMessage("example", 1, key, nil)
+		command := commander.NewMessage("example", 1, key, []byte(`{"message":"hello world"}`))
 		event, err := group.SyncCommand(command)
 
 		if err != nil {

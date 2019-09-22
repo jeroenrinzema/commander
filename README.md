@@ -4,41 +4,15 @@
 [![Coverage](https://codecov.io/gh/jeroenrinzema/commander/branch/master/graph/badge.svg)](https://codecov.io/gh/jeroenrinzema/commander)
 [![Coverage Report](https://goreportcard.com/badge/github.com/jeroenrinzema/commander)](https://goreportcard.com/report/github.com/jeroenrinzema/commander)
 
-Commander is a high-level toolkit for writing event driven applications, aims to be developer friendly. Commander supports event driven patterns such as **CQRS** and has support for different "dialects". Dialects allow Commander to communicate with different protocols.
-
-## Event driven patterns
-
-**CQRS** stands for Command Query Responsibility Segregation. It's a pattern that I first heard described by Greg Young. At its heart is the notion that you can use a different model to update information than the model you use to read information.
-
-The mainstream approach people use for interacting with an information system is to treat it as a CRUD datastore. By this I mean that we have mental model of some record structure where we can create new records, read records, update existing records, and delete records when we're done with them. In the simplest case, our interactions are all about storing and retrieving these records.
-
-**Event Sourcing** ensure that every change to the state of an application is captured in an event object, and that these event objects are themselves stored in the sequence they were applied for the same lifetime as the application state itself.
-
-**Bidirectional streaming** where both sides send a sequence of messages using a read-write stream. The two streams operate independently, so clients and servers can read and write in whatever order they like: for example, the server could wait to receive all the client messages before writing its responses, or it could alternately read a message then write a message, or some other combination of reads and writes. The order of messages in each stream is preserved.
+Commander is a high-level toolkit for writing event-driven applications, aims to be developer-friendly. Commander supports event-driven patterns such as CQRS and has support for different "dialects". Dialects allow Commander to communicate with different protocols.
 
 ## 📚 Usage and documentation
 
 Please see [godoc](https://godoc.org/github.com/jeroenrinzema/commander) for detailed usage docs. Or check out the [examples](https://github.com/jeroenrinzema/commander/tree/master/examples).
 
-## Official dialects
-
-- **[Mock](https://github.com/jeroenrinzema/commander/tree/master/dialects/mock)** - Commander in-memory Mock consumer/producer.
-- **[Kafka](https://github.com/jeroenrinzema/commander/tree/master/dialects/kafka)** - Commander Kafka consumer/producer build upon the Sarama go Kafka client.
-
-- **[gRPC connector](https://github.com/jeroenrinzema/protoc-gen-commander)** - `protoc` gRPC > Commander connector generator
-
-## Examples
-
-For more advanced code check out the examples on [Github](https://github.com/jeroenrinzema/commander/tree/master/examples).
-
 ## Getting started
 
-- **Dialects**: A dialect is a application that recieves and/or sends messages.
-- **Topic**: A Topic is a category/feed name to which messages are stored and published. Different dialects could be assigned to different topics.
-- **Groups**: A group represents a collection of topics.
-- **Client**: A commander client holds a collection of groups and is responsible for actions preformed on all groups ex: closing, middleware.
-
-Let's first set up a simple commander group.
+Below is a simple consume, produce example using the [Mock](https://github.com/jeroenrinzema/commander/tree/master/dialects/mock) dialect. For more advanced code check out the examples on [Github](https://github.com/jeroenrinzema/commander/tree/master/examples).
 
 ```go
 dialect := mock.NewDialect()
@@ -48,11 +22,10 @@ group := commander.NewGroup(
 )
 
 client, err := commander.NewClient(group)
-```
+if err != nil {
+	// Handle the err
+}
 
-Once the event groups are defined and the dialects are initialized could consumers/producers be setup.
-
-```go
 group.HandleFunc("example", commander.CommandTopic, func(message *commander.Message, writer commander.Writer) {
 	writer.Event("created", 1, nil, nil)
 })
@@ -61,15 +34,17 @@ command := commander.NewCommand("example", 1, nil, nil)
 group.ProduceCommand(command)
 ```
 
-This example consumes commands with the action `example` and produces at once a event with the action `created` to the event topic. This example represents a simple [CQRS](https://martinfowler.com/bliki/CQRS.html) pattern used but commander is not limited by it. Commander tries to be flexible and allowes applications to be written in many different ways.
-
 ## Dialects
 
 A dialect is the connector to a given protocol or infrastructure. A dialect needs to be defined when constructing a new commander instance. Commander comes shipped with a `mocking` dialect designed for testing purposes. Check out the dialects [directory](https://github.com/jeroenrinzema/commander/tree/master/dialects) for the available dialects.
 
-## Middleware
+## Event driven patterns
 
-Middleware allowes actions to be preformed on event(s) or messages to be manipulated. Check out the middleware [directory](https://github.com/jeroenrinzema/commander/tree/master/middleware) for the available middleware controllers.
+**CQRS** Command Query Responsibility Segregation. Is an event-driven pattern segregating read and write objects. Writes (commands) are used to instruct a state change, reads (events) are returned to represent the state change including the state change itself.
+
+**Event Sourcing** ensures that every change to the state of an application is captured in an event object and that these event objects are themselves stored in the sequence they were applied for the same lifetime as the application state itself.
+
+**Bidirectional streaming** where both sides send a sequence of messages using a read-write stream. The two streams operate independently, so clients and servers can read and write in whatever order they like: for example, the server could wait to receive all the client messages before writing its responses, or it could alternately read a message then write a message, or some other combination of reads and writes. The order of messages in each stream is preserved.
 
 ## Contributing
 

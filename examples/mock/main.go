@@ -26,19 +26,6 @@ func main() {
 	client, _ := commander.NewClient(group)
 	defer client.Close()
 
-	type request struct {
-		Message string `json:"message"`
-	}
-
-	group.HandleContext(
-		commander.WithAction("sample"),
-		commander.WithMessageType(commander.CommandMessage),
-		commander.WithMessageSchema(func() interface{} { return request{} }),
-		commander.WithCallback(func(message *commander.Message, writer commander.Writer) {
-			message.Schema() // returns decoded map[string]interface{}
-		}),
-	)
-
 	/**
 	 * HandleFunc handles an "example" command. Once a command with the action "example" is
 	 * processed will a event with the action "created" be produced to the events topic.
@@ -60,7 +47,7 @@ func main() {
 	 */
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		key := uuid.Must(uuid.NewV4()).Bytes()
-		command := commander.NewMessage("example", 1, key, nil)
+		command := commander.NewMessage("example", 1, key, []byte(`{"message":"hello world"}`))
 		event, err := group.SyncCommand(command)
 
 		if err != nil {

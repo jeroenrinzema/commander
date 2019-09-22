@@ -420,8 +420,9 @@ func (group *Group) HandleContext(definitions ...types.HandleOption) (Close, err
 				continue
 			}
 
-			group.Codec.Unmarshal(message.Data, &options.Schema)
-			message.NewSchema(options.Schema())
+			schema := options.Schema()
+			group.Codec.Unmarshal(message.Data, &schema)
+			message.NewSchema(schema)
 
 			group.Middleware.Emit(message.Ctx, BeforeActionConsumption, message)
 

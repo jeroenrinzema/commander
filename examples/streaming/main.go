@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -14,7 +13,7 @@ import (
 )
 
 func main() {
-	os.Setenv("DEBUG", "true")
+	// os.Setenv("DEBUG", "true")
 
 	dialect := mock.NewDialect()
 	group := commander.NewGroup(
@@ -69,9 +68,9 @@ func main() {
 		// The connection is closed when a timeout is reached of a EOS event is consumed.
 		for message := range messages {
 			parent, has := types.ParentIDFromContext(message.Ctx)
-			if !has || parent != types.ParentID(message.ID) {
+			if !has || parent != types.ParentID(command.ID) {
 				message.Next()
-				break
+				continue
 			}
 
 			json.NewEncoder(w).Encode(message)

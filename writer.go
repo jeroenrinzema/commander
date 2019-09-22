@@ -1,8 +1,6 @@
 package commander
 
 import (
-	"log"
-
 	"github.com/jeroenrinzema/commander/types"
 )
 
@@ -27,7 +25,6 @@ type writer struct {
 
 // NewMessage constructs a new message or a child of the parent.
 func (writer *writer) NewMessage(action string, version int8, key []byte, data []byte) *Message {
-	log.Println(writer.parent)
 	if writer.parent != nil {
 		return writer.parent.NewMessage(action, types.Version(version), types.Key(key), data)
 	}

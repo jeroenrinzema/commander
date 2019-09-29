@@ -25,7 +25,7 @@ func TestConsumerConsumption(t *testing.T) {
 
 	go func() {
 		for message := range messages {
-			message.Next()
+			message.Ack()
 			close(sink)
 		}
 	}()

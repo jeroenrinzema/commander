@@ -53,7 +53,7 @@ func TestWriterProduceCommand(t *testing.T) {
 			t.Error("unexpected stream")
 		}
 
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -93,7 +93,7 @@ func TestWriterProduceCommandStream(t *testing.T) {
 			t.Error("unexpected EOS")
 		}
 
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -137,7 +137,7 @@ func TestWriterProduceEvent(t *testing.T) {
 				t.Error("unexpected stream")
 			}
 
-			message.Next()
+			message.Ack()
 		case <-ctx.Done():
 			t.Error("the events handle was not called within the deadline")
 		}
@@ -183,7 +183,7 @@ func TestWriterProduceEventStream(t *testing.T) {
 			t.Error("The event parent does not match the parent id:", id, parent.ID)
 		}
 
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -228,7 +228,7 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 			t.Error("The event parent does not match the parent id:", id, parent.ID)
 		}
 
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -273,7 +273,7 @@ func TestWriterProduceErrorEventStream(t *testing.T) {
 			t.Error("The event parent does not match the parent id:", id, parent.ID)
 		}
 
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}

@@ -103,7 +103,7 @@ func TestSyncCommand(t *testing.T) {
 	})
 
 	event, err := group.SyncCommand(message)
-	event.Next()
+	event.Ack()
 
 	if err != nil {
 		t.Error(err)
@@ -144,7 +144,7 @@ func BenchmarkSyncCommand(b *testing.B) {
 			b.Error("command id and parent do not match")
 		}
 
-		event.Next()
+		event.Ack()
 	}
 }
 
@@ -173,7 +173,7 @@ func TestAwaitEvent(t *testing.T) {
 	defer closer()
 
 	message, err := group.AwaitMessage(messages, types.ParentID(parent.ID))
-	message.Next()
+	message.Ack()
 
 	if err != nil {
 		t.Fatal(err)
@@ -211,7 +211,7 @@ func TestAwaitEventAction(t *testing.T) {
 		t.Error(err)
 	}
 
-	message.Next()
+	message.Ack()
 }
 
 // TestAwaitEventIgnoreParent tests if plausible to await a event with action
@@ -243,7 +243,7 @@ func TestAwaitEventIgnoreParent(t *testing.T) {
 		t.Error(err)
 	}
 
-	message.Next()
+	message.Ack()
 }
 
 // TestEventConsumer tests if events get consumed
@@ -270,7 +270,7 @@ func TestEventConsumer(t *testing.T) {
 
 	select {
 	case event := <-events:
-		event.Next()
+		event.Ack()
 	case <-ctx.Done():
 		t.Error("no message was consumed within the deadline")
 	}
@@ -298,7 +298,7 @@ func TestCommandConsumer(t *testing.T) {
 
 	select {
 	case message := <-messages:
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("no message was consumed within the deadline")
 	}
@@ -460,7 +460,7 @@ func TestMessageMarked(t *testing.T) {
 	message := types.NewMessage("testing", 1, nil, nil)
 	message.Reset()
 	go func() {
-		message.Next()
+		message.Ack()
 	}()
 	message.Await()
 }

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/jeroenrinzema/commander/internal/circuit"
-	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/internal/types"
+	"github.com/jeroenrinzema/commander/middleware"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -129,13 +129,13 @@ func (group *Group) AwaitEventWithAction(messages <-chan *types.Message, parent 
 		}
 
 		if message.Action != action {
-			message.Next()
+			message.Ack()
 			continue
 		}
 
 		id, has := types.ParentIDFromContext(message.Ctx)
 		if !has || parent != id {
-			message.Next()
+			message.Ack()
 			continue
 		}
 
@@ -158,7 +158,7 @@ func (group *Group) AwaitMessage(messages <-chan *types.Message, parent types.Pa
 
 		id, has := types.ParentIDFromContext(message.Ctx)
 		if !has || parent != id {
-			message.Next()
+			message.Ack()
 			continue
 		}
 
@@ -180,13 +180,13 @@ func (group *Group) AwaitEOS(messages <-chan *types.Message, parent types.Parent
 		}
 
 		if !message.EOS {
-			message.Next()
+			message.Ack()
 			continue
 		}
 
 		id, has := types.ParentIDFromContext(message.Ctx)
 		if !has || parent != id {
-			message.Next()
+			message.Ack()
 			continue
 		}
 
@@ -323,7 +323,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 	go func() {
 		for message := range messages {
 			if !breaker.Safe() {
-				message.Next()
+				message.Ack()
 				return
 			}
 
@@ -416,7 +416,7 @@ func (group *Group) HandleContext(definitions ...types.HandleOption) (Close, err
 	go func() {
 		for message := range messages {
 			if options.Action != "" && message.Action != options.Action {
-				message.Next()
+				message.Ack()
 				continue
 			}
 
@@ -429,7 +429,7 @@ func (group *Group) HandleContext(definitions ...types.HandleOption) (Close, err
 			writer := NewWriter(group, message)
 			options.Callback(message, writer)
 
-			message.Next()
+			message.Ack()
 
 			group.Middleware.Emit(message.Ctx, AfterActionConsumption, message)
 		}

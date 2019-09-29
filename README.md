@@ -11,6 +11,8 @@ Commander is Go library for writing event-driven applications. Enabling event so
 1. [🚀 Examples](https://github.com/jeroenrinzema/commander/tree/master/examples)
 1. [📚 Documentation](https://godoc.org/github.com/jeroenrinzema/commander)
 
+---
+
 - Basic
 	* [Single Mock pub/sub](https://github.com/jeroenrinzema/commander/tree/master/examples/mock)
   * [Multi group pub/sub](https://github.com/jeroenrinzema/commander/tree/master/examples/mock-multiple-groups)

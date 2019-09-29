@@ -1666,7 +1666,7 @@ func Faccessat(dirfd int, path string, mode uint32, flags int) (err error) {
 //sys openByHandleAt(mountFD int, fh *fileHandle, flags int) (fd int, err error) = SYS_OPEN_BY_HANDLE_AT
 
 // fileHandle is the argument to nameToHandleAt and openByHandleAt. We
-// originally tried to generate it via unix/linux/types.go with "type
+// originally tried to generate it via unix/linux/internal/types.go with "type
 // fileHandle C.struct_file_handle" but that generated empty structs
 // for mips64 and mips64le. Instead, hard code it for now (it's the
 // same everywhere else) until the mips64 generator issue is fixed.

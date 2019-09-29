@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 const (

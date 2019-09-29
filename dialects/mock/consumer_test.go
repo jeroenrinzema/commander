@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // TestConsumerConsumption tests if able to consume messages

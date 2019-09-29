@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/Shopify/sarama"
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // HandleType represents the type of consumer that is adviced to use for the given connectionstring

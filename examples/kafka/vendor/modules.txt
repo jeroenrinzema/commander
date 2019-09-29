@@ -18,7 +18,7 @@ github.com/golang/snappy
 github.com/jeroenrinzema/commander
 github.com/jeroenrinzema/commander/dialects/kafka
 github.com/jeroenrinzema/commander/middleware
-github.com/jeroenrinzema/commander/types
+github.com/jeroenrinzema/commander/internal/types
 github.com/jeroenrinzema/commander/dialects/kafka/consumer
 github.com/jeroenrinzema/commander/dialects/kafka/producer
 # github.com/pierrec/lz4 v2.0.5+incompatible

@@ -1,7 +1,7 @@
 package mock
 
 import (
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // NewDialect constructs a new in-memory mocking dialect

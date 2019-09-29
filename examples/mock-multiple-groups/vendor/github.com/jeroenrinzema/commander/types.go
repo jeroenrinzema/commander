@@ -1,6 +1,6 @@
 package commander
 
-import "github.com/jeroenrinzema/commander/types"
+import "github.com/jeroenrinzema/commander/internal/types"
 
 // To avoid circular dependencies are some types/interfaces/structs moved to a seperate package (types).
 // In order to still be able to use the types by simply importing commander are the types imported and extended in commander.

@@ -3,7 +3,7 @@ package mock
 import (
 	"sync"
 
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 	log "github.com/sirupsen/logrus"
 )
 

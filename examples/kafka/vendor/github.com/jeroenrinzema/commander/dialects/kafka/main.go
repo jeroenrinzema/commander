@@ -6,7 +6,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander/dialects/kafka/consumer"
 	"github.com/jeroenrinzema/commander/dialects/kafka/producer"
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // Error types

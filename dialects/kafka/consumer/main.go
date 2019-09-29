@@ -6,7 +6,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander/dialects/kafka/metadata"
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 var (

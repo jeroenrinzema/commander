@@ -8,7 +8,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander"
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // MessageFromMessage attempts to construct a commander message of the given sarama consumer message

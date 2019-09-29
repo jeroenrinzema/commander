@@ -3,8 +3,8 @@ package mock
 import (
 	"sync"
 
-	"github.com/jeroenrinzema/commander/circuit"
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/circuit"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // Subscription mock message subscription

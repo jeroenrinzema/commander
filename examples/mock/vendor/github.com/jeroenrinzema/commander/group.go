@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // Custom error types

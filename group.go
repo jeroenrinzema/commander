@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jeroenrinzema/commander/circuit"
+	"github.com/jeroenrinzema/commander/internal/circuit"
 	"github.com/jeroenrinzema/commander/middleware"
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 	log "github.com/sirupsen/logrus"
 )
 

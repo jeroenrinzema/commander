@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // TestNewResponseWriter tests if able to construct a new resoponse writer

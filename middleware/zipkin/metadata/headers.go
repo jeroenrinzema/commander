@@ -6,7 +6,7 @@ import (
 
 	"github.com/jeroenrinzema/commander"
 	
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 	"github.com/openzipkin/zipkin-go/model"
 )
 

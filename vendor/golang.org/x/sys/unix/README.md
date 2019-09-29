@@ -112,7 +112,7 @@ unexported `//sys` prototype, an then write a custom wrapper in
 
 ### types files
 
-For each OS, there is a hand-written Go file at `${GOOS}/types.go` (or
+For each OS, there is a hand-written Go file at `${GOOS}/internal/types.go` (or
 `types_${GOOS}.go` on the old system). This file includes standard C headers and
 creates Go type aliases to the corresponding C types. The file is then fed
 through godef to get the Go compatible definitions. Finally, the generated code
@@ -126,7 +126,7 @@ structures that pass through to the kernel system calls. Some C libraries
 preset alternate versions for binary compatibility and translate them on the
 way in and out of system calls, but there is almost always a `#define` that can
 get the real ones.
-See `types_darwin.go` and `linux/types.go` for examples.
+See `types_darwin.go` and `linux/internal/types.go` for examples.
 
 To add a new type, add in the necessary include statement at the top of the
 file (if it is not already there) and add in a type alias line. Note that if

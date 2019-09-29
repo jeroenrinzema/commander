@@ -9,7 +9,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/dialects/mock"
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 func main() {

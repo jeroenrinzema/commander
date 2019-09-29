@@ -1,7 +1,7 @@
 package commander
 
 import (
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // NewWriter initializes a new response writer for the given value

@@ -5,7 +5,7 @@ github.com/jeroenrinzema/commander
 github.com/jeroenrinzema/commander/dialects/mock
 github.com/jeroenrinzema/commander/middleware/zipkin
 github.com/jeroenrinzema/commander/middleware
-github.com/jeroenrinzema/commander/types
+github.com/jeroenrinzema/commander/internal/types
 # github.com/openzipkin/zipkin-go v0.1.6
 github.com/openzipkin/zipkin-go
 github.com/openzipkin/zipkin-go/model

@@ -15,7 +15,7 @@ Input to cgo -godefs.  See also mkerrors.sh and mkall.sh
 package unix
 
 /*
-#include <sys/types.h>
+#include <sys/internal/types.h>
 #include <sys/time.h>
 #include <sys/limits.h>
 #include <sys/un.h>

@@ -23,7 +23,7 @@ package unix
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/param.h>
-#include <sys/types.h>
+#include <sys/internal/types.h>
 #include <sys/event.h>
 #include <sys/mman.h>
 #include <sys/mount.h>

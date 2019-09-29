@@ -3,7 +3,7 @@ package commander
 import (
 	"time"
 
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 type timeout struct {

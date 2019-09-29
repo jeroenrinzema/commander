@@ -1,6 +1,6 @@
 package mock
 
-import "github.com/jeroenrinzema/commander/types"
+import "github.com/jeroenrinzema/commander/internal/types"
 
 // Producer a message producer
 type Producer struct {

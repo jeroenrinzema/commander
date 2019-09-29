@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jeroenrinzema/commander/types"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // TestProducerProduction tests if able to produce messages

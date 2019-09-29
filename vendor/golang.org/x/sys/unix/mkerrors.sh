@@ -57,7 +57,7 @@ includes_Darwin='
 #define _DARWIN_USE_64_BIT_INODE
 #include <stdint.h>
 #include <sys/attr.h>
-#include <sys/types.h>
+#include <sys/internal/types.h>
 #include <sys/event.h>
 #include <sys/ptrace.h>
 #include <sys/socket.h>
@@ -78,7 +78,7 @@ includes_Darwin='
 '
 
 includes_DragonFly='
-#include <sys/types.h>
+#include <sys/internal/types.h>
 #include <sys/event.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
@@ -101,7 +101,7 @@ includes_DragonFly='
 includes_FreeBSD='
 #include <sys/capsicum.h>
 #include <sys/param.h>
-#include <sys/types.h>
+#include <sys/internal/types.h>
 #include <sys/event.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
@@ -177,7 +177,7 @@ struct ltchars {
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+#include <sys/internal/types.h>
 #include <sys/time.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
@@ -263,7 +263,7 @@ struct ltchars {
 '
 
 includes_NetBSD='
-#include <sys/types.h>
+#include <sys/internal/types.h>
 #include <sys/param.h>
 #include <sys/event.h>
 #include <sys/extattr.h>
@@ -290,7 +290,7 @@ includes_NetBSD='
 '
 
 includes_OpenBSD='
-#include <sys/types.h>
+#include <sys/internal/types.h>
 #include <sys/param.h>
 #include <sys/event.h>
 #include <sys/mman.h>
@@ -330,7 +330,7 @@ includes_OpenBSD='
 
 includes_SunOS='
 #include <limits.h>
-#include <sys/types.h>
+#include <sys/internal/types.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/stat.h>
@@ -351,7 +351,7 @@ includes_SunOS='
 
 
 includes='
-#include <sys/types.h>
+#include <sys/internal/types.h>
 #include <sys/file.h>
 #include <fcntl.h>
 #include <dirent.h>

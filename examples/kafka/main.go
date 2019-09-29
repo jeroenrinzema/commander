@@ -18,6 +18,7 @@ var (
 	Brokers = ""
 	Version = ""
 	Group   = ""
+	Addr    = ""
 )
 
 func init() {
@@ -26,6 +27,7 @@ func init() {
 	flag.StringVar(&Brokers, "brokers", "127.0.0.1:9092", "Kafka brokers separated by a ,")
 	flag.StringVar(&Version, "version", "2.1.1", "Kafka cluster version")
 	flag.StringVar(&Group, "group", "", "Optional kafka consumer group")
+	flag.StringVar(&Addr, "address", ":8080", "HTTP server address")
 	flag.Parse()
 }
 
@@ -75,7 +77,7 @@ func main() {
 	 * Once the command is written is a responding event awaited. The responding event has a header
 	 * with the parent id set to the id of the received command.
 	 */
-	http.HandleFunc("/available", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		key, err := uuid.NewV4()
 		if err != nil {
 			w.WriteHeader(500)
@@ -101,7 +103,7 @@ func main() {
 	/**
 	 * Async command example
 	 */
-	http.HandleFunc("/async/available", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/async/", func(w http.ResponseWriter, r *http.Request) {
 		key, err := uuid.NewV4()
 		if err != nil {
 			w.WriteHeader(500)
@@ -131,7 +133,7 @@ func main() {
 	 * Setup a http server and close it once a SIGTERM signal is received
 	 */
 	server := &http.Server{
-		Addr: ":8080",
+		Addr: Addr,
 	}
 
 	err = server.ListenAndServe()

@@ -92,7 +92,7 @@ func main() {
 	 * Once the command is written is a responding event awaited. The responding event has a header
 	 * with the parent id set to the id of the received command.
 	 */
-	http.HandleFunc("/purchase", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		key := uuid.Must(uuid.NewV4()).Bytes()
 		command := commander.NewMessage("Purchase", 1, key, nil)
 		event, err := cart.SyncCommand(command)

@@ -39,7 +39,7 @@ func main() {
 			time.Sleep(100 * time.Millisecond)
 		}
 
-		writer.Event("final", 1, key.Bytes(), nil)
+		writer.EventEOS("final", 1, key.Bytes(), nil)
 	})
 
 	/**

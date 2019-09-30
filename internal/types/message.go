@@ -131,9 +131,7 @@ type Message struct {
 	ack      chan struct{}
 	nack     chan struct{}
 	response Resolved
-
-	once  sync.Once
-	mutex sync.Mutex
+	mutex    sync.Mutex
 }
 
 // Schema returns the decoded message schema
@@ -180,7 +178,6 @@ func (message *Message) Reset() {
 	message.mutex.Lock()
 	defer message.mutex.Unlock()
 
-	message.once = sync.Once{}
 	message.ack = make(chan struct{}, 0)
 	message.nack = make(chan struct{}, 0)
 	message.response = UnkownResolvedStatus

@@ -19,19 +19,6 @@ var (
 	ErrNoAction = errors.New("no action defined")
 )
 
-// EventType represents a middleware event type
-type EventType string
-
-// Globally available event types
-const (
-	AfterActionConsumption   = EventType("AfterActionConsumption")
-	BeforeActionConsumption  = EventType("BeforeActionConsumption")
-	BeforeMessageConsumption = EventType("BeforeMessageConsumption")
-	AfterMessageConsumed     = EventType("AfterMessageConsumed")
-	BeforePublish            = EventType("BeforePublish")
-	AfterPublish             = EventType("AfterPublish")
-)
-
 // NewGroup initializes a new commander group.
 func NewGroup(definitions ...types.GroupOption) *Group {
 	options := types.NewGroupOptions(definitions)
@@ -58,7 +45,7 @@ func NewGroup(definitions ...types.GroupOption) *Group {
 // commands and events could be consumed and produced to. The amount of retries
 // attempted before a error is thrown could also be defined in a group.
 type Group struct {
-	Middleware *middleware.Client
+	Middleware middleware.Client
 	Timeout    time.Duration
 	Topics     []types.Topic
 	Codec      types.Codec
@@ -283,9 +270,6 @@ func (group *Group) ProduceEvent(message *Message) error {
 // Publish publishes the given message to the group producer.
 // All middleware subscriptions are called before publishing the message.
 func (group *Group) Publish(message *Message) error {
-	group.Middleware.Emit(message.Ctx, BeforePublish, message)
-	defer group.Middleware.Emit(message.Ctx, AfterPublish, message)
-
 	err := message.Topic.Dialect().Producer().Publish(message)
 	if err != nil {
 		return err
@@ -330,11 +314,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 			group.logger.Debug("message consumer consumed message")
 
 			mutex.Lock()
-			group.Middleware.Emit(message.Ctx, BeforeMessageConsumption, message)
-
 			sink <- message
-
-			group.Middleware.Emit(message.Ctx, AfterMessageConsumed, message)
 			mutex.Unlock()
 		}
 	}()
@@ -424,14 +404,10 @@ func (group *Group) HandleContext(definitions ...types.HandleOption) (Close, err
 			group.Codec.Unmarshal(message.Data, &schema)
 			message.NewSchema(schema)
 
-			group.Middleware.Emit(message.Ctx, BeforeActionConsumption, message)
-
 			writer := NewWriter(group, message)
 			options.Callback(message, writer)
 
 			message.Ack()
-
-			group.Middleware.Emit(message.Ctx, AfterActionConsumption, message)
 		}
 	}()
 

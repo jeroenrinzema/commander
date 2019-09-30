@@ -3,8 +3,8 @@ package commander
 import (
 	"errors"
 
-	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/internal/types"
+	"github.com/jeroenrinzema/commander/middleware"
 )
 
 const (
@@ -27,16 +27,17 @@ var (
 // NewClient constructs a new commander client.
 // A client is needed to control a collection of groups.
 func NewClient(groups ...*Group) (*Client, error) {
+	middleware := middleware.NewClient()
 	client := &Client{
-		Groups:     groups,
-		Middleware: middleware.NewClient(),
+		Use:    middleware,
+		Groups: groups,
 	}
 
 	topics := []types.Topic{}
 	dialects := []types.Dialect{}
 
 	for _, group := range groups {
-		group.Middleware = client.Middleware
+		group.Middleware = middleware
 		topics = append(topics, group.Topics...)
 	}
 
@@ -63,8 +64,8 @@ topic:
 
 // Client manages the consumers, producers and groups.
 type Client struct {
-	Middleware *middleware.Client
-	Groups     []*Group
+	middleware.Use
+	Groups []*Group
 }
 
 // Close closes the consumer and producer

@@ -6,13 +6,12 @@ import (
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
-// HandlerFunc is called once a message is received.
-// The next middleware is not called untill next() is called.
-type HandlerFunc func(writer types.Writer, message *types.Message) error
+// HandleFunc represents a middleware handle method
+type HandleFunc func(types.Handle) types.Handle
 
 // Controller middleware controller
 type Controller interface {
-	Middleware(HandlerFunc)
+	Middleware(HandleFunc)
 }
 
 // Client represents a middleware client
@@ -47,8 +46,19 @@ func (client *client) Use(controller Controller) {
 	client.middlewares = append(client.middlewares, controller)
 }
 
-func (client *client) run(writer types.Writer, message *types.Message) func() {
-	return func() {
-
+// Run executes the given middleware in chronological order.
+// A handle function is returned once all middleware is executed.
+func Run(h types.Handle, m ...HandleFunc) types.Handle {
+	if len(m) < 1 {
+		return h
 	}
+
+	wrapped := h
+
+	// loop in reverse to preserve middleware order
+	for i := len(m) - 1; i >= 0; i-- {
+		wrapped = m[i](wrapped)
+	}
+
+	return wrapped
 }

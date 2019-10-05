@@ -243,8 +243,8 @@ func (message *Message) Nacked() <-chan struct{} {
 	return message.nack
 }
 
-// Await await untill the message is resolved
-func (message *Message) Await() error {
+// Finally is returned once the message is resolved
+func (message *Message) Finally() error {
 	if message == nil {
 		return nil
 	}

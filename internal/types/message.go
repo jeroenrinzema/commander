@@ -243,7 +243,8 @@ func (message *Message) Nacked() <-chan struct{} {
 	return message.nack
 }
 
-// Finally is returned once the message is resolved
+// Finally is returned once the message is resolved.
+// A ErrNegativeAcknowledgement error is returned if the message got negative acknowledged.
 func (message *Message) Finally() error {
 	if message == nil {
 		return nil

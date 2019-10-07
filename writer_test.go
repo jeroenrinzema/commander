@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jeroenrinzema/commander/internal/types"
+	"github.com/jeroenrinzema/commander/internal/metadata"
 )
 
 // TestNewResponseWriter tests if able to construct a new resoponse writer
@@ -178,8 +178,8 @@ func TestWriterProduceEventStream(t *testing.T) {
 			t.Error("unexpected EOS")
 		}
 
-		id, _ := types.ParentIDFromContext(message.Ctx)
-		if id != types.ParentID(parent.ID) {
+		id, _ := metadata.ParentIDFromContext(message.Ctx())
+		if id != metadata.ParentID(parent.ID) {
 			t.Error("The event parent does not match the parent id:", id, parent.ID)
 		}
 
@@ -223,8 +223,8 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 			t.Error("unexpected stream")
 		}
 
-		id, _ := types.ParentIDFromContext(message.Ctx)
-		if id != types.ParentID(parent.ID) {
+		id, _ := metadata.ParentIDFromContext(message.Ctx())
+		if id != metadata.ParentID(parent.ID) {
 			t.Error("The event parent does not match the parent id:", id, parent.ID)
 		}
 
@@ -268,8 +268,8 @@ func TestWriterProduceErrorEventStream(t *testing.T) {
 			t.Error("unexpected EOS")
 		}
 
-		id, _ := types.ParentIDFromContext(message.Ctx)
-		if id != types.ParentID(parent.ID) {
+		id, _ := metadata.ParentIDFromContext(message.Ctx())
+		if id != metadata.ParentID(parent.ID) {
 			t.Error("The event parent does not match the parent id:", id, parent.ID)
 		}
 

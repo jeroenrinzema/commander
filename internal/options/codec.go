@@ -1,6 +1,8 @@
-package types
+package options
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // Codec Codec defines the interface commander uses to encode and decode messages.
 // Note that implementations of this interface must be thread safe; a Codec's methods can be called from concurrent goroutines.

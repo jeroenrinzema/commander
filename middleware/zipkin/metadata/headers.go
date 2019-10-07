@@ -5,15 +5,15 @@ import (
 	"strconv"
 
 	"github.com/jeroenrinzema/commander"
-	
-	"github.com/jeroenrinzema/commander/internal/types"
+
+	"github.com/jeroenrinzema/commander/internal/metadata"
 	"github.com/openzipkin/zipkin-go/model"
 )
 
 // ExtractContextFromMessageHeaders attempts to extracts the span context from the message headers.
 func ExtractContextFromMessageHeaders(message *commander.Message) (span model.SpanContext, ok bool) {
-	var headers types.Header
-	headers, ok = types.HeaderFromContext(message.Ctx)
+	var headers metadata.Header
+	headers, ok = metadata.HeaderFromContext(message.Ctx())
 	if !ok {
 		return span, ok
 	}
@@ -63,12 +63,12 @@ func AppendMessageHeaders(ctx context.Context, span model.SpanContext) context.C
 		parent = span.ParentID.String()
 	}
 
-	headers := types.Header{
+	headers := metadata.Header{
 		HeaderTraceID:      []string{span.TraceID.String()},
 		HeaderSpanID:       []string{span.ID.String()},
 		HeaderParentSpanID: []string{parent},
 		HeaderSampled:      []string{sampled},
 	}
 
-	return types.AppendToHeaderContext(ctx, headers)
+	return metadata.AppendToHeaderContext(ctx, headers)
 }

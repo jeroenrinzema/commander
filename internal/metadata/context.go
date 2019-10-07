@@ -1,4 +1,4 @@
-package types
+package metadata
 
 import (
 	"context"
@@ -35,14 +35,14 @@ func HeaderFromContext(ctx context.Context) (header Header, ok bool) {
 
 // NewRetriesContext creates a new context with Retries attached. If used
 // NewRetriesContext will overwrite any previously-appended
-func NewRetriesContext(ctx context.Context, retries Retries) context.Context {
+func NewRetriesContext(ctx context.Context, retries Header) context.Context {
 	return context.WithValue(ctx, CtxRetries, retries)
 }
 
 // RetriesFromContext returns the Retries in ctx if it exists.
 // The returned Retries should not be modified. Writing to it may cause races. Modification should be made to copies of the returned Header.
-func RetriesFromContext(ctx context.Context) (retries Retries, ok bool) {
-	retries, ok = ctx.Value(CtxRetries).(Retries)
+func RetriesFromContext(ctx context.Context) (retries Header, ok bool) {
+	retries, ok = ctx.Value(CtxRetries).(Header)
 	return
 }
 

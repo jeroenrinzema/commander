@@ -8,6 +8,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/internal/metadata"
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
@@ -25,9 +26,9 @@ func MessageFromMessage(consumed *sarama.ConsumerMessage) *commander.Message {
 		Data:      consumed.Value,
 		Key:       consumed.Key,
 		Timestamp: consumed.Timestamp,
-		Ctx:       ctx,
 	}
 
+	message.NewCtx(ctx)
 	headers := map[string][]string{}
 
 headers:
@@ -61,7 +62,7 @@ headers:
 			message.EOS = message.EOS.Parse(string(record.Value))
 			break
 		case HeaderParentID:
-			message.Ctx = types.NewParentIDContext(message.Ctx, types.ParentID(record.Value))
+			message.NewCtx(metadata.NewParentIDContext(message.Ctx(), metadata.ParentID(record.Value)))
 			break
 		case HeaderParentTimestamp:
 			unix, err := strconv.ParseInt(string(record.Value), 10, 64)
@@ -69,11 +70,11 @@ headers:
 				continue headers
 			}
 
-			time := types.ParentTimestamp(time.Unix(0, unix))
-			message.Ctx = types.NewParentTimestampContext(message.Ctx, time)
+			time := metadata.ParentTimestamp(time.Unix(0, unix))
+			message.NewCtx(metadata.NewParentTimestampContext(message.Ctx(), time))
 			break
 		default:
-			headers[key] = strings.Split(string(record.Value), types.HeaderValueDevider)
+			headers[key] = strings.Split(string(record.Value), metadata.HeaderValueDevider)
 			break
 		}
 	}
@@ -106,7 +107,7 @@ func MessageToMessage(produce *commander.Message) *sarama.ProducerMessage {
 		},
 	}
 
-	parent, has := types.ParentIDFromContext(produce.Ctx)
+	parent, has := metadata.ParentIDFromContext(produce.Ctx())
 	if has {
 		headers = append(headers, sarama.RecordHeader{
 			Key:   []byte(HeaderParentID),
@@ -114,7 +115,7 @@ func MessageToMessage(produce *commander.Message) *sarama.ProducerMessage {
 		})
 	}
 
-	timestamp, has := types.ParentTimestampFromContext(produce.Ctx)
+	timestamp, has := metadata.ParentTimestampFromContext(produce.Ctx())
 	if has {
 		headers = append(headers, sarama.RecordHeader{
 			Key:   []byte(HeaderParentTimestamp),
@@ -122,7 +123,7 @@ func MessageToMessage(produce *commander.Message) *sarama.ProducerMessage {
 		})
 	}
 
-	kv, has := types.HeaderFromContext(produce.Ctx)
+	kv, has := metadata.HeaderFromContext(produce.Ctx())
 	if has {
 		for key, value := range kv {
 			headers = append(headers, sarama.RecordHeader{

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jeroenrinzema/commander/dialects/mock"
+	"github.com/jeroenrinzema/commander/internal/metadata"
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
@@ -109,8 +110,8 @@ func TestSyncCommand(t *testing.T) {
 		t.Error(err)
 	}
 
-	parent, has := types.ParentIDFromContext(event.Ctx)
-	if !has || parent != types.ParentID(message.ID) {
+	parent, has := metadata.ParentIDFromContext(event.Ctx())
+	if !has || parent != metadata.ParentID(message.ID) {
 		t.Error("command id and parent do not match")
 	}
 }
@@ -139,8 +140,8 @@ func BenchmarkSyncCommand(b *testing.B) {
 			b.Error(err)
 		}
 
-		parent, has := types.ParentIDFromContext(event.Ctx)
-		if !has || parent != types.ParentID(message.ID) {
+		parent, has := metadata.ParentIDFromContext(event.Ctx())
+		if !has || parent != metadata.ParentID(message.ID) {
 			b.Error("command id and parent do not match")
 		}
 
@@ -172,7 +173,7 @@ func TestAwaitEvent(t *testing.T) {
 
 	defer closer()
 
-	message, err := group.AwaitMessage(messages, types.ParentID(parent.ID))
+	message, err := group.AwaitMessage(messages, metadata.ParentID(parent.ID))
 	message.Ack()
 
 	if err != nil {
@@ -206,7 +207,7 @@ func TestAwaitEventAction(t *testing.T) {
 
 	defer closer()
 
-	message, err := group.AwaitEventWithAction(messages, types.ParentID(parent.ID), action)
+	message, err := group.AwaitEventWithAction(messages, metadata.ParentID(parent.ID), action)
 	if err != nil {
 		t.Error(err)
 	}
@@ -238,7 +239,7 @@ func TestAwaitEventIgnoreParent(t *testing.T) {
 
 	defer closer()
 
-	message, err := group.AwaitEventWithAction(messages, types.ParentID(parent.ID), "process")
+	message, err := group.AwaitEventWithAction(messages, metadata.ParentID(parent.ID), "process")
 	if err != ErrTimeout {
 		t.Error(err)
 	}
@@ -429,7 +430,7 @@ func TestCommandTimestampPassed(t *testing.T) {
 	})
 
 	group.HandleFunc(EventMessage, "event", func(message *Message, writer Writer) {
-		parent, has := types.ParentTimestampFromContext(message.Ctx)
+		parent, has := metadata.ParentTimestampFromContext(message.Ctx())
 		if !has {
 			t.Error("timestamp is not set")
 		}
@@ -462,7 +463,7 @@ func TestMessageMarked(t *testing.T) {
 	go func() {
 		message.Ack()
 	}()
-	message.Await()
+	message.Finally()
 }
 
 // TestNewConsumer tests if able to create a new consumer

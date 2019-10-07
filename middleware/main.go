@@ -6,12 +6,12 @@ import (
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
-// HandleFunc represents a middleware handle method
-type HandleFunc func(types.Handle) types.Handle
+// HandlerFunc represents a middleware handle method
+type HandlerFunc func(types.HandlerFunc) types.HandlerFunc
 
 // Controller middleware controller
 type Controller interface {
-	Middleware(HandleFunc)
+	Middleware(types.HandlerFunc) types.HandlerFunc
 }
 
 // Client represents a middleware client
@@ -48,7 +48,7 @@ func (client *client) Use(controller Controller) {
 
 // Run executes the given middleware in chronological order.
 // A handle function is returned once all middleware is executed.
-func Run(h types.Handle, m ...HandleFunc) types.Handle {
+func Run(h types.HandlerFunc, m ...HandlerFunc) types.HandlerFunc {
 	if len(m) < 1 {
 		return h
 	}

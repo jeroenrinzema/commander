@@ -6,8 +6,8 @@ type Close func()
 // Next indicates that the next message could be called
 type Next func()
 
-// Handle message handle message, writer implementation
-type Handle func(*Message, Writer)
+// HandlerFunc message handle message, writer implementation
+type HandlerFunc func(*Message, Writer)
 
 // Handler interface handle wrapper
 type Handler interface {

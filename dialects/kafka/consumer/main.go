@@ -171,7 +171,7 @@ func (client *Client) Claim(consumed *sarama.ConsumerMessage) (err error) {
 
 		select {
 		case subscription.messages <- message:
-			result := message.Await()
+			result := message.Finally()
 			if result != nil {
 				return ErrRetry
 			}

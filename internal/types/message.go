@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/internal/metadata"
 )
 
 var (
@@ -100,7 +101,6 @@ func NewMessage(action string, version int8, key []byte, data []byte) *Message {
 	}
 
 	return &Message{
-		Ctx:       context.Background(),
 		ID:        id,
 		Action:    action,
 		Version:   Version(version),
@@ -111,27 +111,28 @@ func NewMessage(action string, version int8, key []byte, data []byte) *Message {
 		response:  UnkownResolvedStatus,
 		Status:    StatusOK,
 		Timestamp: time.Now(),
+		ctx:       context.Background(),
 	}
 }
 
 // Message representation
 type Message struct {
-	ID        string          `json:"id"`
-	Status    StatusCode      `json:"status"`
-	Topic     Topic           `json:"topic"`
-	Action    string          `json:"action"`
-	Version   Version         `json:"version"`
-	Data      []byte          `json:"data"`
-	Key       []byte          `json:"key"`
-	EOS       EOS             `json:"eos"`
-	Timestamp time.Time       `json:"timestamp"`
-	Ctx       context.Context `json:"-"`
+	ID        string     `json:"id"`
+	Status    StatusCode `json:"status"`
+	Topic     Topic      `json:"topic"`
+	Action    string     `json:"action"`
+	Version   Version    `json:"version"`
+	Data      []byte     `json:"data"`
+	Key       []byte     `json:"key"`
+	EOS       EOS        `json:"eos"`
+	Timestamp time.Time  `json:"timestamp"`
 
+	ctx      context.Context
 	schema   interface{}
 	ack      chan struct{}
 	nack     chan struct{}
 	response Resolved
-	mutex    sync.Mutex
+	mutex    sync.RWMutex
 }
 
 // Schema returns the decoded message schema
@@ -153,7 +154,7 @@ func (message *Message) NewError(action string, status StatusCode, err error) *M
 }
 
 // NewMessage construct a new event message with the given message as parent
-func (message *Message) NewMessage(action string, version Version, key Key, data []byte) *Message {
+func (message *Message) NewMessage(action string, version Version, key metadata.Key, data []byte) *Message {
 	if key == nil {
 		key = message.Key
 	}
@@ -163,8 +164,8 @@ func (message *Message) NewMessage(action string, version Version, key Key, data
 	}
 
 	child := NewMessage(action, int8(version), key, data)
-	child.Ctx = NewParentIDContext(child.Ctx, ParentID(message.ID))
-	child.Ctx = NewParentTimestampContext(child.Ctx, ParentTimestamp(message.Timestamp))
+	child.ctx = metadata.NewParentIDContext(child.ctx, metadata.ParentID(message.ID))
+	child.ctx = metadata.NewParentTimestampContext(child.ctx, metadata.ParentTimestamp(message.Timestamp))
 
 	return child
 }
@@ -256,4 +257,20 @@ func (message *Message) Finally() error {
 	case <-message.Nacked():
 		return ErrNegativeAcknowledgement
 	}
+}
+
+// Ctx returns the message context.
+// This method could safely be called concurrently.
+func (message *Message) Ctx() context.Context {
+	message.mutex.RLock()
+	defer message.mutex.RUnlock()
+	return message.ctx
+}
+
+// NewCtx updates the message context.
+// This method could safely be called concurrently.
+func (message *Message) NewCtx(ctx context.Context) {
+	message.mutex.Lock()
+	defer message.mutex.Unlock()
+	message.ctx = ctx
 }

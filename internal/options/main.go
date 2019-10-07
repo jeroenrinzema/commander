@@ -1,6 +1,10 @@
-package types
+package options
 
-import "time"
+import (
+	"time"
+
+	"github.com/jeroenrinzema/commander/internal/types"
+)
 
 const (
 	// DefaultRetries represents the default amount of retry attempts
@@ -54,28 +58,28 @@ type GroupOptions struct {
 	Timeout time.Duration
 	Codec   Codec
 	Retries int8
-	Topics  []Topic
+	Topics  []types.Topic
 }
 
-// NewHandleOptions applies the given serve options to construct a new handle options definition
-func NewHandleOptions(options []HandleOption) (result *HandleOptions) {
+// NewHandlerOptions applies the given serve options to construct a new handle options definition
+func NewHandlerOptions(options []HandlerOption) (result *HandlerOptions) {
 	// TODO: define default options
-	result = &HandleOptions{}
+	result = &HandlerOptions{}
 	for _, option := range options {
 		option.Apply(result)
 	}
 	return result
 }
 
-// HandleOption sets options such as codec interfaces and timeouts
-type HandleOption interface {
-	Apply(*HandleOptions)
+// HandlerOption sets options such as codec interfaces and timeouts
+type HandlerOption interface {
+	Apply(*HandlerOptions)
 }
 
-// HandleOptions represent the available set of handle options
-type HandleOptions struct {
+// HandlerOptions represent the available set of handle options
+type HandlerOptions struct {
 	Action      string
-	MessageType MessageType
+	MessageType types.MessageType
 	Schema      func() interface{}
-	Callback    Handle
+	Callback    types.HandlerFunc
 }

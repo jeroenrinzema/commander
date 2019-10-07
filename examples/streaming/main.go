@@ -67,8 +67,8 @@ func main() {
 		// Consume and filter messages based on their event ID.
 		// The connection is closed when a timeout is reached of a EOS event is consumed.
 		for message := range messages {
-			parent, has := types.ParentIDFromContext(message.Ctx)
-			if !has || parent != types.ParentID(command.ID) {
+			parent, has := metadata.ParentIDFromContext(message.Ctx())
+			if !has || parent != metadata.ParentID(command.ID) {
 				message.Next()
 				continue
 			}

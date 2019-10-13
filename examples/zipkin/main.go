@@ -45,7 +45,7 @@ func main() {
 		panic(err)
 	}
 
-	client.Middleware.Use(tracing)
+	client.Use(tracing)
 
 	/**
 	 * HandleFunc handles an "example" command. Once a command with the action "example" is
@@ -68,7 +68,7 @@ func main() {
 		key := uuid.Must(uuid.NewV4()).Bytes()
 
 		command := commander.NewMessage("example", 1, key, nil)
-		command.Ctx = metadata.NewSpanConsumeContext(command.Ctx, span)
+		command.NewCtx(metadata.NewSpanConsumeContext(command.Ctx(), span))
 
 		event, err := group.SyncCommand(command)
 		if err != nil {
@@ -77,9 +77,9 @@ func main() {
 			return
 		}
 
-		event.Next()
+		event.Ack()
 
-		span, has := metadata.SpanConsumeFromContext(event.Ctx)
+		span, has := metadata.SpanConsumeFromContext(event.Ctx())
 		if has {
 			ctx := span.Context()
 			w.Header().Set("X-Tracing", ctx.TraceID.String())

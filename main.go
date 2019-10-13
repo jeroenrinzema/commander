@@ -49,7 +49,7 @@ func NewClient(groups ...*Group) (*Client, error) {
 
 // Client manages the consumers, producers and groups.
 type Client struct {
-	middleware.Use
+	middleware.UseImpl
 	Groups []*Group
 }
 

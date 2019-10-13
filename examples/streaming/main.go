@@ -9,7 +9,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/dialects/mock"
-	"github.com/jeroenrinzema/commander/internal/types"
+	"github.com/jeroenrinzema/commander/internal/metadata"
 )
 
 func main() {
@@ -69,12 +69,12 @@ func main() {
 		for message := range messages {
 			parent, has := metadata.ParentIDFromContext(message.Ctx())
 			if !has || parent != metadata.ParentID(command.ID) {
-				message.Next()
+				message.Ack()
 				continue
 			}
 
 			json.NewEncoder(w).Encode(message)
-			message.Next()
+			message.Ack()
 
 			if message.EOS {
 				break

@@ -47,13 +47,8 @@ type Dialect struct {
 
 // Open notifies a dialect to open the dialect.
 // No further topic assignments should be made.
-func (dialect *Dialect) Open() error {
+func (dialect *Dialect) Open([]types.Topic) error {
 	return nil
-}
-
-// Assigned notifies a dialect about the assignment of the given topic
-func (dialect *Dialect) Assigned(types.Topic) {
-	// ignore...
 }
 
 // Consumer returns the dialect consumer

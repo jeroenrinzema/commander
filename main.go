@@ -33,27 +33,12 @@ func NewClient(groups ...*Group) (*Client, error) {
 		Groups: groups,
 	}
 
-	topics := []types.Topic{}
-	dialects := []types.Dialect{}
+	appendMiddleware(middleware, groups)
+	topics := pullTopicsFromGroups(groups)
+	dialects := groupTopicsByDialect(topics)
 
-	for _, group := range groups {
-		group.Middleware = middleware
-		topics = append(topics, group.Topics...)
-	}
-
-topic:
-	for _, topic := range topics {
-		for _, dialect := range dialects {
-			if topic.Dialect() == dialect {
-				continue topic
-			}
-		}
-
-		dialects = append(dialects, topic.Dialect())
-	}
-
-	for _, dialect := range dialects {
-		err := dialect.Open()
+	for dialect, topics := range dialects {
+		err := dialect.Open(topics)
 		if err != nil {
 			return nil, err
 		}
@@ -84,4 +69,33 @@ func (client *Client) Close() error {
 	}
 
 	return nil
+}
+
+func pullTopicsFromGroups(groups []*Group) []types.Topic {
+	returned := []types.Topic{}
+	for _, group := range groups {
+		returned = append(returned, group.Topics...)
+	}
+
+	return returned
+}
+
+func appendMiddleware(middleware middleware.Use, groups []*Group) {
+	for _, group := range groups {
+		group.Middleware = middleware
+	}
+}
+
+func groupTopicsByDialect(topics []types.Topic) map[types.Dialect][]types.Topic {
+	returned := map[types.Dialect][]types.Topic{}
+	for _, topic := range topics {
+		_, has := returned[topic.Dialect()]
+		if !has {
+			returned[topic.Dialect()] = []types.Topic{}
+		}
+
+		returned[topic.Dialect()] = append(returned[topic.Dialect()], topic)
+	}
+
+	return returned
 }

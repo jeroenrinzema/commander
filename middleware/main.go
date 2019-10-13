@@ -28,13 +28,14 @@ type Client interface {
 	WrapBeforeProduce(BeforeProduceHandlerFunc) BeforeProduceHandlerFunc
 }
 
-// Use exposed usage interface
-type Use interface {
+// UseImpl exposed usage interface.
+// The interface could not be called Use due to type reference issues.
+type UseImpl interface {
 	Use(interface{})
 }
 
 // NewClient constructs a new middleware client
-func NewClient() Use {
+func NewClient() UseImpl {
 	client := &client{
 		consume: []ConsumeController{},
 		produce: []ProduceController{},

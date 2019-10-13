@@ -33,7 +33,7 @@ func main() {
 	group.HandleFunc(commander.CommandMessage, "example", func(message *commander.Message, writer commander.Writer) {
 		key, err := uuid.NewV4()
 		if err != nil {
-			message.Retry(err)
+			message.Nack()
 			return
 		}
 
@@ -56,7 +56,7 @@ func main() {
 			return
 		}
 
-		event.Next()
+		event.Ack()
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(event)

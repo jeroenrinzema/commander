@@ -28,7 +28,8 @@ type Client interface {
 	WrapBeforeProduce(BeforeProduceHandlerFunc) BeforeProduceHandlerFunc
 }
 
-// UseImpl exposed usage interface
+// UseImpl exposed usage interface.
+// The interface could not be called Use due to type reference issues.
 type UseImpl interface {
 	Use(interface{})
 }

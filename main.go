@@ -29,8 +29,8 @@ var (
 func NewClient(groups ...*Group) (*Client, error) {
 	middleware := middleware.NewClient()
 	client := &Client{
-		Use:    middleware,
-		Groups: groups,
+		UseImpl: middleware,
+		Groups:  groups,
 	}
 
 	appendMiddleware(middleware, groups)
@@ -80,7 +80,7 @@ func pullTopicsFromGroups(groups []*Group) []types.Topic {
 	return returned
 }
 
-func appendMiddleware(middleware middleware.Use, groups []*Group) {
+func appendMiddleware(middleware middleware.UseImpl, groups []*Group) {
 	for _, group := range groups {
 		group.Middleware = middleware
 	}

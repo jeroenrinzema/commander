@@ -3,9 +3,6 @@ package types
 // Dialect represents a commander dialect.
 // A dialect is responsible for the consumption/production of the targeted protocol.
 type Dialect interface {
-	// Assigned notifies a dialect about the assignment of the given topic
-	Assigned(topic Topic)
-
 	// Consumer returns the dialect consumer
 	Consumer() Consumer
 
@@ -17,9 +14,8 @@ type Dialect interface {
 	// The user should implement the health check
 	Healthy() bool
 
-	// Open notifies a dialect to open the dialect.
-	// No further topic assignments should be made.
-	Open() error
+	// Opens the given dialect to start accepting incoming and outgoing connections.
+	Open(topics []Topic) error
 
 	// Close awaits till the consumer(s) and producer(s) of the given dialect are closed.
 	// If an error is returned is the closing aborted and the error returned to the user.

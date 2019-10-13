@@ -47,7 +47,7 @@ func NewGroup(definitions ...options.GroupOption) *Group {
 // commands and events could be consumed and produced to. The amount of retries
 // attempted before a error is thrown could also be defined in a group.
 type Group struct {
-	Middleware middleware.Client
+	Middleware middleware.Use
 	Timeout    time.Duration
 	Topics     []types.Topic
 	Codec      options.Codec

@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"github.com/jeroenrinzema/commander/internal/metadata"
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
@@ -26,7 +27,7 @@ type writer struct {
 // NewMessage constructs a new message or a child of the parent.
 func (writer *writer) NewMessage(action string, version int8, key []byte, data []byte) *Message {
 	if writer.parent != nil {
-		return writer.parent.NewMessage(action, types.Version(version), types.Key(key), data)
+		return writer.parent.NewMessage(action, types.Version(version), metadata.Key(key), data)
 	}
 
 	return types.NewMessage(action, version, key, data)

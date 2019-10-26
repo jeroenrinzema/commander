@@ -10,7 +10,6 @@ import (
 // Dialect represents the kafka dialect
 type Dialect struct {
 	Connection Config
-	Topics     []types.Topic
 	Config     *sarama.Config
 
 	consumer *consumer.Client
@@ -53,14 +52,9 @@ func (dialect *Dialect) Producer() types.Producer {
 	return dialect.producer
 }
 
-// Assigned is called when a topic gets created
-func (dialect *Dialect) Assigned(topic types.Topic) {
-	dialect.Topics = append(dialect.Topics, topic)
-}
-
 // Open opens a kafka consumer and producer
-func (dialect *Dialect) Open() (err error) {
-	err = dialect.consumer.Connect(dialect.Connection.Brokers, dialect.Config, dialect.Connection.InitialOffset, dialect.Topics...)
+func (dialect *Dialect) Open(topics []types.Topic) (err error) {
+	err = dialect.consumer.Connect(dialect.Connection.Brokers, dialect.Config, dialect.Connection.InitialOffset, topics...)
 	if err != nil {
 		return err
 	}

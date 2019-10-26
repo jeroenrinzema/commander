@@ -13,9 +13,9 @@ func TestProducerProduction(t *testing.T) {
 	topic := types.NewTopic("mock", dialect, types.EventMessage, types.DefaultMode)
 	message := types.Message{
 		Topic: topic,
-		Ctx:   context.Background(),
 	}
 
+	message.NewCtx(context.Background())
 	err := dialect.Producer().Publish(&message)
 	if err != nil {
 		t.Fatal(err)

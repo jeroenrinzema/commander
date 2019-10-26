@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jeroenrinzema/commander/dialects/mock"
+	"github.com/jeroenrinzema/commander/internal/metadata"
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
@@ -103,14 +104,14 @@ func TestSyncCommand(t *testing.T) {
 	})
 
 	event, err := group.SyncCommand(message)
-	event.Next()
+	event.Ack()
 
 	if err != nil {
 		t.Error(err)
 	}
 
-	parent, has := types.ParentIDFromContext(event.Ctx)
-	if !has || parent != types.ParentID(message.ID) {
+	parent, has := metadata.ParentIDFromContext(event.Ctx())
+	if !has || parent != metadata.ParentID(message.ID) {
 		t.Error("command id and parent do not match")
 	}
 }
@@ -139,12 +140,12 @@ func BenchmarkSyncCommand(b *testing.B) {
 			b.Error(err)
 		}
 
-		parent, has := types.ParentIDFromContext(event.Ctx)
-		if !has || parent != types.ParentID(message.ID) {
+		parent, has := metadata.ParentIDFromContext(event.Ctx())
+		if !has || parent != metadata.ParentID(message.ID) {
 			b.Error("command id and parent do not match")
 		}
 
-		event.Next()
+		event.Ack()
 	}
 }
 
@@ -172,8 +173,8 @@ func TestAwaitEvent(t *testing.T) {
 
 	defer closer()
 
-	message, err := group.AwaitMessage(messages, types.ParentID(parent.ID))
-	message.Next()
+	message, err := group.AwaitMessage(messages, metadata.ParentID(parent.ID))
+	message.Ack()
 
 	if err != nil {
 		t.Fatal(err)
@@ -206,12 +207,12 @@ func TestAwaitEventAction(t *testing.T) {
 
 	defer closer()
 
-	message, err := group.AwaitEventWithAction(messages, types.ParentID(parent.ID), action)
+	message, err := group.AwaitEventWithAction(messages, metadata.ParentID(parent.ID), action)
 	if err != nil {
 		t.Error(err)
 	}
 
-	message.Next()
+	message.Ack()
 }
 
 // TestAwaitEventIgnoreParent tests if plausible to await a event with action
@@ -238,12 +239,12 @@ func TestAwaitEventIgnoreParent(t *testing.T) {
 
 	defer closer()
 
-	message, err := group.AwaitEventWithAction(messages, types.ParentID(parent.ID), "process")
+	message, err := group.AwaitEventWithAction(messages, metadata.ParentID(parent.ID), "process")
 	if err != ErrTimeout {
 		t.Error(err)
 	}
 
-	message.Next()
+	message.Ack()
 }
 
 // TestEventConsumer tests if events get consumed
@@ -270,7 +271,7 @@ func TestEventConsumer(t *testing.T) {
 
 	select {
 	case event := <-events:
-		event.Next()
+		event.Ack()
 	case <-ctx.Done():
 		t.Error("no message was consumed within the deadline")
 	}
@@ -298,7 +299,7 @@ func TestCommandConsumer(t *testing.T) {
 
 	select {
 	case message := <-messages:
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("no message was consumed within the deadline")
 	}
@@ -429,7 +430,7 @@ func TestCommandTimestampPassed(t *testing.T) {
 	})
 
 	group.HandleFunc(EventMessage, "event", func(message *Message, writer Writer) {
-		parent, has := types.ParentTimestampFromContext(message.Ctx)
+		parent, has := metadata.ParentTimestampFromContext(message.Ctx())
 		if !has {
 			t.Error("timestamp is not set")
 		}
@@ -460,9 +461,9 @@ func TestMessageMarked(t *testing.T) {
 	message := types.NewMessage("testing", 1, nil, nil)
 	message.Reset()
 	go func() {
-		message.Next()
+		message.Ack()
 	}()
-	message.Await()
+	message.Finally()
 }
 
 // TestNewConsumer tests if able to create a new consumer

@@ -63,7 +63,7 @@ func main() {
 		key, err := uuid.NewV4()
 		if err != nil {
 			// Mark the message to be retried, this will reset the offset of the message topic, parition to the original message offset
-			message.Retry(err)
+			message.Nack()
 			return
 		}
 
@@ -94,7 +94,7 @@ func main() {
 			return
 		}
 
-		event.Next()
+		event.Ack()
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(event)

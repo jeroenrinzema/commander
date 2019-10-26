@@ -254,12 +254,12 @@ func (group *Group) ProduceEvent(event Event) error {
 func (group *Group) Publish(message *Message) error {
 	group.Middleware.Emit(middleware.BeforePublish, &middleware.Event{
 		Value: message,
-		Ctx:   message.Ctx,
+		Ctx:   message.Ctx(),
 	})
 
 	defer group.Middleware.Emit(middleware.AfterPublish, &middleware.Event{
 		Value: message,
-		Ctx:   message.Ctx,
+		Ctx:   message.Ctx(),
 	})
 
 	err := message.Topic.Dialect.Producer().Publish(message)
@@ -302,7 +302,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 			group.Middleware.Emit(middleware.BeforeMessageConsumption, &middleware.Event{
 				Value: message,
-				Ctx:   message.Ctx,
+				Ctx:   message.Ctx(),
 			})
 
 			sink <- message
@@ -310,7 +310,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 			group.Middleware.Emit(middleware.AfterMessageConsumed, &middleware.Event{
 				Value: message,
-				Ctx:   message.Ctx,
+				Ctx:   message.Ctx(),
 			})
 		}
 	}(messages)
@@ -346,20 +346,20 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 
 			group.Middleware.Emit(middleware.BeforeActionConsumption, &middleware.Event{
 				Value: message,
-				Ctx:   message.Ctx,
+				Ctx:   message.Ctx(),
 			})
 
 			switch sort {
 			case EventMessage:
 				event := Event{
-					Ctx: message.Ctx,
+					Ctx: message.Ctx(),
 				}
 				event.Populate(message)
 
 				value = event
 			case CommandMessage:
 				command := Command{
-					Ctx: message.Ctx,
+					Ctx: message.Ctx(),
 				}
 				command.Populate(message)
 
@@ -375,7 +375,7 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 
 			group.Middleware.Emit(middleware.AfterActionConsumption, &middleware.Event{
 				Value: message,
-				Ctx:   message.Ctx,
+				Ctx:   message.Ctx(),
 			})
 		}
 	}()

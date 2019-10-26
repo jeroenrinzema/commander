@@ -9,7 +9,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/jeroenrinzema/commander"
 	"github.com/jeroenrinzema/commander/dialects/mock"
-	"github.com/jeroenrinzema/commander/internal/types"
+	"github.com/jeroenrinzema/commander/internal/metadata"
 )
 
 func main() {
@@ -67,14 +67,14 @@ func main() {
 		// Consume and filter messages based on their event ID.
 		// The connection is closed when a timeout is reached of a EOS event is consumed.
 		for message := range messages {
-			parent, has := types.ParentIDFromContext(message.Ctx)
-			if !has || parent != types.ParentID(command.ID) {
-				message.Next()
+			parent, has := metadata.ParentIDFromContext(message.Ctx())
+			if !has || parent != metadata.ParentID(command.ID) {
+				message.Ack()
 				continue
 			}
 
 			json.NewEncoder(w).Encode(message)
-			message.Next()
+			message.Ack()
 
 			if message.EOS {
 				break

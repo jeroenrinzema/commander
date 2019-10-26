@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jeroenrinzema/commander/internal/types"
+	"github.com/jeroenrinzema/commander/internal/metadata"
 )
 
 // TestNewResponseWriter tests if able to construct a new resoponse writer
@@ -53,7 +53,7 @@ func TestWriterProduceCommand(t *testing.T) {
 			t.Error("unexpected stream")
 		}
 
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -93,7 +93,7 @@ func TestWriterProduceCommandStream(t *testing.T) {
 			t.Error("unexpected EOS")
 		}
 
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -137,7 +137,7 @@ func TestWriterProduceEvent(t *testing.T) {
 				t.Error("unexpected stream")
 			}
 
-			message.Next()
+			message.Ack()
 		case <-ctx.Done():
 			t.Error("the events handle was not called within the deadline")
 		}
@@ -178,12 +178,12 @@ func TestWriterProduceEventStream(t *testing.T) {
 			t.Error("unexpected EOS")
 		}
 
-		id, _ := types.ParentIDFromContext(message.Ctx)
-		if id != types.ParentID(parent.ID) {
+		id, _ := metadata.ParentIDFromContext(message.Ctx())
+		if id != metadata.ParentID(parent.ID) {
 			t.Error("The event parent does not match the parent id:", id, parent.ID)
 		}
 
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -223,12 +223,12 @@ func TestWriterProduceErrorEvent(t *testing.T) {
 			t.Error("unexpected stream")
 		}
 
-		id, _ := types.ParentIDFromContext(message.Ctx)
-		if id != types.ParentID(parent.ID) {
+		id, _ := metadata.ParentIDFromContext(message.Ctx())
+		if id != metadata.ParentID(parent.ID) {
 			t.Error("The event parent does not match the parent id:", id, parent.ID)
 		}
 
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}
@@ -268,12 +268,12 @@ func TestWriterProduceErrorEventStream(t *testing.T) {
 			t.Error("unexpected EOS")
 		}
 
-		id, _ := types.ParentIDFromContext(message.Ctx)
-		if id != types.ParentID(parent.ID) {
+		id, _ := metadata.ParentIDFromContext(message.Ctx())
+		if id != metadata.ParentID(parent.ID) {
 			t.Error("The event parent does not match the parent id:", id, parent.ID)
 		}
 
-		message.Next()
+		message.Ack()
 	case <-ctx.Done():
 		t.Error("the events handle was not called within the deadline")
 	}

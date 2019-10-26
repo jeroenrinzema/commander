@@ -107,7 +107,7 @@ func (service *Zipkin) BeforeConsume(event *middleware.Event) error {
 	action := message.Headers[commander.ActionHeader]
 	name := "commander.consume." + action
 	span := service.Tracer.StartSpan(name, options...)
-	message.Ctx = context.WithValue(message.Ctx, CtxSpanKeyConsume, span)
+	message.Ctx() = context.WithValue(message.Ctx(), CtxSpanKeyConsume, span)
 
 	span.Tag(ActionTag, message.Headers[commander.ActionHeader])
 	span.Tag(StatusTag, message.Headers[commander.StatusHeader])
@@ -151,7 +151,7 @@ func (service *Zipkin) BeforePublish(event *middleware.Event) error {
 
 	name := "commander.produce"
 	span := service.Tracer.StartSpan(name, zipkin.Kind(model.Consumer), zipkin.Parent(msp.Context()))
-	message.Ctx = context.WithValue(message.Ctx, CtxSpanKeyProduce, span)
+	message.Ctx() = context.WithValue(message.Ctx(), CtxSpanKeyProduce, span)
 
 	span.Tag(ActionTag, message.Headers[commander.ActionHeader])
 	span.Tag(StatusTag, message.Headers[commander.StatusHeader])

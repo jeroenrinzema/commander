@@ -1,6 +1,9 @@
 package commander
 
-import "github.com/jeroenrinzema/commander/internal/types"
+import (
+	"github.com/jeroenrinzema/commander/internal/options"
+	"github.com/jeroenrinzema/commander/internal/types"
+)
 
 // To avoid circular dependencies are some types/interfaces/structs moved to a seperate package (types).
 // In order to still be able to use the types by simply importing commander are the types imported and extended in commander.
@@ -39,7 +42,7 @@ const (
 
 // NewTopic constructs a new commander topic for the given name, type, mode and dialect.
 // If no topic mode is defined is the default mode (consume|produce) assigned to the topic.
-var NewTopic = types.NewTopic
+var NewTopic = options.NewTopic
 
 // Topic contains information of a kafka topic
 type Topic = types.Topic
@@ -47,5 +50,5 @@ type Topic = types.Topic
 // NewMessage types.NewMessage alias
 var NewMessage = types.NewMessage
 
-// WithJSONCodec types.WithJSONCodec alias
-var WithJSONCodec = types.WithJSONCodec
+// WithJSONCodec options.WithJSONCodec alias
+var WithJSONCodec = options.WithJSONCodec

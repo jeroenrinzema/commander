@@ -44,7 +44,7 @@ func (consumer *Consumer) Emit(message *types.Message) {
 		for _, subscription := range collection.list {
 			message.Reset()
 			subscription.messages <- message
-			message.Await()
+			message.Finally()
 		}
 		collection.mutex.Unlock()
 		close(resolved)

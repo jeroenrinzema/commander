@@ -1,9 +1,7 @@
 package zipkin
 
 import (
-	"context"
-
-	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/internal/types"
 	"github.com/jeroenrinzema/commander/middleware"
 	"github.com/jeroenrinzema/commander/middleware/zipkin/metadata"
 	zipkin "github.com/openzipkin/zipkin-go"
@@ -57,26 +55,31 @@ type Zipkin struct {
 	Config   Config
 }
 
-// Use let the current instance use the given middleware client
-func (service *Zipkin) Use(client *middleware.Client) {
-	client.Subscribe(commander.BeforeActionConsumption, service.BeforeConsume)
-	client.Subscribe(commander.AfterActionConsumption, service.AfterConsume)
-	client.Subscribe(commander.BeforePublish, service.BeforePublish)
-	client.Subscribe(commander.AfterPublish, service.AfterPublish)
+// BeforeConsume middleware controller
+func (controller *Zipkin) BeforeConsume(next middleware.BeforeConsumeHandlerFunc) middleware.BeforeConsumeHandlerFunc {
+	return func(message *types.Message, writer types.Writer) {
+		controller.NewConsumeSpan(message)
+		defer controller.AfterConsumeSpan(message)
+		next(message, writer)
+	}
+}
+
+// BeforeProduce middleware controller
+func (controller *Zipkin) BeforeProduce(next middleware.BeforeProduceHandlerFunc) middleware.BeforeProduceHandlerFunc {
+	return func(message *types.Message) {
+		controller.NewProduceSpan(message)
+		defer controller.AfterPublishSpan(message)
+		next(message)
+	}
 }
 
 // Close closes the Zipkin reporter
-func (service *Zipkin) Close() error {
-	return service.Reporter.Close()
+func (controller *Zipkin) Close() error {
+	return controller.Reporter.Close()
 }
 
-// BeforeConsume starts a new span and stores it in the message context
-func (service *Zipkin) BeforeConsume(ctx context.Context, event interface{}) {
-	message, ok := event.(*commander.Message)
-	if !ok {
-		return
-	}
-
+// NewConsumeSpan starts a new span and stores it in the message context
+func (controller *Zipkin) NewConsumeSpan(message *types.Message) {
 	options := []zipkin.SpanOption{
 		zipkin.Kind(model.Consumer),
 	}
@@ -87,16 +90,17 @@ func (service *Zipkin) BeforeConsume(ctx context.Context, event interface{}) {
 	}
 
 	name := "commander.consume." + message.Action
-	span := service.Tracer.StartSpan(name, options...)
-	ctx = metadata.NewSpanConsumeContext(ctx, span)
+	span := controller.Tracer.StartSpan(name, options...)
+
+	message.NewCtx(metadata.NewSpanConsumeContext(message.Ctx(), span))
 
 	span.Tag(ActionTag, message.Action)
 	span.Tag(VersionTag, message.Version.String())
 }
 
-// AfterConsume finishes the stored span in the message context
-func (service *Zipkin) AfterConsume(ctx context.Context, event interface{}) {
-	span, has := metadata.SpanConsumeFromContext(ctx)
+// AfterConsumeSpan finishes the stored span in the message context
+func (controller *Zipkin) AfterConsumeSpan(message *types.Message) {
+	span, has := metadata.SpanConsumeFromContext(message.Ctx())
 	if !has {
 		return
 	}
@@ -104,30 +108,25 @@ func (service *Zipkin) AfterConsume(ctx context.Context, event interface{}) {
 	span.Finish()
 }
 
-// BeforePublish prepares the given message span headers
-func (service *Zipkin) BeforePublish(ctx context.Context, event interface{}) {
-	message, ok := event.(*commander.Message)
-	if !ok {
-		return
-	}
-
-	parent, has := metadata.SpanConsumeFromContext(ctx)
+// NewProduceSpan prepares the given message span headers
+func (controller *Zipkin) NewProduceSpan(message *types.Message) {
+	parent, has := metadata.SpanConsumeFromContext(message.Ctx())
 	if !has {
 		return
 	}
 
-	span := service.Tracer.StartSpan("commander.produce", zipkin.Kind(model.Consumer), zipkin.Parent(parent.Context()))
+	span := controller.Tracer.StartSpan("commander.produce", zipkin.Kind(model.Consumer), zipkin.Parent(parent.Context()))
 
 	span.Tag(ActionTag, message.Action)
 	span.Tag(VersionTag, message.Version.String())
 
-	ctx = metadata.NewSpanProduceContext(ctx, span)
-	ctx = metadata.AppendMessageHeaders(ctx, span.Context())
+	message.NewCtx(metadata.NewSpanProduceContext(message.Ctx(), span))
+	message.NewCtx(metadata.AppendMessageHeaders(message.Ctx(), span.Context()))
 }
 
-// AfterPublish closes the producing span
-func (service *Zipkin) AfterPublish(ctx context.Context, event interface{}) {
-	span, has := metadata.SpanProduceFromContext(ctx)
+// AfterPublishSpan closes the producing span
+func (controller *Zipkin) AfterPublishSpan(message *types.Message) {
+	span, has := metadata.SpanProduceFromContext(message.Ctx())
 	if !has {
 		return
 	}

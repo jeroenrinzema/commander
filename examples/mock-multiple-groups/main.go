@@ -72,7 +72,7 @@ func main() {
 			return
 		}
 
-		event.Next()
+		event.Ack()
 
 		if event.Status != commander.StatusOK {
 			writer.Error("NotAvailable", commander.StatusNotFound, err)
@@ -102,14 +102,14 @@ func main() {
 			return
 		}
 
-		event.Next()
+		event.Ack()
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(event)
 	})
 
 	fmt.Println("Http server running at :8080")
-	fmt.Println("Send a http request to /purchase to simulate a 'sync' purchase command")
+	fmt.Println("Send a http request to / to simulate a 'sync' purchase command")
 
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {

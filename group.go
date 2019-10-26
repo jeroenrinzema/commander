@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/jeroenrinzema/commander/internal/circuit"
-	"github.com/jeroenrinzema/commander/middleware"
+	"github.com/jeroenrinzema/commander/internal/metadata"
+	"github.com/jeroenrinzema/commander/internal/options"
 	"github.com/jeroenrinzema/commander/internal/types"
+	"github.com/jeroenrinzema/commander/middleware"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,22 +21,9 @@ var (
 	ErrNoAction = errors.New("no action defined")
 )
 
-// EventType represents a middleware event type
-type EventType string
-
-// Globally available event types
-const (
-	AfterActionConsumption   = EventType("AfterActionConsumption")
-	BeforeActionConsumption  = EventType("BeforeActionConsumption")
-	BeforeMessageConsumption = EventType("BeforeMessageConsumption")
-	AfterMessageConsumed     = EventType("AfterMessageConsumed")
-	BeforePublish            = EventType("BeforePublish")
-	AfterPublish             = EventType("AfterPublish")
-)
-
 // NewGroup initializes a new commander group.
-func NewGroup(definitions ...types.GroupOption) *Group {
-	options := types.NewGroupOptions(definitions)
+func NewGroup(definitions ...options.GroupOption) *Group {
+	options := options.NewGroupOptions(definitions)
 
 	group := &Group{
 		Timeout: options.Timeout,
@@ -58,10 +47,10 @@ func NewGroup(definitions ...types.GroupOption) *Group {
 // commands and events could be consumed and produced to. The amount of retries
 // attempted before a error is thrown could also be defined in a group.
 type Group struct {
-	Middleware *middleware.Client
+	Middleware middleware.UseImpl
 	Timeout    time.Duration
 	Topics     []types.Topic
-	Codec      types.Codec
+	Codec      options.Codec
 	Retries    int8
 	logger     *log.Logger
 }
@@ -72,8 +61,8 @@ type Close = types.Close
 // Next indicates that the next message could be called
 type Next = types.Next
 
-// Handle message handle message, writer implementation
-type Handle = types.Handle
+// HandlerFunc message handle message, writer implementation
+type HandlerFunc = types.HandlerFunc
 
 // Handler interface handle wrapper
 type Handler = types.Handler
@@ -109,13 +98,13 @@ func (group *Group) SyncCommand(message *Message) (event *Message, err error) {
 		return event, err
 	}
 
-	event, err = group.AwaitEOS(messages, types.ParentID(message.ID))
+	event, err = group.AwaitEOS(messages, metadata.ParentID(message.ID))
 	return event, err
 }
 
 // AwaitEventWithAction awaits till the first event for the given parent id and action is consumed.
 // If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEventWithAction(messages <-chan *types.Message, parent types.ParentID, action string) (message *Message, err error) {
+func (group *Group) AwaitEventWithAction(messages <-chan *types.Message, parent metadata.ParentID, action string) (message *Message, err error) {
 	group.logger.Debug("awaiting action")
 
 	if action == "" {
@@ -129,13 +118,13 @@ func (group *Group) AwaitEventWithAction(messages <-chan *types.Message, parent 
 		}
 
 		if message.Action != action {
-			message.Next()
+			message.Ack()
 			continue
 		}
 
-		id, has := types.ParentIDFromContext(message.Ctx)
+		id, has := metadata.ParentIDFromContext(message.Ctx())
 		if !has || parent != id {
-			message.Next()
+			message.Ack()
 			continue
 		}
 
@@ -147,7 +136,7 @@ func (group *Group) AwaitEventWithAction(messages <-chan *types.Message, parent 
 
 // AwaitMessage awaits till the first message is consumed for the given parent id.
 // If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitMessage(messages <-chan *types.Message, parent types.ParentID) (message *Message, err error) {
+func (group *Group) AwaitMessage(messages <-chan *types.Message, parent metadata.ParentID) (message *Message, err error) {
 	group.logger.Debug("awaiting message")
 
 	for {
@@ -156,9 +145,9 @@ func (group *Group) AwaitMessage(messages <-chan *types.Message, parent types.Pa
 			return nil, ErrTimeout
 		}
 
-		id, has := types.ParentIDFromContext(message.Ctx)
+		id, has := metadata.ParentIDFromContext(message.Ctx())
 		if !has || parent != id {
-			message.Next()
+			message.Ack()
 			continue
 		}
 
@@ -170,7 +159,7 @@ func (group *Group) AwaitMessage(messages <-chan *types.Message, parent types.Pa
 
 // AwaitEOS awaits till the final event stream message is emitted.
 // If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEOS(messages <-chan *types.Message, parent types.ParentID) (message *Message, err error) {
+func (group *Group) AwaitEOS(messages <-chan *types.Message, parent metadata.ParentID) (message *Message, err error) {
 	group.logger.Debug("awaiting EOS")
 
 	for {
@@ -180,13 +169,13 @@ func (group *Group) AwaitEOS(messages <-chan *types.Message, parent types.Parent
 		}
 
 		if !message.EOS {
-			message.Next()
+			message.Ack()
 			continue
 		}
 
-		id, has := types.ParentIDFromContext(message.Ctx)
+		id, has := metadata.ParentIDFromContext(message.Ctx())
 		if !has || parent != id {
-			message.Next()
+			message.Ack()
 			continue
 		}
 
@@ -220,7 +209,7 @@ func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) []types.
 // A error is returned if anything went wrong in the process. If no command key is set will the command id be used.
 func (group *Group) ProduceCommand(message *Message) error {
 	if message.Key == nil {
-		message.Key = types.Key([]byte(message.ID))
+		message.Key = metadata.Key([]byte(message.ID))
 	}
 
 	topics := group.FetchTopics(CommandMessage, ProduceMode)
@@ -252,7 +241,7 @@ func (group *Group) ProduceCommand(message *Message) error {
 // A error is returned if anything went wrong in the process.
 func (group *Group) ProduceEvent(message *Message) error {
 	if message.Key == nil {
-		message.Key = types.Key([]byte(message.ID))
+		message.Key = metadata.Key([]byte(message.ID))
 	}
 
 	topics := group.FetchTopics(EventMessage, ProduceMode)
@@ -283,9 +272,6 @@ func (group *Group) ProduceEvent(message *Message) error {
 // Publish publishes the given message to the group producer.
 // All middleware subscriptions are called before publishing the message.
 func (group *Group) Publish(message *Message) error {
-	group.Middleware.Emit(message.Ctx, BeforePublish, message)
-	defer group.Middleware.Emit(message.Ctx, AfterPublish, message)
-
 	err := message.Topic.Dialect().Producer().Publish(message)
 	if err != nil {
 		return err
@@ -323,18 +309,14 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 	go func() {
 		for message := range messages {
 			if !breaker.Safe() {
-				message.Next()
+				message.Ack()
 				return
 			}
 
 			group.logger.Debug("message consumer consumed message")
 
 			mutex.Lock()
-			group.Middleware.Emit(message.Ctx, BeforeMessageConsumption, message)
-
 			sink <- message
-
-			group.Middleware.Emit(message.Ctx, AfterMessageConsumed, message)
 			mutex.Unlock()
 		}
 	}()
@@ -392,7 +374,7 @@ func (group *Group) Handle(sort types.MessageType, action string, handler Handle
 // HandleFunc awaits messages from the given MessageType and action.
 // Once a message is received is the callback method called with the received command.
 // The handle is closed once the consumer receives a close signal.
-func (group *Group) HandleFunc(sort types.MessageType, action string, callback Handle) (Close, error) {
+func (group *Group) HandleFunc(sort types.MessageType, action string, callback HandlerFunc) (Close, error) {
 	return group.HandleContext(
 		WithAction(action),
 		WithMessageType(sort),
@@ -404,8 +386,8 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 }
 
 // HandleContext constructs a handle context based on the given definitions.
-func (group *Group) HandleContext(definitions ...types.HandleOption) (Close, error) {
-	options := types.NewHandleOptions(definitions)
+func (group *Group) HandleContext(definitions ...options.HandlerOption) (Close, error) {
+	options := options.NewHandlerOptions(definitions)
 	group.logger.Debugf("setting up new consumer handle: %d, %s", options.MessageType, options.Action)
 
 	messages, closing, err := group.NewConsumer(options.MessageType)
@@ -416,7 +398,7 @@ func (group *Group) HandleContext(definitions ...types.HandleOption) (Close, err
 	go func() {
 		for message := range messages {
 			if options.Action != "" && message.Action != options.Action {
-				message.Next()
+				message.Ack()
 				continue
 			}
 
@@ -424,14 +406,10 @@ func (group *Group) HandleContext(definitions ...types.HandleOption) (Close, err
 			group.Codec.Unmarshal(message.Data, &schema)
 			message.NewSchema(schema)
 
-			group.Middleware.Emit(message.Ctx, BeforeActionConsumption, message)
-
 			writer := NewWriter(group, message)
 			options.Callback(message, writer)
 
-			message.Next()
-
-			group.Middleware.Emit(message.Ctx, AfterActionConsumption, message)
+			message.Ack()
 		}
 	}()
 

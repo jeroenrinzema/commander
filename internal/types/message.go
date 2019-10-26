@@ -2,12 +2,35 @@ package types
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/internal/metadata"
 )
+
+var (
+	// ErrNegativeAcknowledgement is a error representing a negative message acknowledgement
+	ErrNegativeAcknowledgement = errors.New("negative acknowledgement")
+)
+
+// Resolved represents a message ack/nack status
+type Resolved int
+
+// available Resolved types
+const (
+	UnkownResolvedStatus Resolved = iota
+	ResolvedAck
+	ResolvedNack
+)
+
+var closed = make(chan struct{})
+
+func init() {
+	close(closed)
+}
 
 // Version message version
 type Version int8
@@ -78,35 +101,38 @@ func NewMessage(action string, version int8, key []byte, data []byte) *Message {
 	}
 
 	return &Message{
-		Ctx:     context.Background(),
-		ID:      id,
-		Action:  action,
-		Version: Version(version),
-		Key:     key,
-		Data:    data,
-		async:   make(chan struct{}, 0),
+		ID:        id,
+		Action:    action,
+		Version:   Version(version),
+		Key:       key,
+		Data:      data,
+		ack:       make(chan struct{}, 0),
+		nack:      make(chan struct{}, 0),
+		response:  UnkownResolvedStatus,
+		Status:    StatusOK,
+		Timestamp: time.Now(),
+		ctx:       context.Background(),
 	}
 }
 
 // Message representation
 type Message struct {
-	ID        string          `json:"id"`
-	Status    StatusCode      `json:"status"`
-	Topic     Topic           `json:"topic"`
-	Action    string          `json:"action"`
-	Version   Version         `json:"version"`
-	Data      []byte          `json:"data"`
-	Key       []byte          `json:"key"`
-	EOS       EOS             `json:"eos"`
-	Timestamp time.Time       `json:"timestamp"`
-	Ctx       context.Context `json:"-"`
+	ID        string     `json:"id"`
+	Status    StatusCode `json:"status"`
+	Topic     Topic      `json:"topic"`
+	Action    string     `json:"action"`
+	Version   Version    `json:"version"`
+	Data      []byte     `json:"data"`
+	Key       []byte     `json:"key"`
+	EOS       EOS        `json:"eos"`
+	Timestamp time.Time  `json:"timestamp"`
 
-	// NOTE: include message topic origin?
-	schema interface{}
-	async  chan struct{}
-	result error
-	once   sync.Once
-	mutex  sync.RWMutex
+	ctx      context.Context
+	schema   interface{}
+	ack      chan struct{}
+	nack     chan struct{}
+	response Resolved
+	mutex    sync.RWMutex
 }
 
 // Schema returns the decoded message schema
@@ -128,28 +154,18 @@ func (message *Message) NewError(action string, status StatusCode, err error) *M
 }
 
 // NewMessage construct a new event message with the given message as parent
-func (message *Message) NewMessage(action string, version Version, key Key, data []byte) *Message {
-	child := &Message{}
-	child.Ctx = context.Background()
-
-	child.Ctx = NewParentIDContext(child.Ctx, ParentID(message.ID))
-	child.Ctx = NewParentTimestampContext(child.Ctx, ParentTimestamp(message.Timestamp))
-
-	child.ID = uuid.Must(uuid.NewV4()).String()
-	child.Action = action
-	child.Status = StatusOK
-	child.Data = data
-	child.Timestamp = time.Now()
-	child.Version = message.Version
-	child.Key = key
-
-	if child.Key == nil {
-		child.Key = message.Key
+func (message *Message) NewMessage(action string, version Version, key metadata.Key, data []byte) *Message {
+	if key == nil {
+		key = message.Key
 	}
 
 	if version == NullVersion {
-		child.Version = message.Version
+		version = message.Version
 	}
+
+	child := NewMessage(action, int8(version), key, data)
+	child.ctx = metadata.NewParentIDContext(child.ctx, metadata.ParentID(message.ID))
+	child.ctx = metadata.NewParentTimestampContext(child.ctx, metadata.ParentTimestamp(message.Timestamp))
 
 	return child
 }
@@ -163,51 +179,98 @@ func (message *Message) Reset() {
 	message.mutex.Lock()
 	defer message.mutex.Unlock()
 
-	message.once = sync.Once{}
-	message.async = make(chan struct{}, 0)
+	message.ack = make(chan struct{}, 0)
+	message.nack = make(chan struct{}, 0)
+	message.response = UnkownResolvedStatus
+
 	return
 }
 
-// Retry mark the message as resolved and attempt to retry the message
-func (message *Message) Retry(err error) {
+// Ack mark the message as acknowledged
+func (message *Message) Ack() bool {
 	if message == nil {
-		return
+		return false
 	}
 
-	message.resolve(err)
-}
+	message.mutex.Lock()
+	defer message.mutex.Unlock()
 
-// Next mark the message as resolved
-func (message *Message) Next() {
-	if message == nil {
-		return
+	if message.response == ResolvedNack {
+		return false
 	}
 
-	message.resolve(nil)
-}
+	message.response = ResolvedAck
 
-func (message *Message) resolve(err error) {
-	if message == nil {
-		return
+	if message.ack == nil {
+		message.ack = closed
+		return true
 	}
 
-	message.mutex.RLock()
-	defer message.mutex.RUnlock()
-
-	message.once.Do(func() {
-		message.result = err
-		close(message.async)
-	})
+	close(message.ack)
+	return true
 }
 
-// Await await untill the message is resolved
-func (message *Message) Await() error {
+// Acked returns a channel thet get's closed once a acknowledged signal got sent
+func (message *Message) Acked() <-chan struct{} {
+	return message.ack
+}
+
+// Nack send a negative acknowledged
+func (message *Message) Nack() bool {
+	if message == nil {
+		return false
+	}
+
+	message.mutex.Lock()
+	defer message.mutex.Unlock()
+
+	if message.response == ResolvedAck {
+		return false
+	}
+
+	message.response = ResolvedNack
+
+	if message.nack == nil {
+		message.nack = closed
+		return true
+	}
+
+	close(message.nack)
+	return true
+}
+
+// Nacked returns a channel that get's closed once a negative acknowledged signal got sent
+func (message *Message) Nacked() <-chan struct{} {
+	return message.nack
+}
+
+// Finally is returned once the message is resolved.
+// A ErrNegativeAcknowledgement error is returned if the message got negative acknowledged.
+func (message *Message) Finally() error {
 	if message == nil {
 		return nil
 	}
 
+	select {
+	case <-message.Acked():
+		return nil
+	case <-message.Nacked():
+		return ErrNegativeAcknowledgement
+	}
+}
+
+// Ctx returns the message context.
+// This method could safely be called concurrently.
+func (message *Message) Ctx() context.Context {
 	message.mutex.RLock()
 	defer message.mutex.RUnlock()
-	<-message.async
-	return message.result
+	return message.ctx
+}
+
+// NewCtx updates the message context.
+// This method could safely be called concurrently.
+func (message *Message) NewCtx(ctx context.Context) {
+	message.mutex.Lock()
+	defer message.mutex.Unlock()
+	message.ctx = ctx
 }

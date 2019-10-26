@@ -12,24 +12,6 @@ const (
 	DefaultMode = ConsumeMode | ProduceMode
 )
 
-// NewTopic constructs a new commander topic for the given name, type, mode and dialect.
-// If no topic mode is defined is the default mode (consume|produce) assigned to the topic.
-func NewTopic(name string, dialect Dialect, t MessageType, m TopicMode) Topic {
-	if m == 0 {
-		m = DefaultMode
-	}
-
-	topic := &topic{
-		name:     name,
-		dialect:  dialect,
-		messages: t,
-		mode:     m,
-	}
-
-	dialect.Assigned(topic)
-	return topic
-}
-
 // Topic represents a subject for a dialect including it's
 // consumer/producer mode.
 type Topic interface {
@@ -43,8 +25,19 @@ type Topic interface {
 	HasMode(TopicMode) bool
 	// Name returns the topic name
 	Name() string
-	// Apply applies the topic to the given group configuration
-	Apply(*GroupOptions)
+}
+
+// NewTopic constructs a new commander topic for the given name, type, mode and dialect.
+// If no topic mode is defined is the default mode (consume|produce) assigned to the topic.
+func NewTopic(name string, dialect Dialect, t MessageType, m TopicMode) Topic {
+	topic := &topic{
+		name:     name,
+		dialect:  dialect,
+		messages: t,
+		mode:     m,
+	}
+
+	return topic
 }
 
 // Topic interface implementation
@@ -53,10 +46,6 @@ type topic struct {
 	dialect  Dialect
 	messages MessageType
 	mode     TopicMode
-}
-
-func (topic *topic) Apply(options *GroupOptions) {
-	options.Topics = append(options.Topics, topic)
 }
 
 func (topic *topic) Dialect() Dialect {

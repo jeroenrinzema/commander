@@ -5,71 +5,57 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/dialects/kafka/metadata"
 )
 
 // NewClient constructs a new producer client
-func NewClient(brokers []string, config *sarama.Config) (*Client, error) {
+func NewClient() *Client {
 	client := &Client{}
-	err := client.Connect(brokers, config)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
+	return client
 }
 
 // Client produces kafka messages
 type Client struct {
-	producer   sarama.AsyncProducer
-	brokers    []string
-	config     *sarama.Config
+	producer   sarama.SyncProducer
+	conn       sarama.Client
 	production sync.WaitGroup
+}
+
+// Healthy checks the health of the Kafka client
+func (client *Client) Healthy() bool {
+	if len(client.conn.Brokers()) == 0 {
+		return false
+	}
+
+	return true
 }
 
 // Connect initializes and opens a new Sarama producer group.
 func (client *Client) Connect(brokers []string, config *sarama.Config) error {
-	producer, err := sarama.NewAsyncProducer(brokers, config)
+	conn, err := sarama.NewClient(brokers, config)
+	if err != nil {
+		return err
+	}
+
+	producer, err := sarama.NewSyncProducerFromClient(conn)
 	if err != nil {
 		return err
 	}
 
 	client.producer = producer
-	client.brokers = brokers
-	client.config = config
+	client.conn = conn
 
 	return nil
 }
 
 // Publish publishes the given message
-func (client *Client) Publish(message *commander.Message) error {
+func (client *Client) Publish(produce *commander.Message) error {
 	client.production.Add(1)
 	defer client.production.Done()
 
-	headers := []sarama.RecordHeader{}
-	for key, value := range message.Headers {
-		headers = append(headers, sarama.RecordHeader{
-			Key:   []byte(key),
-			Value: []byte(value),
-		})
-	}
-
-	m := &sarama.ProducerMessage{
-		Topic:   message.Topic.Name,
-		Key:     sarama.ByteEncoder(message.Key),
-		Value:   sarama.ByteEncoder(message.Value),
-		Headers: headers,
-	}
-
-	client.producer.Input() <- m
-
-	select {
-	case err := <-client.producer.Errors():
-		return err
-	case <-client.producer.Successes():
-		// Continue
-	}
-
-	return nil
+	message := metadata.MessageToMessage(produce)
+	_, _, err := client.producer.SendMessage(message)
+	return err
 }
 
 // Close closes the Kafka client producer

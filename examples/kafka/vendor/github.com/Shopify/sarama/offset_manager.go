@@ -120,14 +120,6 @@ func (om *offsetManager) Close() error {
 	return nil
 }
 
-func (om *offsetManager) computeBackoff(retries int) time.Duration {
-	if om.conf.Metadata.Retry.BackoffFunc != nil {
-		return om.conf.Metadata.Retry.BackoffFunc(retries, om.conf.Metadata.Retry.Max)
-	} else {
-		return om.conf.Metadata.Retry.Backoff
-	}
-}
-
 func (om *offsetManager) fetchInitialOffset(topic string, partition int32, retries int) (int64, string, error) {
 	broker, err := om.coordinator()
 	if err != nil {
@@ -169,11 +161,10 @@ func (om *offsetManager) fetchInitialOffset(topic string, partition int32, retri
 		if retries <= 0 {
 			return 0, "", block.Err
 		}
-		backoff := om.computeBackoff(retries)
 		select {
 		case <-om.closing:
 			return 0, "", block.Err
-		case <-time.After(backoff):
+		case <-time.After(om.conf.Metadata.Retry.Backoff):
 		}
 		return om.fetchInitialOffset(topic, partition, retries-1)
 	default:
@@ -333,6 +324,7 @@ func (om *offsetManager) handleResponse(broker *Broker, req *OffsetCommitRequest
 				pom.handleError(err)
 			case ErrOffsetsLoadInProgress:
 				// nothing wrong but we didn't commit, we'll get it next time round
+				break
 			case ErrUnknownTopicOrPartition:
 				// let the user know *and* try redispatching - if topic-auto-create is
 				// enabled, redispatching should trigger a metadata req and create the
@@ -575,6 +567,6 @@ func (pom *partitionOffsetManager) handleError(err error) {
 
 func (pom *partitionOffsetManager) release() {
 	pom.releaseOnce.Do(func() {
-		close(pom.errors)
+		go close(pom.errors)
 	})
 }

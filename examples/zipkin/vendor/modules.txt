@@ -4,8 +4,14 @@ github.com/gofrs/uuid
 github.com/jeroenrinzema/commander
 github.com/jeroenrinzema/commander/dialects/mock
 github.com/jeroenrinzema/commander/middleware/zipkin
-github.com/jeroenrinzema/commander/middleware
+github.com/jeroenrinzema/commander/middleware/zipkin/metadata
+github.com/jeroenrinzema/commander/internal/circuit
+github.com/jeroenrinzema/commander/internal/metadata
+github.com/jeroenrinzema/commander/internal/options
 github.com/jeroenrinzema/commander/internal/types
+github.com/jeroenrinzema/commander/middleware
+# github.com/konsorten/go-windows-terminal-sequences v1.0.1
+github.com/konsorten/go-windows-terminal-sequences
 # github.com/openzipkin/zipkin-go v0.1.6
 github.com/openzipkin/zipkin-go
 github.com/openzipkin/zipkin-go/model
@@ -13,3 +19,7 @@ github.com/openzipkin/zipkin-go/reporter
 github.com/openzipkin/zipkin-go/reporter/http
 github.com/openzipkin/zipkin-go/idgenerator
 github.com/openzipkin/zipkin-go/propagation
+# github.com/sirupsen/logrus v1.4.2
+github.com/sirupsen/logrus
+# golang.org/x/sys v0.0.0-20190422165155-953cdadca894
+golang.org/x/sys/unix

@@ -2,8 +2,8 @@ package commander
 
 // Retry allowes a given method to be retried x amount of times.
 type Retry struct {
-	Amount  int `json:"amount"`
-	Retries int
+	Amount  int8 `json:"amount"`
+	Retries int8
 }
 
 // Attempt tries to attempt the given method for the given amount of retries.

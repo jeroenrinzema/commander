@@ -1,116 +1,111 @@
 package commander
 
 import (
-	"context"
-	"errors"
-	"time"
-
-	"github.com/gofrs/uuid"
+	"github.com/jeroenrinzema/commander/internal/metadata"
+	"github.com/jeroenrinzema/commander/internal/types"
 )
 
-// NewResponseWriter initializes a new response writer for the given value
-func NewResponseWriter(group *Group, value interface{}) ResponseWriter {
+// NewWriter initializes a new response writer for the given value
+func NewWriter(group *Group, parent *Message) Writer {
 	writer := &writer{
-		Group: group,
-	}
-
-	if command, ok := value.(Command); ok {
-		writer.Command = &command
+		group:  group,
+		parent: parent,
 	}
 
 	return writer
 }
 
-var (
-	// ErrDefaultRetry represents the default retry error message
-	ErrDefaultRetry = errors.New("message marked to be retried")
-)
-
-// ResponseWriter writes events or commands back to the assigned group.
-type ResponseWriter interface {
-	// ProduceEvent creates and produces a new event to the assigned group.
-	ProduceEvent(action string, version int8, key []byte, data []byte) (Event, error)
-
-	// ProduceError produces a new error event
-	ProduceError(action string, status StatusCode, err error) (Event, error)
-
-	// ProduceCommand produces a new command
-	ProduceCommand(action string, version int8, key []byte, data []byte) (Command, error)
-
-	// Retry marks the message to be retried. An error could be given to be passed to the dialect
-	Retry(err error)
-
-	// ShouldRetry returns if the writer has marked the message to be retried
-	ShouldRetry() error
-}
+// Writer handle implementation for a given group and message
+type Writer = types.Writer
 
 // Writer is a struct representing the ResponseWriter interface
 type writer struct {
-	Group   *Group
-	Command *Command
-	retry   error
+	group  *Group
+	parent *Message
 }
 
-func (writer *writer) ProduceError(action string, status StatusCode, err error) (Event, error) {
-	var event Event
-
-	if status == 0 {
-		status = StatusInternalServerError
+// NewMessage constructs a new message or a child of the parent.
+func (writer *writer) NewMessage(action string, version int8, key []byte, data []byte) *Message {
+	if writer.parent != nil {
+		return writer.parent.NewMessage(action, types.Version(version), metadata.Key(key), data)
 	}
 
-	if writer.Command != nil {
-		event = writer.Command.NewError(action, status, err)
-	} else {
-		event = NewEvent(action, 0, uuid.Nil, nil, nil)
-		event.Status = StatusInternalServerError
-
-		if err != nil {
-			event.Meta = err.Error()
-		}
-	}
-
-	err = writer.Group.ProduceEvent(event)
-	return event, err
+	return types.NewMessage(action, version, key, data)
 }
 
-func (writer *writer) ProduceEvent(action string, version int8, key []byte, data []byte) (Event, error) {
-	var parent uuid.UUID
-	var timestamp time.Time
-	var ctx context.Context
-
-	if writer.Command != nil {
-		parent = writer.Command.ID
-		timestamp = writer.Command.Timestamp
-		ctx = writer.Command.Ctx
-	}
-
-	if key == nil && writer.Command != nil {
-		key = writer.Command.Key
-	}
-
-	event := NewEvent(action, version, parent, key, data)
-	event.CommandTimestamp = timestamp
-	event.Ctx = ctx
-
-	err := writer.Group.ProduceEvent(event)
-	return event, err
+func (writer *writer) Error(action string, status types.StatusCode, err error) (*Message, error) {
+	return writer.ErrorEOS(action, status, err)
 }
 
-func (writer *writer) ProduceCommand(action string, version int8, key []byte, data []byte) (Command, error) {
-	command := NewCommand(action, version, key, data)
-	err := writer.Group.ProduceCommand(command)
-
-	return command, err
-}
-
-func (writer *writer) Retry(err error) {
-	if err == nil {
-		err = ErrDefaultRetry
+func (writer *writer) ErrorEOS(action string, status types.StatusCode, err error) (*Message, error) {
+	if status == types.NullStatusCode {
+		status = types.StatusInternalServerError
 	}
 
-	writer.retry = err
+	var payload []byte
+	if err != nil {
+		payload = []byte(err.Error())
+	}
+
+	message := writer.NewMessage(action, 0, nil, payload)
+	message.Status = status
+	message.EOS = true
+
+	err = writer.group.ProduceEvent(message)
+	return message, err
 }
 
-func (writer *writer) ShouldRetry() error {
-	return writer.retry
+func (writer *writer) ErrorStream(action string, status types.StatusCode, err error) (*Message, error) {
+	if status == types.NullStatusCode {
+		status = types.StatusInternalServerError
+	}
+
+	var payload []byte
+	if err != nil {
+		payload = []byte(err.Error())
+	}
+
+	message := writer.NewMessage(action, 0, nil, payload)
+	message.Status = status
+
+	err = writer.group.ProduceEvent(message)
+	return message, err
+}
+
+func (writer *writer) Event(action string, version int8, key []byte, data []byte) (*Message, error) {
+	return writer.EventEOS(action, version, key, data)
+}
+
+func (writer *writer) EventEOS(action string, version int8, key []byte, data []byte) (*Message, error) {
+	message := writer.NewMessage(action, version, key, data)
+	message.EOS = true
+
+	err := writer.group.ProduceEvent(message)
+	return message, err
+}
+
+func (writer *writer) EventStream(action string, version int8, key []byte, data []byte) (*Message, error) {
+	message := writer.NewMessage(action, version, key, data)
+
+	err := writer.group.ProduceEvent(message)
+	return message, err
+}
+
+func (writer *writer) Command(action string, version int8, key []byte, data []byte) (*Message, error) {
+	return writer.CommandEOS(action, version, key, data)
+}
+
+func (writer *writer) CommandEOS(action string, version int8, key []byte, data []byte) (*Message, error) {
+	message := writer.NewMessage(action, version, key, data)
+	message.EOS = true
+
+	err := writer.group.ProduceCommand(message)
+	return message, err
+}
+
+func (writer *writer) CommandStream(action string, version int8, key []byte, data []byte) (*Message, error) {
+	message := writer.NewMessage(action, version, key, data)
+
+	err := writer.group.ProduceCommand(message)
+	return message, err
 }

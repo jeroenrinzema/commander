@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/Shopify/sarama"
-	"github.com/jeroenrinzema/commander"
+	"github.com/sirupsen/logrus"
 )
 
 // NewGroupHandle initializes a new GroupHandle
@@ -24,15 +24,14 @@ type GroupHandle struct {
 	consumer     sarama.ConsumerGroup
 	group        string
 	ready        chan bool
-	config       *sarama.Config
 	consumptions sync.WaitGroup
 	closing      bool
 }
 
 // Connect initializes a new Sarama consumer group and awaits till the consumer
 // group is set up and ready to consume messages.
-func (handle *GroupHandle) Connect(brokers []string, topics []string, group string, config *sarama.Config) error {
-	consumer, err := sarama.NewConsumerGroup(brokers, group, config)
+func (handle *GroupHandle) Connect(conn sarama.Client, topics []string, group string) error {
+	consumer, err := sarama.NewConsumerGroupFromClient(group, conn)
 	if err != nil {
 		return err
 	}
@@ -44,20 +43,21 @@ func (handle *GroupHandle) Connect(brokers []string, topics []string, group stri
 			}
 
 			ctx := context.Background()
-			_ = consumer.Consume(ctx, topics, handle)
+			err := consumer.Consume(ctx, topics, handle)
+			if err != nil {
+				logrus.Error(err)
+			}
 		}
 	}()
 
 	select {
 	case err := <-consumer.Errors():
-		commander.Logger.Println(err)
 		return err
 	case <-handle.ready:
 	}
 
 	handle.consumer = consumer
 	handle.group = group
-	handle.config = config
 
 	return nil
 }
@@ -83,9 +83,9 @@ func (handle *GroupHandle) ConsumeClaim(session sarama.ConsumerGroupSession, cla
 
 		go func(message *sarama.ConsumerMessage) {
 			err := handle.client.Claim(message)
-			if err != nil {
+			if err == ErrRetry {
 				// Mark the message to be consumed again
-				session.MarkOffset(message.Topic, message.Partition, message.Offset, "")
+				session.ResetOffset(message.Topic, message.Partition, message.Offset, "")
 				return
 			}
 

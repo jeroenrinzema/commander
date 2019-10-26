@@ -37,8 +37,15 @@ func (r *MetadataRequest) decode(pd packetDecoder, version int16) error {
 	if err != nil {
 		return err
 	}
-	if size > 0 {
-		r.Topics = make([]string, size)
+	if size < 0 {
+		return nil
+	} else {
+		topicCount := size
+		if topicCount == 0 {
+			return nil
+		}
+
+		r.Topics = make([]string, topicCount)
 		for i := range r.Topics {
 			topic, err := pd.getString()
 			if err != nil {

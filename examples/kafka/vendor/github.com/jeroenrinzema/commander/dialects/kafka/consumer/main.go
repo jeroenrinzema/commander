@@ -1,12 +1,17 @@
 package consumer
 
 import (
-	"context"
 	"errors"
 	"sync"
 
 	"github.com/Shopify/sarama"
+	"github.com/jeroenrinzema/commander/dialects/kafka/metadata"
 	"github.com/jeroenrinzema/commander/internal/types"
+)
+
+var (
+	// ErrRetry error retry type representation
+	ErrRetry = errors.New("retry message")
 )
 
 // HandleType represents the type of consumer that is adviced to use for the given connectionstring
@@ -19,56 +24,14 @@ const (
 )
 
 // NewClient initializes a new consumer client and a Kafka consumer
-func NewClient(brokers []string, group string, initialOffset int64, config *sarama.Config, ts ...types.Topic) (*Client, error) {
-	topics := []string{}
-	for _, topic := range ts {
-		topics = append(topics, topic.Name)
-	}
-
+func NewClient(brokers []string, group string) *Client {
 	client := &Client{
-		brokers:  brokers,
-		topics:   topics,
-		channels: make(map[string]*Channel),
+		brokers: brokers,
+		topics:  make(map[string]*Topic),
+		group:   group,
 	}
 
-	if len(topics) == 0 {
-		return client, nil
-	}
-
-	handle := MatchHandleType(brokers, group, config)
-	switch handle {
-	case GroupConsumerHandle:
-		handle := NewGroupHandle(client)
-		err := handle.Connect(brokers, topics, group, config)
-		if err != nil {
-			return nil, err
-		}
-
-		client.handle = handle
-	case PartitionConsumerHandle:
-		handle := NewPartitionHandle(client)
-		err := handle.Connect(brokers, topics, initialOffset, config)
-		if err != nil {
-			return nil, err
-		}
-
-		client.handle = handle
-	}
-
-	if client.handle == nil {
-		return nil, errors.New("No consumer handle has been set up")
-	}
-
-	return client, nil
-}
-
-// MatchHandleType creates an advice of which handle type should be used for consumption
-func MatchHandleType(brokers []string, group string, config *sarama.Config) HandleType {
-	if group != "" {
-		return GroupConsumerHandle
-	}
-
-	return PartitionConsumerHandle
+	return client
 }
 
 // Handle represents a Kafka consumer handle
@@ -84,66 +47,105 @@ type Claimer interface {
 // Subscription represents a consumer topic(s) subscription
 type Subscription struct {
 	messages chan *types.Message
-	marked   chan error
 }
 
-// Channel represents a thread safe list of subscriptions
-type Channel struct {
-	subscriptions []*Subscription
+// Topic represents a thread safe list of subscriptions
+type Topic struct {
+	subscriptions map[<-chan *types.Message]*Subscription
 	mutex         sync.RWMutex
+}
+
+// NewTopic constructs and returns a new Topic struct
+func NewTopic() *Topic {
+	return &Topic{
+		subscriptions: make(map[<-chan *types.Message]*Subscription),
+	}
 }
 
 // Client consumes kafka messages
 type Client struct {
-	handle   Handle
-	brokers  []string
-	topics   []string
-	channels map[string]*Channel
-	mutex    sync.RWMutex
-	ready    chan bool
+	handle  Handle
+	brokers []string
+	topics  map[string]*Topic
+	ready   chan bool
+	conn    sarama.Client
+	group   string
+}
+
+// Healthy checks the health of the Kafka client
+func (client *Client) Healthy() bool {
+	if len(client.conn.Brokers()) == 0 {
+		return false
+	}
+
+	return true
+}
+
+// Connect opens a new Kafka consumer
+func (client *Client) Connect(brokers []string, config *sarama.Config, initialOffset int64, ts ...types.Topic) error {
+	conn, err := sarama.NewClient(brokers, config)
+	if err != nil {
+		return err
+	}
+
+	topics := []string{}
+	for _, topic := range ts {
+		topics = append(topics, topic.Name())
+	}
+
+	client.conn = conn
+
+	if client.group != "" {
+		handle := NewGroupHandle(client)
+		err := handle.Connect(conn, topics, client.group)
+		if err != nil {
+			return err
+		}
+
+		client.handle = handle
+		return nil
+	}
+
+	handle := NewPartitionHandle(client)
+	err = handle.Connect(conn, topics, initialOffset)
+	if err != nil {
+		return err
+	}
+
+	client.handle = handle
+	return nil
 }
 
 // Subscribe subscribes to the given topics and returs a message channel
-func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, chan<- error, error) {
+func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, error) {
 	subscription := &Subscription{
-		marked:   make(chan error, 1),
-		messages: make(chan *types.Message, 1),
+		messages: make(chan *types.Message, 0),
 	}
-
-	client.mutex.Lock()
-	defer client.mutex.Unlock()
 
 	for _, topic := range topics {
-		if client.channels[topic.Name] == nil {
-			client.channels[topic.Name] = &Channel{}
+		if client.topics[topic.Name()] == nil {
+			client.topics[topic.Name()] = NewTopic()
 		}
 
-		client.channels[topic.Name].mutex.Lock()
-		client.channels[topic.Name].subscriptions = append(client.channels[topic.Name].subscriptions, subscription)
-		client.channels[topic.Name].mutex.Unlock()
+		client.topics[topic.Name()].subscriptions[subscription.messages] = subscription
 	}
 
-	return subscription.messages, subscription.marked, nil
+	return subscription.messages, nil
 }
 
-// Unsubscribe unsubscribes the given topic from the subscription list
+// Unsubscribe removes the given channel from the available subscriptions.
+// A new goroutine is spawned to avoid locking the channel.
 func (client *Client) Unsubscribe(sub <-chan *types.Message) error {
-	client.mutex.RLock()
-	defer client.mutex.RUnlock()
-
-	for topic, channel := range client.channels {
-		subscriptions := channel.subscriptions
-
-		for index, subscription := range subscriptions {
-			if subscription.messages == sub {
-				channel.mutex.Lock()
-				client.channels[topic].subscriptions = append(client.channels[topic].subscriptions[:index], client.channels[topic].subscriptions[index+1:]...)
+	for _, topic := range client.topics {
+		go func(topic *Topic, sub <-chan *types.Message) {
+			topic.mutex.Lock()
+			subscription, has := topic.subscriptions[sub]
+			if has {
+				delete(topic.subscriptions, sub)
 				close(subscription.messages)
-				channel.mutex.Unlock()
-				break
 			}
-		}
-
+			topic.mutex.Unlock()
+		}(topic, sub)
 	}
 
 	return nil
@@ -152,44 +154,32 @@ func (client *Client) Unsubscribe(sub <-chan *types.Message) error {
 // Claim consumes and emit's the given Kafka message to the subscribed
 // subscriptions. All subscriptions are awaited untill done. An error
 // is returned if one of the subscriptions failed to process the message.
-func (client *Client) Claim(message *sarama.ConsumerMessage) error {
-	var err error
+func (client *Client) Claim(consumed *sarama.ConsumerMessage) (err error) {
+	topic := consumed.Topic
 
-	channel := client.channels[message.Topic]
-	if channel != nil {
-		subscriptions := channel.subscriptions
-		headers := map[string]string{}
-		for _, record := range message.Headers {
-			headers[string(record.Key)] = string(record.Value)
-		}
-
-		message := &types.Message{
-			Headers: headers,
-			Topic: types.Topic{
-				Name: message.Topic,
-			},
-			Offset:    int(message.Offset),
-			Partition: int(message.Partition),
-			Value:     message.Value,
-			Key:       message.Key,
-			Timestamp: message.Timestamp,
-			Ctx:       context.Background(),
-		}
-
-		channel.mutex.RLock()
-
-		for _, subscription := range subscriptions {
-			subscription.messages <- message
-			err = <-subscription.marked
-			if err != nil {
-				break
-			}
-		}
-
-		channel.mutex.RUnlock()
+	if client.topics[topic] == nil {
+		return nil
 	}
 
-	return err
+	message := metadata.MessageFromMessage(consumed)
+
+	client.topics[topic].mutex.RLock()
+	defer client.topics[topic].mutex.RUnlock()
+
+	for _, subscription := range client.topics[topic].subscriptions {
+		message.Reset()
+
+		select {
+		case subscription.messages <- message:
+			result := message.Finally()
+			if result != nil {
+				return ErrRetry
+			}
+		default:
+		}
+	}
+
+	return nil
 }
 
 // Close closes the Kafka consumer

@@ -29,13 +29,7 @@ brokers=192.168.2.1,192.168.2.2 initial-offset=oldest version=2.1.1
 
 Once you have the your connectionstring defined are you able to initialize the Kafka dialect.
 
-> 🚧 It is important to open the dialect after you have defined all topics. The available Kafka topics are required to be defined during initialization.
-
 ```go
 connectionstring := "..."
 dialect := kafka.NewDialect(connectionstring)
-
-// define groups ...
-
-dialect.Open()
 ```

@@ -1,39 +1,18 @@
 package zipkin
 
 import (
-	"context"
-	"errors"
-	"strconv"
-
-	"github.com/jeroenrinzema/commander"
+	"github.com/jeroenrinzema/commander/internal/types"
 	"github.com/jeroenrinzema/commander/middleware"
+	"github.com/jeroenrinzema/commander/middleware/zipkin/metadata"
 	zipkin "github.com/openzipkin/zipkin-go"
 	"github.com/openzipkin/zipkin-go/model"
 	reporter "github.com/openzipkin/zipkin-go/reporter"
 	httprecorder "github.com/openzipkin/zipkin-go/reporter/http"
 )
 
-// CtxKey represents a Zipkin context key
-type CtxKey string
-
-// Available Zipkin context keys
-const (
-	CtxSpanKeyConsume CtxKey = "ZipkinCtxSpanConsume"
-	CtxSpanKeyProduce CtxKey = "ZipkinCtxSpanProduce"
-)
-
-// Zipkin Kafka message header keys
-const (
-	HeaderTraceIDKey      = "trace_id"
-	HeaderSpanIDKey       = "span_id"
-	HeaderParentSpanIDKey = "parent_span_id"
-	HeaderSampledKey      = "trace_sampled"
-)
-
 // Zipkin span tags
 const (
 	ActionTag  = "commander.message.action"
-	StatusTag  = "commander.message.status"
 	VersionTag = "commander.message.version"
 )
 
@@ -76,165 +55,81 @@ type Zipkin struct {
 	Config   Config
 }
 
-// Controller is a middleware controller that set's up the needed middleware
-// event subscriptions.
-func (service *Zipkin) Controller(subscribe middleware.Subscribe) {
-	subscribe(middleware.BeforeActionConsumption, service.BeforeConsume)
-	subscribe(middleware.AfterActionConsumption, service.AfterConsume)
-	subscribe(middleware.BeforePublish, service.BeforePublish)
-	subscribe(middleware.AfterPublish, service.AfterPublish)
+// BeforeConsume middleware controller
+func (controller *Zipkin) BeforeConsume(next middleware.BeforeConsumeHandlerFunc) middleware.BeforeConsumeHandlerFunc {
+	return func(message *types.Message, writer types.Writer) {
+		controller.NewConsumeSpan(message)
+		defer controller.AfterConsumeSpan(message)
+		next(message, writer)
+	}
+}
+
+// BeforeProduce middleware controller
+func (controller *Zipkin) BeforeProduce(next middleware.BeforeProduceHandlerFunc) middleware.BeforeProduceHandlerFunc {
+	return func(message *types.Message) {
+		controller.NewProduceSpan(message)
+		defer controller.AfterPublishSpan(message)
+		next(message)
+	}
 }
 
 // Close closes the Zipkin reporter
-func (service *Zipkin) Close() error {
-	return service.Reporter.Close()
+func (controller *Zipkin) Close() error {
+	return controller.Reporter.Close()
 }
 
-// BeforeConsume starts a new span and stores it in the message context
-func (service *Zipkin) BeforeConsume(event *middleware.Event) error {
-	commander.Logger.Println("starting span")
-	message, ok := event.Value.(*commander.Message)
-	if !ok {
-		return errors.New("value is not a *message")
+// NewConsumeSpan starts a new span and stores it in the message context
+func (controller *Zipkin) NewConsumeSpan(message *types.Message) {
+	options := []zipkin.SpanOption{
+		zipkin.Kind(model.Consumer),
 	}
 
-	options := []zipkin.SpanOption{zipkin.Kind(model.Consumer)}
-	sc, err := ExtractContextFromMessage(message)
-	if err == nil {
+	sc, ok := metadata.ExtractContextFromMessageHeaders(message)
+	if ok {
 		options = append(options, zipkin.Parent(sc))
 	}
 
-	action := message.Headers[commander.ActionHeader]
-	name := "commander.consume." + action
-	span := service.Tracer.StartSpan(name, options...)
-	message.Ctx() = context.WithValue(message.Ctx(), CtxSpanKeyConsume, span)
+	name := "commander.consume." + message.Action
+	span := controller.Tracer.StartSpan(name, options...)
 
-	span.Tag(ActionTag, message.Headers[commander.ActionHeader])
-	span.Tag(StatusTag, message.Headers[commander.StatusHeader])
-	span.Tag(VersionTag, message.Headers[commander.VersionHeader])
+	message.NewCtx(metadata.NewSpanConsumeContext(message.Ctx(), span))
 
-	return nil
+	span.Tag(ActionTag, message.Action)
+	span.Tag(VersionTag, message.Version.String())
 }
 
-// AfterConsume finishes the stored span in the message context
-func (service *Zipkin) AfterConsume(event *middleware.Event) error {
-	intrf := event.Ctx.Value(CtxSpanKeyConsume)
-	if intrf == nil {
-		return errors.New("message context contains no tracing span")
-	}
-
-	span, ok := intrf.(zipkin.Span)
-	if !ok {
-		return errors.New("interface is not a Zipkin span")
+// AfterConsumeSpan finishes the stored span in the message context
+func (controller *Zipkin) AfterConsumeSpan(message *types.Message) {
+	span, has := metadata.SpanConsumeFromContext(message.Ctx())
+	if !has {
+		return
 	}
 
 	span.Finish()
-	return nil
 }
 
-// BeforePublish prepares the given message span headers
-func (service *Zipkin) BeforePublish(event *middleware.Event) error {
-	message, ok := event.Value.(*commander.Message)
-	if !ok {
-		return errors.New("value is not a *message")
+// NewProduceSpan prepares the given message span headers
+func (controller *Zipkin) NewProduceSpan(message *types.Message) {
+	parent, has := metadata.SpanConsumeFromContext(message.Ctx())
+	if !has {
+		return
 	}
 
-	intrf := event.Ctx.Value(CtxSpanKeyConsume)
-	if intrf == nil {
-		return errors.New("message context contains no tracing span")
-	}
+	span := controller.Tracer.StartSpan("commander.produce", zipkin.Kind(model.Consumer), zipkin.Parent(parent.Context()))
 
-	msp, ok := intrf.(zipkin.Span)
-	if !ok {
-		return errors.New("interface is not a Zipkin span")
-	}
+	span.Tag(ActionTag, message.Action)
+	span.Tag(VersionTag, message.Version.String())
 
-	name := "commander.produce"
-	span := service.Tracer.StartSpan(name, zipkin.Kind(model.Consumer), zipkin.Parent(msp.Context()))
-	message.Ctx() = context.WithValue(message.Ctx(), CtxSpanKeyProduce, span)
-
-	span.Tag(ActionTag, message.Headers[commander.ActionHeader])
-	span.Tag(StatusTag, message.Headers[commander.StatusHeader])
-	span.Tag(VersionTag, message.Headers[commander.VersionHeader])
-
-	headers := ConstructMessageHeaders(msp.Context())
-	for k, v := range headers {
-		message.Headers[k] = v
-	}
-
-	return nil
+	message.NewCtx(metadata.NewSpanProduceContext(message.Ctx(), span))
+	message.NewCtx(metadata.AppendMessageHeaders(message.Ctx(), span.Context()))
 }
 
-// AfterPublish closes the producing span
-func (service *Zipkin) AfterPublish(event *middleware.Event) error {
-	commander.Logger.Println("finishing span")
-
-	intrf := event.Ctx.Value(CtxSpanKeyProduce)
-	if intrf == nil {
-		return errors.New("message context contains no tracing span")
-	}
-
-	span, ok := intrf.(zipkin.Span)
-	if !ok {
-		return errors.New("interface is not a Zipkin span")
+// AfterPublishSpan closes the producing span
+func (controller *Zipkin) AfterPublishSpan(message *types.Message) {
+	span, has := metadata.SpanProduceFromContext(message.Ctx())
+	if !has {
+		return
 	}
 
 	span.Finish()
-	return nil
-}
-
-// ExtractContextFromMessage extracts the span context of a Commander message
-func ExtractContextFromMessage(message *commander.Message) (model.SpanContext, error) {
-	commander.Logger.Println("attempting span context extraction from message")
-	sc := model.SpanContext{}
-
-	id, err := model.TraceIDFromHex(message.Headers[HeaderTraceIDKey])
-	if err != nil {
-		return sc, err
-	}
-
-	sc.TraceID = id
-
-	spanID, err := strconv.ParseUint(message.Headers[HeaderSpanIDKey], 16, 64)
-	if err != nil {
-		return sc, err
-	}
-
-	sc.ID = model.ID(spanID)
-	parentID, err := strconv.ParseUint(message.Headers[HeaderParentSpanIDKey], 16, 64)
-	if err == nil {
-		id := model.ID(parentID)
-		sc.ParentID = &id
-	}
-
-	if message.Headers[HeaderSampledKey] == "1" {
-		b := true
-		sc.Sampled = &b
-	}
-
-	return sc, nil
-}
-
-// ConstructMessageHeaders construct message headers for a commander header
-func ConstructMessageHeaders(span model.SpanContext) map[string]string {
-	sampled := "0"
-	if span.Sampled != nil {
-		if *span.Sampled {
-			sampled = "1"
-		}
-	}
-
-	var parent string
-	if span.ParentID != nil {
-		parent = span.ParentID.String()
-	}
-
-	headers := map[string]string{
-		HeaderTraceIDKey:      span.TraceID.String(),
-		HeaderSpanIDKey:       span.ID.String(),
-		HeaderParentSpanIDKey: parent,
-		HeaderSampledKey:      sampled,
-	}
-
-	return headers
 }

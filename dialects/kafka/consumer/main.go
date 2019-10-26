@@ -14,7 +14,7 @@ var (
 	ErrRetry = errors.New("retry message")
 )
 
-// HandleType represents the type of consumer that is adviced to use for the given connectionstring
+// HandleType represents the type of consumer that is advised to use for the given connectionstring
 type HandleType int8
 
 // Plausible consumer types
@@ -152,7 +152,7 @@ func (client *Client) Unsubscribe(sub <-chan *types.Message) error {
 }
 
 // Claim consumes and emit's the given Kafka message to the subscribed
-// subscriptions. All subscriptions are awaited untill done. An error
+// subscriptions. All subscriptions are awaited until done. An error
 // is returned if one of the subscriptions failed to process the message.
 func (client *Client) Claim(consumed *sarama.ConsumerMessage) (err error) {
 	topic := consumed.Topic

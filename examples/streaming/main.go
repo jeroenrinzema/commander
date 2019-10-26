@@ -26,7 +26,7 @@ func main() {
 
 	/**
 	 * HandleFunc handles an "stream" command. Once a command with the action "stream" is
-	 * processed will a event stream be started producing one event every 500ms untill 5 events are produced.
+	 * processed will a event stream be started producing one event every 500ms until 5 events are produced.
 	 */
 	group.HandleFunc(commander.CommandMessage, "stream", func(message *commander.Message, writer commander.Writer) {
 		key, err := uuid.NewV4()

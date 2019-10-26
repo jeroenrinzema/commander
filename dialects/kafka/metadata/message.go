@@ -74,7 +74,7 @@ headers:
 			message.NewCtx(metadata.NewParentTimestampContext(message.Ctx(), time))
 			break
 		default:
-			headers[key] = strings.Split(string(record.Value), metadata.HeaderValueDevider)
+			headers[key] = strings.Split(string(record.Value), metadata.HeaderValueDivider)
 			break
 		}
 	}

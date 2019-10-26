@@ -99,7 +99,7 @@ func TestWriterProduceCommandStream(t *testing.T) {
 	}
 }
 
-// TestWriterProduceEvent tests if able to write a successfull event stream
+// TestWriterProduceEvent tests if able to write a successful event stream
 func TestWriterProduceEvent(t *testing.T) {
 	group, _ := NewMockClient()
 	action := "testing"

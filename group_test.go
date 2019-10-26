@@ -478,8 +478,8 @@ func TestNewConsumer(t *testing.T) {
 		t.Error(err)
 	}
 
-	unkown := types.MessageType(0)
-	_, _, err = group.NewConsumer(unkown)
+	unknown := types.MessageType(0)
+	_, _, err = group.NewConsumer(unknown)
 	if err != ErrNoTopic {
 		t.Error("unexpected error", err)
 	}

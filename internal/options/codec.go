@@ -24,7 +24,7 @@ func DefaultCodec() Codec {
 	return &IgnoreCodec{}
 }
 
-// IgnoreCodec is the default codec interperter that preforms no action during marshalling ur unmarshalling
+// IgnoreCodec is the default codec interpreter that preforms no action during marshalling ur unmarshalling
 type IgnoreCodec struct {
 }
 
@@ -48,12 +48,12 @@ func (codec *IgnoreCodec) Unmarshal(data []byte, s interface{}) (err error) {
 	return nil
 }
 
-// WithJSONCodec constructs a new JSON message interperter used for encoding and decoding messages.
+// WithJSONCodec constructs a new JSON message interpreter used for encoding and decoding messages.
 func WithJSONCodec() GroupOption {
 	return &JSONCodec{}
 }
 
-// JSONCodec is a JSON message codec interperter used for encoding and decoding messages.
+// JSONCodec is a JSON message codec interpreter used for encoding and decoding messages.
 // All messages are decoded as map[string]interface{}.
 type JSONCodec struct {
 }

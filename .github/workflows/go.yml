@@ -15,3 +15,6 @@ jobs:
         go-version: ${{ matrix.go }}
     - name: Test
       run: go test ./... -v -mod=vendor -race -count=1 -coverprofile=coverage.txt -covermode=atomic -timeout=120s
+    - uses: codecov/codecov-action@v1.0.3
+      with:
+        token: ${{secrets.CODECOV_TOKEN}}

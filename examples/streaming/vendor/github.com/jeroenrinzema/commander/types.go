@@ -5,7 +5,7 @@ import (
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
-// To avoid circular dependencies are some types/interfaces/structs moved to a seperate package (types).
+// To avoid circular dependencies are some types/interfaces/structs moved to a separate package (types).
 // In order to still be able to use the types by simply importing commander are the types imported and extended in commander.
 
 // Status codes that represents the status of a event
@@ -26,7 +26,7 @@ const (
 	CommandMessage = types.CommandMessage
 )
 
-// Dialect extention of the Dialect type
+// Dialect extension of the Dialect type
 type Dialect = types.Dialect
 
 // Message a message

@@ -6,22 +6,22 @@ import (
 )
 
 const (
-	// HeaderValueDevider represents the UTF-8 value that is used to devide values
-	HeaderValueDevider = ";"
+	// HeaderValueDivider represents the UTF-8 value that is used to divide values
+	HeaderValueDivider = ";"
 )
 
 // HeaderValue a slice of header values
 type HeaderValue []string
 
-// String returns the header values seperated by a ";"
+// String returns the header values separated by a ";"
 func (h HeaderValue) String() string {
-	return strings.Join(h, HeaderValueDevider)
+	return strings.Join(h, HeaderValueDivider)
 }
 
 // Header is a mapping from metadata keys to values.
 type Header map[string]HeaderValue
 
-// Retries representation of the ammount of attempted retries
+// Retries representation of the amount of attempted retries
 type Retries int32
 
 // ParentTimestamp parent message creation time

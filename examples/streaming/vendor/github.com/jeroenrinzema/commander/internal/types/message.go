@@ -21,7 +21,7 @@ type Resolved int
 
 // available Resolved types
 const (
-	UnkownResolvedStatus Resolved = iota
+	UnknownResolvedStatus Resolved = iota
 	ResolvedAck
 	ResolvedNack
 )
@@ -108,7 +108,7 @@ func NewMessage(action string, version int8, key []byte, data []byte) *Message {
 		Data:      data,
 		ack:       make(chan struct{}, 0),
 		nack:      make(chan struct{}, 0),
-		response:  UnkownResolvedStatus,
+		response:  UnknownResolvedStatus,
 		Status:    StatusOK,
 		Timestamp: time.Now(),
 		ctx:       context.Background(),
@@ -170,7 +170,7 @@ func (message *Message) NewMessage(action string, version Version, key metadata.
 	return child
 }
 
-// Reset set's up a new async resolver that awaits untill resolved
+// Reset set's up a new async resolver that awaits until resolved
 func (message *Message) Reset() {
 	if message == nil {
 		return
@@ -181,7 +181,7 @@ func (message *Message) Reset() {
 
 	message.ack = make(chan struct{}, 0)
 	message.nack = make(chan struct{}, 0)
-	message.response = UnkownResolvedStatus
+	message.response = UnknownResolvedStatus
 
 	return
 }

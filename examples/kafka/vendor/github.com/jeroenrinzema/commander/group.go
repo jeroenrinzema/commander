@@ -340,7 +340,7 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 // NewConsumerWithDeadline consumes events of the given message type for the given duration.
 // The message channel is closed once the deadline is reached.
-// Once a message is consumed should the next function be called to mark a successfull consumption.
+// Once a message is consumed should the next function be called to mark a successful consumption.
 // The consumer could be closed premature by calling the close method.
 func (group *Group) NewConsumerWithDeadline(timeout time.Duration, t types.MessageType) (<-chan *types.Message, Close, error) {
 	group.logger.Debugf("new consumer with deadline: %s", timeout)

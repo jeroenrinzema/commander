@@ -6,19 +6,20 @@ import (
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
-// Throttle provides a middleware that limits the amount of messages processed per unit of time.
+// Controller provides a middleware that limits the amount of messages processed per unit of time.
 // This may be done e.g. to prevent excessive load caused by running a handler on a long queue of unprocessed messages.
-type Throttle struct {
+type Controller struct {
 	throttle <-chan time.Time
 }
 
-// NewThrottle creates a new Throttle middleware.
-// Example duration and count: NewThrottle(10, time.Second) for 10 messages per second
-func NewThrottle(count int64, duration time.Duration) *Throttle {
-	return &Throttle{time.Tick(duration / time.Duration(count))}
+// New creates a new Throttle middleware.
+// Example duration and count: New(10, time.Second) for 10 messages per second
+func New(count int64, duration time.Duration) *Controller {
+	return &Controller{time.Tick(duration / time.Duration(count))}
 }
 
-func (t Throttle) Middleware(h types.HandlerFunc) types.HandlerFunc {
+// Middleware controller handling throttle requests
+func (t Controller) Middleware(h types.HandlerFunc) types.HandlerFunc {
 	return func(message *types.Message, writer types.Writer) {
 		select {
 		case <-t.throttle:

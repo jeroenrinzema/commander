@@ -1,4 +1,5 @@
 # Commander 🚀
+[![CI](https://github.com/jeroenrinzema/commander/workflows/Go%20tests/badge.svg)](https://github.com/jeroenrinzema/commander/actions?query=workflow%3A%22Go+tests%22)
 [![GoDoc](https://godoc.org/github.com/jeroenrinzema/commander?status.svg)](https://godoc.org/github.com/jeroenrinzema/commander)
 [![Coverage](https://codecov.io/gh/jeroenrinzema/commander/branch/master/graph/badge.svg)](https://codecov.io/gh/jeroenrinzema/commander)
 [![Coverage Report](https://goreportcard.com/badge/github.com/jeroenrinzema/commander)](https://goreportcard.com/report/github.com/jeroenrinzema/commander)

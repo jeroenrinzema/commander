@@ -1,6 +1,6 @@
 module github.com/jeroenrinzema/commander
 
-go 1.12
+go 1.13
 
 require (
 	github.com/Shopify/sarama v1.19.0

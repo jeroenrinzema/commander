@@ -16,11 +16,11 @@ github.com/golang/snappy
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/openzipkin/zipkin-go v0.1.6
 github.com/openzipkin/zipkin-go
+github.com/openzipkin/zipkin-go/idgenerator
 github.com/openzipkin/zipkin-go/model
+github.com/openzipkin/zipkin-go/propagation
 github.com/openzipkin/zipkin-go/reporter
 github.com/openzipkin/zipkin-go/reporter/http
-github.com/openzipkin/zipkin-go/idgenerator
-github.com/openzipkin/zipkin-go/propagation
 # github.com/pierrec/lz4 v2.0.5+incompatible
 github.com/pierrec/lz4
 github.com/pierrec/lz4/internal/xxh32

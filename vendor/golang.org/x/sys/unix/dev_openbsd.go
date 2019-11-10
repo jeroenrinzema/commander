@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Functions to access/create device major and minor numbers matching the
-// encoding used in OpenBSD's sys/internal/types.h header.
+// encoding used in OpenBSD's sys/types.h header.
 
 package unix
 

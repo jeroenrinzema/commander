@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 )
 
-// Breaker is an object that will allow conncurrent checks if the breaker is safe to use.
+// Breaker is an object that will allow concurrent checks if the breaker is safe to use.
 // This object works very much like a real world electrical breaker.
 type Breaker struct {
 	m    sync.Mutex

@@ -7,8 +7,9 @@ import (
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
-// func New() middleware.Controller {
-// }
+func New() *Controller {
+	return &Controller{}
+}
 
 // Controller provides a middleware handler managing request timeouts
 type Controller struct {

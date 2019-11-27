@@ -6,5 +6,5 @@
 - RabbitMQ
 - SQL
 - Websocket
-- io.Reader/io.Writer
+- [io.Reader/io.Writer](https://github.com/jeroenrinzema/commander/tree/master/dialects/io)
 - NATS

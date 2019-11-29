@@ -76,7 +76,7 @@ func (handle *GroupHandle) Cleanup(session sarama.ConsumerGroupSession) error {
 
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 // When a Kafka message is claimed is it passed to the client Claim method.
-// If an error occured during processing of the claimed message is the message marked to be retried.
+// If an error occurred during processing of the claimed message is the message marked to be retried.
 func (handle *GroupHandle) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
 		handle.consumptions.Add(1)

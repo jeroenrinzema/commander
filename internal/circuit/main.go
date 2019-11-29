@@ -12,7 +12,7 @@ type Breaker struct {
 	open uint32
 }
 
-// Safe checks wheather the breaker is open or not
+// Safe checks whether the breaker is open or not
 func (b *Breaker) Safe() bool {
 	if atomic.LoadUint32(&b.open) == 1 {
 		return false

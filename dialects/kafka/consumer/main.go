@@ -116,7 +116,7 @@ func (client *Client) Connect(brokers []string, config *sarama.Config, initialOf
 	return nil
 }
 
-// Subscribe subscribes to the given topics and returs a message channel
+// Subscribe subscribes to the given topics and returns a message channel
 func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, error) {
 	subscription := &Subscription{
 		messages: make(chan *types.Message, 0),

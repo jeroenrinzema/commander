@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/Shopify/sarama"
+	"github.com/jeroenrinzema/commander/internal/circuit"
 	"github.com/sirupsen/logrus"
 )
 
@@ -12,7 +13,7 @@ import (
 func NewGroupHandle(client *Client) *GroupHandle {
 	handle := &GroupHandle{
 		client: client,
-		ready:  make(chan bool, 0),
+		ready:  circuit.Ready{},
 	}
 
 	return handle
@@ -23,9 +24,10 @@ type GroupHandle struct {
 	client       *Client
 	consumer     sarama.ConsumerGroup
 	group        string
-	ready        chan bool
 	consumptions sync.WaitGroup
 	closing      bool
+	ready        circuit.Ready
+	mutex        sync.Mutex
 }
 
 // Connect initializes a new Sarama consumer group and awaits till the consumer
@@ -53,7 +55,7 @@ func (handle *GroupHandle) Connect(conn sarama.Client, topics []string, group st
 	select {
 	case err := <-consumer.Errors():
 		return err
-	case <-handle.ready:
+	case <-handle.ready.On():
 	}
 
 	handle.consumer = consumer
@@ -62,10 +64,10 @@ func (handle *GroupHandle) Connect(conn sarama.Client, topics []string, group st
 	return nil
 }
 
-// Setup is run at the beginning of a new session, before ConsumeClaim
+// Setup is run at the beginning of a new session, before ConsumeClaim.
+// This method is a implementation of the sarama consumer interface.
 func (handle *GroupHandle) Setup(sarama.ConsumerGroupSession) error {
-	close(handle.ready) // Mark the handle as ready
-	handle.ready = make(chan bool, 0)
+	handle.ready.Mark()
 	return nil
 }
 
@@ -83,6 +85,8 @@ func (handle *GroupHandle) ConsumeClaim(session sarama.ConsumerGroupSession, cla
 
 		go func(message *sarama.ConsumerMessage) {
 			err := handle.client.Claim(message)
+			defer handle.consumptions.Done()
+
 			if err == ErrRetry {
 				// Mark the message to be consumed again
 				session.ResetOffset(message.Topic, message.Partition, message.Offset, "")
@@ -90,8 +94,6 @@ func (handle *GroupHandle) ConsumeClaim(session sarama.ConsumerGroupSession, cla
 			}
 
 			session.MarkMessage(message, "")
-
-			handle.consumptions.Done()
 		}(message)
 	}
 

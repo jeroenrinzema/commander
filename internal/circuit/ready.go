@@ -16,7 +16,7 @@ func (r *Ready) Mark() {
 		defer r.mutex.Unlock()
 
 		if r.mark == nil {
-			return
+			r.mark = make(chan struct{}, 0)
 		}
 
 		close(r.mark)

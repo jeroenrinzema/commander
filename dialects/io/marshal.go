@@ -7,13 +7,13 @@ import (
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
-// Marshaler encoding and decoding implementation.
-type Marshaler interface {
+// Marshaller encoding and decoding implementation.
+type Marshaller interface {
 	Unmarshal([]byte) error
 	Marshal(interface{}) ([]byte, error)
 }
 
-// Gob marshaler implementation using the encoding/gob package
+// Gob marshaller implementation using the encoding/gob package
 type Gob struct{}
 
 // Unmarshal attempts to decode the given bytes into a types.Message

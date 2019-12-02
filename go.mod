@@ -8,4 +8,5 @@ require (
 	github.com/openzipkin/zipkin-go v0.1.6
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.3.0 // indirect
+	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
 )

@@ -2,11 +2,11 @@ package io
 
 import (
 	"bufio"
-	"errors"
 	"io"
 	"time"
 
 	"github.com/jeroenrinzema/commander/internal/types"
+	errors "golang.org/x/xerrors"
 )
 
 // ErrInvalidMessageDelimiter is returned when a invalid message delimiter is encountered

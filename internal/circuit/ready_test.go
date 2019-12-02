@@ -21,10 +21,11 @@ func TestReadyOnce(t *testing.T) {
 
 func TestReadyOnceMultipleMark(t *testing.T) {
 	ready := Ready{}
-	timeout, _ := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	timeout, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
 
-	go ready.Mark()
-	go ready.Mark()
+	ready.Mark()
+	ready.Mark()
 
 	select {
 	case <-timeout.Done():
@@ -35,9 +36,11 @@ func TestReadyOnceMultipleMark(t *testing.T) {
 
 func TestReadyOnceMultipleListeners(t *testing.T) {
 	ready := Ready{}
-	timeout, _ := context.WithTimeout(context.Background(), 50*time.Millisecond)
 
 	listener := func() {
+		timeout, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
 		select {
 		case <-timeout.Done():
 			t.Error("timeout reached")
@@ -45,8 +48,8 @@ func TestReadyOnceMultipleListeners(t *testing.T) {
 		}
 	}
 
-	go listener()
-	go listener()
-
 	ready.Mark()
+
+	listener()
+	listener()
 }

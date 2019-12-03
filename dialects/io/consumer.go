@@ -2,17 +2,19 @@ package io
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"io"
 	"sync"
 	"time"
 
 	"github.com/jeroenrinzema/commander/internal/types"
+	errors "golang.org/x/xerrors"
 )
 
 // Predefined default values
-const (
-	DefaultMessageDelimiter = byte('\n')
+var (
+	DefaultMessageDelimiter = []byte{'\r', '\n'}
 	DefaultPollInterval     = time.Second
 )
 
@@ -41,7 +43,7 @@ type Consumer struct {
 	BufferSize int
 	// MessageDelimiter are the bytes representing the end of a message if no message delimiter is set a chunk will be send
 	// once the configured buffer size is reached.
-	MessageDelimiter byte
+	MessageDelimiter []byte
 	// PollInterval is the configured interval which determines how long the reader sleeps when no bytes are read.
 	// This interval avoids unnecessary load on the io.Reader.
 	PollInterval time.Duration
@@ -94,12 +96,12 @@ func (consumer *Consumer) Unsubscribe(target <-chan *types.Message) error {
 // Consume opens a new reader for the configured io.Reader
 func (consumer *Consumer) Consume() {
 	sink := make(chan []byte, consumer.ChunkChanSize)
-	go consumer.Read(bufio.NewReader(consumer.reader), sink)
+	go consumer.Read(consumer.reader, sink)
 
 	for chunk := range sink {
 		message, err := consumer.marshaller.Unmarshal(chunk)
 		if err != nil {
-			// TODO: log/handle error
+			// TODO: log/handle error (ignore io.EOF)
 			continue
 		}
 
@@ -115,7 +117,7 @@ func (consumer *Consumer) Consume() {
 
 // Read reads and sends message chunks over the passed channel.
 // A chunk is determined by the configured buffer size or a message delimiter.
-func (consumer *Consumer) Read(reader *bufio.Reader, sink chan []byte) {
+func (consumer *Consumer) Read(reader io.Reader, sink chan []byte) {
 	defer close(sink)
 	read := consumer.Reader(reader)
 
@@ -124,17 +126,17 @@ func (consumer *Consumer) Read(reader *bufio.Reader, sink chan []byte) {
 			return
 		}
 
-		chunks, bytes, err := read()
+		chunks, length, err := read()
 		for _, chunk := range chunks {
 			sink <- chunk
 		}
 
-		if err != nil {
+		if err != nil && !errors.Is(err, io.EOF) {
 			// TODO: log error before returning
 			return
 		}
 
-		if bytes == 0 {
+		if length == 0 {
 			time.Sleep(consumer.PollInterval)
 			continue
 		}
@@ -143,7 +145,7 @@ func (consumer *Consumer) Read(reader *bufio.Reader, sink chan []byte) {
 
 // Reader constructs and returns a consumer reader for the predefined configurations.
 // If no consumer buffer size is defined the default slice reader is returned.
-func (consumer *Consumer) Reader(reader *bufio.Reader) Reader {
+func (consumer *Consumer) Reader(reader io.Reader) Reader {
 	if consumer.BufferSize > 0 {
 		return consumer.BufferReader(reader)
 	}
@@ -152,50 +154,81 @@ func (consumer *Consumer) Reader(reader *bufio.Reader) Reader {
 }
 
 // BufferReader returns a buffer reader implementation for the given io.Reader
-func (consumer *Consumer) BufferReader(reader *bufio.Reader) Reader {
+func (consumer *Consumer) BufferReader(reader io.Reader) Reader {
 	var remaining []byte
 
-	return func() (chunks [][]byte, bytes int, err error) {
-		chunk, bytes := consumer.ReadBuffer(reader)
+	return func() (chunks [][]byte, _ int, _ error) {
+		chunk := make([]byte, consumer.BufferSize)
+		length, _ := reader.Read(chunk)
 		chunks, remaining = consumer.SplitChunk(append(remaining, chunk...))
 
-		return chunks, bytes, nil
+		return chunks, length, nil
 	}
 }
 
+// dropCR drops a terminal \r from the data.
+func dropCR(data []byte) []byte {
+	if len(data) > 0 && data[len(data)-1] == '\r' {
+		return data[0 : len(data)-1]
+	}
+	return data
+}
+
+func ScanCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.Index(data, []byte{'\r', '\n'}); i >= 0 {
+		// We have a full newline-terminated line.
+		return i + 2, dropCR(data[0:i]), nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), dropCR(data), nil
+	}
+	// Request more data.
+	return 0, nil, nil
+}
+
 // SliceReader returns a slice reader implementation for the given io.Reader
-func (consumer *Consumer) SliceReader(reader *bufio.Reader) Reader {
-	return func() (chunks [][]byte, bytes int, err error) {
-		chunk, bytes := consumer.ReadSlice(reader)
+func (consumer *Consumer) SliceReader(reader io.Reader) Reader {
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(ScanCRLF)
+
+	return func() (chunks [][]byte, _ int, _ error) {
+		scanner.Scan()
+		chunk := scanner.Bytes()
 
 		chunks = make([][]byte, 1)
 		chunks[0] = chunk
 
-		return chunks, bytes, nil
+		return chunks, len(chunk), nil
 	}
 }
 
 // SplitChunk splits the given chunk into consumable message chunks based on the configured message delimiter.
 func (consumer *Consumer) SplitChunk(chunk []byte) (returned [][]byte, remaining []byte) {
-	if consumer.MessageDelimiter == 0 {
+	if consumer.MessageDelimiter == nil {
 		return [][]byte{chunk}, make([]byte, 0)
 	}
 
 	returned = [][]byte{}
 	position := 0
 
-	for index := 0; index < len(chunk); index++ {
-		if chunk[index] != consumer.MessageDelimiter {
-			continue
+	for {
+		// FIXME: unnecessary memory allocation?
+		index := bytes.Index(chunk[position:], consumer.MessageDelimiter)
+		if index < 0 {
+			break
 		}
 
-		message := chunk[position:index]
+		message := chunk[position : position+index]
 		if len(message) == 0 {
 			continue
 		}
 
 		returned = append(returned, message)
-		position = index + 1
+		position = position + index + len(consumer.MessageDelimiter)
 	}
 
 	if position >= len(chunk) {
@@ -203,36 +236,6 @@ func (consumer *Consumer) SplitChunk(chunk []byte) (returned [][]byte, remaining
 	}
 
 	return returned, chunk[position:]
-}
-
-// ReadBuffer reads bytes from the given reader until the configured buffer size is reached
-func (consumer *Consumer) ReadBuffer(reader *bufio.Reader) (chunk []byte, bytes int) {
-	if consumer.BufferSize == 0 {
-		return chunk, 0
-	}
-
-	chunk = make([]byte, consumer.BufferSize)
-	bytes, _ = reader.Read(chunk)
-
-	return chunk, bytes
-}
-
-// ReadSlice reads bytes from the given reader until a message delimiter or io.EOF is encountered
-func (consumer *Consumer) ReadSlice(reader *bufio.Reader) (chunk []byte, bytes int) {
-	if consumer.MessageDelimiter == 0 {
-		return chunk, 0
-	}
-
-	for {
-		part, err := reader.ReadSlice(consumer.MessageDelimiter)
-		chunk = append(chunk, part...)
-
-		if err == io.EOF {
-			break
-		}
-	}
-
-	return chunk, len(chunk)
 }
 
 // Closed returns a boolean representing whether the given consumer is closed

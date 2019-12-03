@@ -18,7 +18,7 @@ func TestSubscribe(t *testing.T) {
 		t.Error(err)
 	}
 
-	bb := bytes.NewBuffer(append(chunk, DefaultMessageDelimiter))
+	bb := bytes.NewBuffer(join(chunk, DefaultMessageDelimiter))
 
 	consumer := NewConsumer(bb, gob)
 	defer consumer.Close()
@@ -34,6 +34,35 @@ func TestSubscribe(t *testing.T) {
 
 	if string(message.Data) != string(expected.Data) {
 		t.Error("expected message data malformed")
+	}
+}
+
+func TestStreaming(t *testing.T) {
+	n := 100
+	gob := &Gob{}
+	message := &types.Message{
+		Data: []byte("test case"),
+	}
+
+	chunk, err := gob.Marshal(message)
+	if err != nil {
+		t.Error(err)
+	}
+
+	bb := bytes.NewBuffer(nil)
+
+	for i := 0; i < n; i++ {
+		bb.Write(join(chunk, DefaultMessageDelimiter))
+	}
+
+	consumer := NewConsumer(bb, gob)
+	subscription, _ := consumer.Subscribe(nil)
+
+	defer consumer.Close()
+	go consumer.Consume()
+
+	for i := 0; i < n; i++ {
+		<-subscription
 	}
 }
 
@@ -60,7 +89,7 @@ func TestSplitChunk(t *testing.T) {
 	consumer := NewConsumer(nil, nil)
 	defer consumer.Close()
 
-	messages, remaining := consumer.SplitChunk([]byte{1, DefaultMessageDelimiter, 3, 4, 5, DefaultMessageDelimiter})
+	messages, remaining := consumer.SplitChunk(join([]byte{1}, DefaultMessageDelimiter, []byte{3, 4, 5}, DefaultMessageDelimiter))
 
 	if len(messages) != 2 {
 		t.Errorf("unexpected ammount of messages returned. Expected 2 returned %d", len(messages))
@@ -76,5 +105,27 @@ func TestSplitChunk(t *testing.T) {
 
 	if len(messages[1]) != 3 {
 		t.Errorf("unexpected amount of bytes returned in second message. Expected 3 returned %d", len(messages[1]))
+	}
+}
+
+func BenchmarkConsumption(b *testing.B) {
+	ms := []byte("message")
+	bm := NewBenchmarkMarshal(ms)
+	bb := bytes.NewBuffer(nil)
+
+	for i := 0; i < b.N; i++ {
+		bb.Write(join(ms, DefaultMessageDelimiter))
+	}
+
+	consumer := NewConsumer(bb, bm)
+	defer consumer.Close()
+	go consumer.Consume()
+
+	subscription, _ := consumer.Subscribe(nil)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		<-subscription
 	}
 }

@@ -3,6 +3,7 @@ package io
 import (
 	"bufio"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/jeroenrinzema/commander/internal/types"
@@ -51,48 +52,87 @@ type Consumer struct {
 
 	reader     io.ReadCloser
 	marshaller Marshaller
+
+	subscriptions []chan *types.Message
+	mutex         sync.RWMutex
 }
 
 // Subscribe creates a new subscription and subscribes to the given topic(s)
-func (consumer *Consumer) Subscribe(topics ...types.Topic) (subscription <-chan *types.Message, err error) {
-	subscription = make(chan *types.Message, 0)
+func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Message, error) {
+	subscription := make(chan *types.Message, 0)
 
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
+
+	consumer.subscriptions = append(consumer.subscriptions, subscription)
 	return subscription, nil
 }
 
 // Unsubscribe removes the given subscription channel from any subscribed topics
-func (consumer *Consumer) Unsubscribe(subscription <-chan *types.Message) error {
+func (consumer *Consumer) Unsubscribe(target <-chan *types.Message) error {
+	consumer.mutex.Lock()
+	defer consumer.mutex.Unlock()
+
+	for index, subscription := range consumer.subscriptions {
+		if subscription != target {
+			continue
+		}
+
+		// Remove the given subscription from the stored subscriptions
+		// The order of the subscriptions are not preserved to increase performance
+		// https://stackoverflow.com/a/37335777
+		consumer.subscriptions[len(consumer.subscriptions)-1], consumer.subscriptions[index] = consumer.subscriptions[index], consumer.subscriptions[len(consumer.subscriptions)-1]
+		consumer.subscriptions = consumer.subscriptions[:len(consumer.subscriptions)-1]
+		break
+	}
+
 	return nil
 }
 
-// Read reads and sends message chunks over the returned channel.
-// A chunk is determined by the configured buffer size or a message delimiter.
-func (consumer *Consumer) Read(reader *bufio.Reader) chan []byte {
+// Consume opens a new reader for the given io.Reader
+func (consumer *Consumer) Consume(reader *bufio.Reader) {
 	sink := make(chan []byte, consumer.ChunkChanSize)
+	go consumer.Read(reader, sink)
 
-	go func() {
-		defer close(sink)
-		read := consumer.Reader(reader)
-
-		for {
-			chunks, bytes, err := read()
-			for _, chunk := range chunks {
-				sink <- chunk
-			}
-
-			if err != nil {
-				// TODO: log error before returning
-				return
-			}
-
-			if bytes == 0 {
-				time.Sleep(consumer.PollInterval)
-				continue
-			}
+	for chunk := range sink {
+		message, err := consumer.marshaller.Unmarshal(chunk)
+		if err != nil {
+			// TODO: log/handle error
+			continue
 		}
-	}()
 
-	return sink
+		consumer.mutex.RLock()
+
+		for _, subscription := range consumer.subscriptions {
+			subscription <- message
+		}
+
+		consumer.mutex.RUnlock()
+	}
+}
+
+// Read reads and sends message chunks over the passed channel.
+// A chunk is determined by the configured buffer size or a message delimiter.
+func (consumer *Consumer) Read(reader *bufio.Reader, sink chan []byte) {
+	defer close(sink)
+	read := consumer.Reader(reader)
+
+	for {
+		chunks, bytes, err := read()
+		for _, chunk := range chunks {
+			sink <- chunk
+		}
+
+		if err != nil {
+			// TODO: log error before returning
+			return
+		}
+
+		if bytes == 0 {
+			time.Sleep(consumer.PollInterval)
+			continue
+		}
+	}
 }
 
 // Reader constructs and returns a consumer reader for the predefined configurations.

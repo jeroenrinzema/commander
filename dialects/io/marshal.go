@@ -9,7 +9,7 @@ import (
 
 // Marshaller encoding and decoding implementation.
 type Marshaller interface {
-	Unmarshal([]byte) error
+	Unmarshal([]byte) (*types.Message, error)
 	Marshal(interface{}) ([]byte, error)
 }
 

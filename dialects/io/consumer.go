@@ -15,13 +15,25 @@ var ErrInvalidMessageDelimiter = errors.New("invalid message delimiter")
 // ErrInvalidBufferSize is returned when a invalid buffer size is encountered
 var ErrInvalidBufferSize = errors.New("invalid buffer size")
 
+// Predefined default values
+const (
+	DefaultMessageDelimiter = byte('\n')
+	DefaultPollInterval     = time.Second
+)
+
 // NewConsumer constructs a new consumer for the given io.ReaderCloser
 func NewConsumer(reader io.ReadCloser, marshaller Marshaller) *Consumer {
 	return &Consumer{
-		reader:     reader,
-		marshaller: marshaller,
+		reader:           reader,
+		marshaller:       marshaller,
+		MessageDelimiter: DefaultMessageDelimiter,
+		PollInterval:     DefaultPollInterval,
 	}
 }
+
+// Reader represents a chunk reader implementation of a io.Reader.
+// Each returned chunk represents a message byte slice.
+type Reader func() (chunks [][]byte, bytes int, err error)
 
 type Consumer struct {
 	// BufferSize represents the amount of bytes read before a message chunk is returned.
@@ -60,21 +72,12 @@ func (consumer *Consumer) Read(reader *bufio.Reader) chan []byte {
 
 	go func() {
 		defer close(sink)
-		var remaining []byte
+		read := consumer.Reader(reader)
 
 		for {
-			var err error
-			var bytes int
-			var chunk []byte
-
-			switch true {
-			case consumer.BufferSize > 0:
-				chunk, bytes, err = consumer.ReadBuffer(reader)
-				remaining = consumer.ReadBufferedChunk(append(remaining, chunk...), sink)
-				break
-			case consumer.MessageDelimiter != 0:
-				chunk, bytes, err = consumer.ReadSlice(reader)
-				break
+			chunks, bytes, err := read()
+			for _, chunk := range chunks {
+				sink <- chunk
 			}
 
 			if err != nil {
@@ -86,23 +89,44 @@ func (consumer *Consumer) Read(reader *bufio.Reader) chan []byte {
 				time.Sleep(consumer.PollInterval)
 				continue
 			}
-
-			sink <- chunk
 		}
 	}()
 
 	return sink
 }
 
-// ReadBufferedChunk splits the given buffered chunk if a message delimiter is set and send the message chunk over the given channel.
-// Any bytes not separated by a message delimiter are returned.
-func (consumer *Consumer) ReadBufferedChunk(chunk []byte, sink chan []byte) []byte {
-	messages, remaining := consumer.SplitChunk(chunk)
-	for _, message := range messages {
-		sink <- message
+// Reader constructs and returns a consumer reader for the predefined configurations.
+// If no consumer buffer size is defined the default slice reader is returned.
+func (consumer *Consumer) Reader(reader *bufio.Reader) Reader {
+	if consumer.BufferSize > 0 {
+		return consumer.BufferReader(reader)
 	}
 
-	return remaining
+	return consumer.SliceReader(reader)
+}
+
+// BufferReader returns a buffer reader implementation for the given io.Reader
+func (consumer *Consumer) BufferReader(reader *bufio.Reader) Reader {
+	var remaining []byte
+
+	return func() (chunks [][]byte, bytes int, err error) {
+		chunk, bytes, err := consumer.ReadBuffer(reader)
+		chunks, remaining = consumer.SplitChunk(append(remaining, chunk...))
+
+		return chunks, bytes, err
+	}
+}
+
+// SliceReader returns a slice reader implementation for the given io.Reader
+func (consumer *Consumer) SliceReader(reader *bufio.Reader) Reader {
+	return func() (chunks [][]byte, bytes int, err error) {
+		chunk, bytes, err := consumer.ReadSlice(reader)
+
+		chunks = make([][]byte, 1)
+		chunks[0] = chunk
+
+		return chunks, bytes, err
+	}
 }
 
 // SplitChunk splits the given chunk into consumable message chunks based on the configured message delimiter.
@@ -112,27 +136,27 @@ func (consumer *Consumer) SplitChunk(chunk []byte) (returned [][]byte, remaining
 	}
 
 	returned = [][]byte{}
-	mark := 0
+	position := 0
 
 	for index := 0; index < len(chunk); index++ {
 		if chunk[index] != consumer.MessageDelimiter {
 			continue
 		}
 
-		message := chunk[mark:index]
+		message := chunk[position:index]
 		if len(message) == 0 {
 			continue
 		}
 
 		returned = append(returned, message)
-		mark = index + 1
+		position = index + 1
 	}
 
-	if mark >= len(chunk) {
+	if position >= len(chunk) {
 		return returned, make([]byte, 0)
 	}
 
-	return returned, chunk[mark:]
+	return returned, chunk[position:]
 }
 
 // ReadBuffer reads bytes from the given reader until the configured buffer size is reached

@@ -4,12 +4,11 @@ import "testing"
 
 func TestSplittingBufferedChunk(t *testing.T) {
 	delimiter := byte(2)
-	chunk := []byte{1, delimiter, 3, 4, 5, delimiter}
 
 	consumer := NewConsumer(nil, nil)
 	consumer.MessageDelimiter = delimiter
 
-	messages, remaining := consumer.SplitChunk(chunk)
+	messages, remaining := consumer.SplitChunk([]byte{1, delimiter, 3, 4, 5, delimiter})
 	if len(messages) != 2 {
 		t.Errorf("unexpected ammount of messages returned. Expected 2 returned %d", len(messages))
 	}

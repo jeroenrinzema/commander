@@ -10,7 +10,7 @@ import (
 // Marshaller encoding and decoding implementation.
 type Marshaller interface {
 	Unmarshal([]byte) (*types.Message, error)
-	Marshal(interface{}) ([]byte, error)
+	Marshal(*types.Message) ([]byte, error)
 }
 
 // Gob marshaller implementation using the encoding/gob package

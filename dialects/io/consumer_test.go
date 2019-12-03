@@ -1,14 +1,67 @@
 package io
 
-import "testing"
+import (
+	"bytes"
+	"testing"
 
-func TestSplittingBufferedChunk(t *testing.T) {
-	delimiter := byte(2)
+	"github.com/jeroenrinzema/commander/internal/types"
+)
 
+func TestSubscribe(t *testing.T) {
+	gob := &Gob{}
+	expected := &types.Message{
+		Data: []byte("test case"),
+	}
+
+	chunk, err := gob.Marshal(expected)
+	if err != nil {
+		t.Error(err)
+	}
+
+	bb := bytes.NewBuffer(append(chunk, DefaultMessageDelimiter))
+
+	consumer := NewConsumer(bb, gob)
+	defer consumer.Close()
+
+	go consumer.Consume()
+
+	subscription, err := consumer.Subscribe(nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	message := <-subscription
+
+	if string(message.Data) != string(expected.Data) {
+		t.Error("expected message data malformed")
+	}
+}
+
+func TestUnsubscribe(t *testing.T) {
 	consumer := NewConsumer(nil, nil)
-	consumer.MessageDelimiter = delimiter
+	defer consumer.Close()
 
-	messages, remaining := consumer.SplitChunk([]byte{1, delimiter, 3, 4, 5, delimiter})
+	subscription, err := consumer.Subscribe(nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = consumer.Unsubscribe(subscription)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(consumer.subscriptions) > 0 {
+		t.Error("subscription not unsubscribed")
+	}
+}
+
+func TestSplitChunk(t *testing.T) {
+	consumer := NewConsumer(nil, nil)
+	defer consumer.Close()
+
+	messages, remaining := consumer.SplitChunk([]byte{1, DefaultMessageDelimiter, 3, 4, 5, DefaultMessageDelimiter})
+
 	if len(messages) != 2 {
 		t.Errorf("unexpected ammount of messages returned. Expected 2 returned %d", len(messages))
 	}

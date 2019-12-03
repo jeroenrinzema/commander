@@ -2,19 +2,13 @@ package io
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"sync"
 	"time"
 
 	"github.com/jeroenrinzema/commander/internal/types"
-	errors "golang.org/x/xerrors"
 )
-
-// ErrInvalidMessageDelimiter is returned when a invalid message delimiter is encountered
-var ErrInvalidMessageDelimiter = errors.New("invalid message delimiter")
-
-// ErrInvalidBufferSize is returned when a invalid buffer size is encountered
-var ErrInvalidBufferSize = errors.New("invalid buffer size")
 
 // Predefined default values
 const (
@@ -23,12 +17,17 @@ const (
 )
 
 // NewConsumer constructs a new consumer for the given io.ReaderCloser
-func NewConsumer(reader io.ReadCloser, marshaller Marshaller) *Consumer {
+func NewConsumer(reader io.Reader, marshaller Marshaller) *Consumer {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &Consumer{
 		reader:           reader,
 		marshaller:       marshaller,
 		MessageDelimiter: DefaultMessageDelimiter,
 		PollInterval:     DefaultPollInterval,
+		subscriptions:    []chan *types.Message{},
+		ctx:              ctx,
+		close:            cancel,
 	}
 }
 
@@ -50,11 +49,14 @@ type Consumer struct {
 	// This allows for fine grained memory control, the maximum memory allocated is the ChunkChanSize * BufferSize
 	ChunkChanSize int
 
-	reader     io.ReadCloser
+	reader     io.Reader
 	marshaller Marshaller
 
 	subscriptions []chan *types.Message
 	mutex         sync.RWMutex
+
+	ctx   context.Context
+	close context.CancelFunc
 }
 
 // Subscribe creates a new subscription and subscribes to the given topic(s)
@@ -89,10 +91,10 @@ func (consumer *Consumer) Unsubscribe(target <-chan *types.Message) error {
 	return nil
 }
 
-// Consume opens a new reader for the given io.Reader
-func (consumer *Consumer) Consume(reader *bufio.Reader) {
+// Consume opens a new reader for the configured io.Reader
+func (consumer *Consumer) Consume() {
 	sink := make(chan []byte, consumer.ChunkChanSize)
-	go consumer.Read(reader, sink)
+	go consumer.Read(bufio.NewReader(consumer.reader), sink)
 
 	for chunk := range sink {
 		message, err := consumer.marshaller.Unmarshal(chunk)
@@ -118,6 +120,10 @@ func (consumer *Consumer) Read(reader *bufio.Reader, sink chan []byte) {
 	read := consumer.Reader(reader)
 
 	for {
+		if consumer.Closed() {
+			return
+		}
+
 		chunks, bytes, err := read()
 		for _, chunk := range chunks {
 			sink <- chunk
@@ -150,22 +156,22 @@ func (consumer *Consumer) BufferReader(reader *bufio.Reader) Reader {
 	var remaining []byte
 
 	return func() (chunks [][]byte, bytes int, err error) {
-		chunk, bytes, err := consumer.ReadBuffer(reader)
+		chunk, bytes := consumer.ReadBuffer(reader)
 		chunks, remaining = consumer.SplitChunk(append(remaining, chunk...))
 
-		return chunks, bytes, err
+		return chunks, bytes, nil
 	}
 }
 
 // SliceReader returns a slice reader implementation for the given io.Reader
 func (consumer *Consumer) SliceReader(reader *bufio.Reader) Reader {
 	return func() (chunks [][]byte, bytes int, err error) {
-		chunk, bytes, err := consumer.ReadSlice(reader)
+		chunk, bytes := consumer.ReadSlice(reader)
 
 		chunks = make([][]byte, 1)
 		chunks[0] = chunk
 
-		return chunks, bytes, err
+		return chunks, bytes, nil
 	}
 }
 
@@ -200,34 +206,46 @@ func (consumer *Consumer) SplitChunk(chunk []byte) (returned [][]byte, remaining
 }
 
 // ReadBuffer reads bytes from the given reader until the configured buffer size is reached
-func (consumer *Consumer) ReadBuffer(reader *bufio.Reader) (chunk []byte, bytes int, err error) {
+func (consumer *Consumer) ReadBuffer(reader *bufio.Reader) (chunk []byte, bytes int) {
 	if consumer.BufferSize == 0 {
-		return chunk, 0, ErrInvalidBufferSize
+		return chunk, 0
 	}
 
 	chunk = make([]byte, consumer.BufferSize)
-	bytes, err = reader.Read(chunk)
+	bytes, _ = reader.Read(chunk)
 
-	if err != nil && !errors.Is(err, io.EOF) {
-		return chunk, 0, err
-	}
-
-	return chunk, bytes, nil
+	return chunk, bytes
 }
 
 // ReadSlice reads bytes from the given reader until a message delimiter or io.EOF is encountered
-func (consumer *Consumer) ReadSlice(reader *bufio.Reader) (chunk []byte, bytes int, err error) {
+func (consumer *Consumer) ReadSlice(reader *bufio.Reader) (chunk []byte, bytes int) {
 	if consumer.MessageDelimiter == 0 {
-		return chunk, 0, ErrInvalidMessageDelimiter
+		return chunk, 0
 	}
 
-	chunk, _ = reader.ReadSlice(consumer.MessageDelimiter)
-	bytes = len(chunk)
+	for {
+		part, err := reader.ReadSlice(consumer.MessageDelimiter)
+		chunk = append(chunk, part...)
 
-	return chunk, bytes, nil
+		if err == io.EOF {
+			break
+		}
+	}
+
+	return chunk, len(chunk)
+}
+
+// Closed returns a boolean representing whether the given consumer is closed
+func (consumer *Consumer) Closed() bool {
+	if consumer.ctx.Err() == context.Canceled {
+		return true
+	}
+
+	return false
 }
 
 // Close gracefully closes the given consumer
 func (consumer *Consumer) Close() error {
+	consumer.close()
 	return nil
 }

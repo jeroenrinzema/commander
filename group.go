@@ -387,27 +387,32 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 
 // HandleContext constructs a handle context based on the given definitions.
 func (group *Group) HandleContext(definitions ...options.HandlerOption) (Close, error) {
-	options := options.NewHandlerOptions(definitions)
-	group.logger.Debugf("setting up new consumer handle: %d, %s", options.MessageType, options.Action)
+	handler := options.NewHandlerOptions(definitions)
+	group.logger.Debugf("setting up new consumer handle: %d, %s", handler.MessageType, handler.Action)
 
-	messages, closing, err := group.NewConsumer(options.MessageType)
+	messages, closing, err := group.NewConsumer(handler.MessageType)
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
 		for message := range messages {
-			if options.Action != "" && message.Action != options.Action {
+			if handler.Action != "" && message.Action != handler.Action {
 				message.Ack()
 				continue
 			}
 
-			schema := options.Schema()
-			group.Codec.Unmarshal(message.Data, &schema)
+			schema := handler.Schema()
+			err := group.Codec.Unmarshal(message.Data, &schema)
+			if err != nil {
+				message.Nack()
+				continue
+			}
+
 			message.NewSchema(schema)
 
 			writer := NewWriter(group, message)
-			options.Callback(message, writer)
+			handler.Callback(message, writer)
 
 			message.Ack()
 		}

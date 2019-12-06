@@ -23,13 +23,13 @@ var (
 
 // NewGroup initializes a new commander group.
 func NewGroup(definitions ...options.GroupOption) *Group {
-	options := options.NewGroupOptions(definitions)
+	configured := options.NewGroupOptions(definitions)
 
 	group := &Group{
-		Timeout: options.Timeout,
-		Retries: options.Retries,
-		Topics:  options.Topics,
-		Codec:   options.Codec,
+		Timeout: configured.Timeout,
+		Retries: configured.Retries,
+		Topics:  configured.Topics,
+		Codec:   configured.Codec,
 		logger:  log.New(),
 	}
 
@@ -187,9 +187,7 @@ func (group *Group) AwaitEOS(messages <-chan *types.Message, parent metadata.Par
 }
 
 // FetchTopics fetches the available topics for the given mode and the given type
-func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) []types.Topic {
-	topics := []Topic{}
-
+func (group *Group) FetchTopics(t types.MessageType, m types.TopicMode) (topics []Topic) {
 	for _, topic := range group.Topics {
 		if topic.Type() != t {
 			continue
@@ -218,7 +216,7 @@ func (group *Group) ProduceCommand(message *Message) error {
 	}
 
 	// NOTE: Support for multiple produce topics?
-	// Possible, but error handling has to be easily handled when errors occures at one of the topics in the process of publishing
+	// Possible, but error handling has to be easily handled when errors occurs at one of the topics in the process of publishing
 	topic := topics[0]
 	message.Topic = topic
 
@@ -250,7 +248,7 @@ func (group *Group) ProduceEvent(message *Message) error {
 	}
 
 	// NOTE: Support for multiple produce topics?
-	// Possible, but error handling has to be easily handled when errors occures at one of the topics in the process of publishing
+	// Possible, but error handling has to be easily handled when errors occurs at one of the topics in the process of publishing
 	topic := topics[0]
 	message.Topic = topic
 

@@ -142,6 +142,9 @@ func (message *Message) Schema() interface{} {
 
 // NewSchema overrides the message schema with the given value
 func (message *Message) NewSchema(v interface{}) {
+	message.mutex.Lock()
+	defer message.mutex.Unlock()
+
 	message.schema = v
 }
 

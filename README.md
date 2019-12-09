@@ -23,6 +23,7 @@ Commander is Go library for writing event-driven applications. Enabling event so
 ## Contributing
 
 Thank you for your interest in contributing to Commander! ❤
+Check out the open projects and/or issues and feel free to join any ongoing discussion.
 
 Everyone is welcome to contribute, whether it's in the form of code, documentation, bug reports, feature requests, or anything else. We encourage you to experiment with the project and make contributions to help evolve it to meet your needs!
 

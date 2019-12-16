@@ -1,7 +1,6 @@
 package io
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"io"
@@ -16,6 +15,7 @@ import (
 var (
 	DefaultMessageDelimiter = []byte{'\r', '\n'}
 	DefaultPollInterval     = time.Second
+	DefaultBufferSize       = 64 * 1024
 )
 
 // NewConsumer constructs a new consumer for the given io.ReaderCloser
@@ -28,6 +28,7 @@ func NewConsumer(reader io.Reader, marshaller Marshaller) *Consumer {
 		MessageDelimiter: DefaultMessageDelimiter,
 		PollInterval:     DefaultPollInterval,
 		subscriptions:    []chan *types.Message{},
+		BufferSize:       DefaultBufferSize,
 		ctx:              ctx,
 		close:            cancel,
 	}
@@ -119,7 +120,7 @@ func (consumer *Consumer) Consume() {
 // A chunk is determined by the configured buffer size or a message delimiter.
 func (consumer *Consumer) Read(reader io.Reader, sink chan []byte) {
 	defer close(sink)
-	read := consumer.Reader(reader)
+	read := consumer.BufferReader(reader)
 
 	for {
 		if consumer.Closed() {
@@ -141,16 +142,6 @@ func (consumer *Consumer) Read(reader io.Reader, sink chan []byte) {
 			continue
 		}
 	}
-}
-
-// Reader constructs and returns a consumer reader for the predefined configurations.
-// If no consumer buffer size is defined the default slice reader is returned.
-func (consumer *Consumer) Reader(reader io.Reader) Reader {
-	if consumer.BufferSize > 0 {
-		return consumer.BufferReader(reader)
-	}
-
-	return consumer.SliceReader(reader)
 }
 
 // BufferReader returns a buffer reader implementation for the given io.Reader
@@ -188,22 +179,6 @@ func ScanCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	}
 	// Request more data.
 	return 0, nil, nil
-}
-
-// SliceReader returns a slice reader implementation for the given io.Reader
-func (consumer *Consumer) SliceReader(reader io.Reader) Reader {
-	scanner := bufio.NewScanner(reader)
-	scanner.Split(ScanCRLF)
-
-	return func() (chunks [][]byte, _ int, _ error) {
-		scanner.Scan()
-		chunk := scanner.Bytes()
-
-		chunks = make([][]byte, 1)
-		chunks[0] = chunk
-
-		return chunks, len(chunk), nil
-	}
 }
 
 // SplitChunk splits the given chunk into consumable message chunks based on the configured message delimiter.

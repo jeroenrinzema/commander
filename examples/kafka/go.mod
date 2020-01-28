@@ -1,6 +1,6 @@
 module github.com/jeroenrinzema/commander/examples/kafka
 
-go 1.12
+go 1.13
 
 replace github.com/jeroenrinzema/commander => ../../
 

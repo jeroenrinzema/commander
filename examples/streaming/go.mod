@@ -6,3 +6,5 @@ require (
 )
 
 replace github.com/jeroenrinzema/commander => ../../
+
+go 1.13

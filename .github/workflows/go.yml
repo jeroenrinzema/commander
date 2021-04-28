@@ -16,7 +16,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
     - name: Setup go
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go }}
     - name: Test

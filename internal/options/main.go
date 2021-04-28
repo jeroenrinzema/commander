@@ -38,7 +38,6 @@ func NewGroupOptions(options []GroupOption) (result *GroupOptions) {
 	result = &GroupOptions{
 		Timeout: DefaultTimeout,
 		Retries: DefaultRetries,
-		Codec:   DefaultCodec(),
 	}
 
 	for _, option := range options {
@@ -56,7 +55,6 @@ type GroupOption interface {
 // GroupOptions represent the available set of group options
 type GroupOptions struct {
 	Timeout time.Duration
-	Codec   Codec
 	Retries int8
 	Topics  []types.Topic
 }
@@ -80,6 +78,5 @@ type HandlerOption interface {
 type HandlerOptions struct {
 	Action      string
 	MessageType types.MessageType
-	Schema      func() interface{}
 	Callback    types.HandlerFunc
 }

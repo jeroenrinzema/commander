@@ -49,6 +49,3 @@ type Topic = types.Topic
 
 // NewMessage types.NewMessage alias
 var NewMessage = types.NewMessage
-
-// WithJSONCodec options.WithJSONCodec alias
-var WithJSONCodec = options.WithJSONCodec

@@ -118,11 +118,6 @@ func (message *Message) Schema() interface{} {
 	return message.schema
 }
 
-// NewSchema overrides the message schema with the given value
-func (message *Message) NewSchema(v interface{}) {
-	message.schema = v
-}
-
 // NewError construct a new error message with the given message as parent
 func (message *Message) NewError(action string, status StatusCode, err error) *Message {
 	child := message.NewMessage(action, message.Version, message.Key, []byte(err.Error()))

@@ -29,7 +29,6 @@ func NewGroup(definitions ...options.GroupOption) *Group {
 		Timeout: options.Timeout,
 		Retries: options.Retries,
 		Topics:  options.Topics,
-		Codec:   options.Codec,
 		logger:  log.New(),
 	}
 
@@ -50,7 +49,6 @@ type Group struct {
 	Middleware middleware.UseImpl
 	Timeout    time.Duration
 	Topics     []types.Topic
-	Codec      options.Codec
 	Retries    int8
 	logger     *log.Logger
 }
@@ -350,9 +348,6 @@ func (group *Group) HandleFunc(sort types.MessageType, action string, callback H
 		WithAction(action),
 		WithMessageType(sort),
 		WithCallback(callback),
-		WithMessageSchema(func() interface{} {
-			return group.Codec.Schema()
-		}),
 	)
 }
 
@@ -372,10 +367,6 @@ func (group *Group) HandleContext(definitions ...options.HandlerOption) (Close, 
 				message.Ack()
 				continue
 			}
-
-			schema := options.Schema()
-			group.Codec.Unmarshal(message.Data, &schema)
-			message.NewSchema(schema)
 
 			writer := NewWriter(group, message)
 			options.Callback(message, writer)

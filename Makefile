@@ -26,15 +26,6 @@ $(BIN)/golangci-lint: PACKAGE=github.com/golangci/golangci-lint/cmd/golangci-lin
 STRINGER = $(BIN)/stringer
 $(BIN)/stringer: PACKAGE=golang.org/x/tools/cmd/stringer
 
-.PHONY: run
-run: ## Builds and runs the Memirati binaries
-	$Q $(GO) run -ldflags '$(LDFLAGS)' ./cmd/memirati
-
-.PHONY: build
-build: ## Builds the Memirati binaries for the current machines CPU architecture
-	$(info $(M) building memirati binary…)
-	$Q GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build -ldflags '$(LDFLAGS)' -a -o ./build/memirati ./cmd/memirati
-
 .PHONY: tools
 tools: ## Install all used development tools
 	$(info $(M) installing tools…)

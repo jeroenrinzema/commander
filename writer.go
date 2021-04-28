@@ -33,18 +33,14 @@ func (writer *writer) NewMessage(action string, version int8, key []byte, data [
 	return types.NewMessage(action, version, key, data)
 }
 
-func (writer *writer) Error(action string, status types.StatusCode, err error) (*Message, error) {
-	if status == types.NullStatusCode {
-		status = types.StatusInternalServerError
-	}
-
+func (writer *writer) Error(action string, err error) (*Message, error) {
 	var payload []byte
 	if err != nil {
 		payload = []byte(err.Error())
 	}
 
 	message := writer.NewMessage(action, 0, nil, payload)
-	message.Status = status
+	// TODO(Jeroen): mark the message as an error
 
 	err = writer.group.ProduceEvent(message)
 	return message, err

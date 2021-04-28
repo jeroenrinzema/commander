@@ -40,27 +40,6 @@ func (version Version) String() string {
 	return strconv.Itoa(int(version))
 }
 
-// StatusCode represents an message status code.
-// The status codes are base on the HTTP status code specifications.
-type StatusCode int16
-
-// String returns the StatusCode as a string
-func (code StatusCode) String() string {
-	return strconv.Itoa(int(code))
-}
-
-// Status codes that represents the status of a event
-const (
-	StatusOK                  StatusCode = 200
-	StatusBadRequest          StatusCode = 400
-	StatusUnauthorized        StatusCode = 401
-	StatusForbidden           StatusCode = 403
-	StatusNotFound            StatusCode = 404
-	StatusConflict            StatusCode = 409
-	StatusImATeapot           StatusCode = 418
-	StatusInternalServerError StatusCode = 500
-)
-
 // MessageType represents a message type
 type MessageType int8
 
@@ -88,7 +67,6 @@ func NewMessage(action string, version int8, key []byte, data []byte) *Message {
 		ack:       make(chan struct{}),
 		nack:      make(chan struct{}),
 		response:  UnkownResolvedStatus,
-		Status:    StatusOK,
 		Timestamp: time.Now(),
 		ctx:       context.Background(),
 	}
@@ -96,14 +74,13 @@ func NewMessage(action string, version int8, key []byte, data []byte) *Message {
 
 // Message representation
 type Message struct {
-	ID        string     `json:"id"`
-	Status    StatusCode `json:"status"`
-	Topic     Topic      `json:"topic"`
-	Action    string     `json:"action"`
-	Version   Version    `json:"version"`
-	Data      []byte     `json:"data"`
-	Key       []byte     `json:"key"`
-	Timestamp time.Time  `json:"timestamp"`
+	ID        string    `json:"id"`
+	Topic     Topic     `json:"topic"`
+	Action    string    `json:"action"`
+	Version   Version   `json:"version"`
+	Data      []byte    `json:"data"`
+	Key       []byte    `json:"key"`
+	Timestamp time.Time `json:"timestamp"`
 
 	ctx      context.Context
 	schema   interface{}
@@ -119,9 +96,9 @@ func (message *Message) Schema() interface{} {
 }
 
 // NewError construct a new error message with the given message as parent
-func (message *Message) NewError(action string, status StatusCode, err error) *Message {
+func (message *Message) NewError(action string, err error) *Message {
 	child := message.NewMessage(action, message.Version, message.Key, []byte(err.Error()))
-	child.Status = status
+	// TODO(Jeroen): mark the message as an error
 
 	return child
 }

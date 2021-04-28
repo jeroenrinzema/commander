@@ -6,7 +6,7 @@ type Writer interface {
 	Event(action string, version int8, key []byte, data []byte) (*Message, error)
 
 	// Error produces a new error event to the assigned group.
-	Error(action string, status StatusCode, err error) (*Message, error)
+	Error(action string, err error) (*Message, error)
 
 	// Command produces a new command to the assigned group.
 	Command(action string, version int8, key []byte, data []byte) (*Message, error)

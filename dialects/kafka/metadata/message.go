@@ -40,13 +40,6 @@ headers:
 			message.ID = string(record.Value)
 		case HeaderAction:
 			message.Action = string(record.Value)
-		case HeaderStatusCode:
-			status, err := strconv.ParseInt(string(record.Value), 10, 16)
-			if err != nil {
-				continue headers
-			}
-
-			message.Status = types.StatusCode(status)
 		case HeaderVersion:
 			version, err := strconv.ParseInt(string(record.Value), 10, 8)
 			if err != nil {
@@ -86,10 +79,6 @@ func MessageToMessage(produce *commander.Message) *sarama.ProducerMessage {
 		{
 			Key:   []byte(HeaderVersion),
 			Value: []byte(strconv.Itoa(int(produce.Version))),
-		},
-		{
-			Key:   []byte(HeaderStatusCode),
-			Value: []byte(strconv.Itoa(int(produce.Status))),
 		},
 	}
 

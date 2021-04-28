@@ -12,7 +12,7 @@ import (
 func NewPartitionHandle(client *Client) *PartitionHandle {
 	handle := &PartitionHandle{
 		client:     client,
-		ready:      make(chan bool, 0),
+		ready:      make(chan bool),
 		partitions: make(map[string]*TopicPartitionConsumers),
 	}
 
@@ -99,8 +99,6 @@ type PartitionHandle struct {
 	topics        []string
 	consumer      sarama.Consumer
 	partitions    map[string]*TopicPartitionConsumers
-	consumptions  sync.WaitGroup
-	config        *sarama.Config
 	mutex         sync.RWMutex
 	ready         chan bool
 }

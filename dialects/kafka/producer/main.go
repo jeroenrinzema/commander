@@ -23,11 +23,7 @@ type Client struct {
 
 // Healthy checks the health of the Kafka client
 func (client *Client) Healthy() bool {
-	if len(client.conn.Brokers()) == 0 {
-		return false
-	}
-
-	return true
+	return len(client.conn.Brokers()) == 0
 }
 
 // Connect initializes and opens a new Sarama producer group.

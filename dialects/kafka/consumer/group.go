@@ -27,7 +27,6 @@ type GroupHandle struct {
 	consumptions sync.WaitGroup
 	closing      bool
 	ready        circuit.Ready
-	mutex        sync.Mutex
 }
 
 // Connect initializes a new Sarama consumer group and awaits till the consumer

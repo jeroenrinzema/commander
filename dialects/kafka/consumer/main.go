@@ -67,18 +67,13 @@ type Client struct {
 	handle  Handle
 	brokers []string
 	topics  map[string]*Topic
-	ready   chan bool
 	conn    sarama.Client
 	group   string
 }
 
 // Healthy checks the health of the Kafka client
 func (client *Client) Healthy() bool {
-	if len(client.conn.Brokers()) == 0 {
-		return false
-	}
-
-	return true
+	return len(client.conn.Brokers()) == 0
 }
 
 // Connect opens a new Kafka consumer
@@ -119,7 +114,7 @@ func (client *Client) Connect(brokers []string, config *sarama.Config, initialOf
 // Subscribe subscribes to the given topics and returns a message channel
 func (client *Client) Subscribe(topics ...types.Topic) (<-chan *types.Message, error) {
 	subscription := &Subscription{
-		messages: make(chan *types.Message, 0),
+		messages: make(chan *types.Message),
 	}
 
 	for _, topic := range topics {

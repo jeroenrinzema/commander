@@ -313,9 +313,13 @@ func TestEventHandleFunc(t *testing.T) {
 	action := "testing"
 	delivered := make(chan *Message, 1)
 
-	group.HandleFunc(EventMessage, action, func(message *Message, writer Writer) {
+	_, err := group.HandleFunc(EventMessage, action, func(message *Message, writer Writer) {
 		delivered <- message
 	})
+
+	if err != nil {
+		t.Error(err)
+	}
 
 	event := types.NewMessage(action, 1, nil, nil)
 	group.ProduceEvent(event)

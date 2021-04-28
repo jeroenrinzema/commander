@@ -289,13 +289,13 @@ func (group *Group) NewConsumer(sort types.MessageType) (<-chan *types.Message, 
 
 	topics := group.FetchTopics(sort, ConsumeMode)
 	if len(topics) == 0 {
-		return make(<-chan *Message, 0), func() {}, ErrNoTopic
+		return make(<-chan *Message), func() {}, ErrNoTopic
 	}
 
 	// NOTE: support multiple topics for consumption?
 	topic := topics[0]
 
-	sink := make(chan *Message, 0)
+	sink := make(chan *Message)
 	messages, err := topic.Dialect().Consumer().Subscribe(topics...)
 	if err != nil {
 		close(sink)

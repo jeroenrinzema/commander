@@ -39,7 +39,7 @@ func NewConfig(values ConnectionMap) (Config, error) {
 
 	atLeastV1 := version.IsAtLeast(sarama.V1_0_0_0)
 	if !atLeastV1 {
-		return config, errors.New("Commander requires at least kafka >= v1.0")
+		return config, errors.New("commander requires at least kafka >= v1.0")
 	}
 
 	// The initial offset is given as a string and could be a interger, "newest" and "oldest"
@@ -54,10 +54,8 @@ func NewConfig(values ConnectionMap) (Config, error) {
 	switch initialOffsetValue {
 	case OffsetNewest:
 		initialOffset = sarama.OffsetNewest
-		break
 	case OffsetOldest:
 		initialOffset = sarama.OffsetOldest
-		break
 	default:
 		offset, err := strconv.ParseInt(initialOffsetValue, 10, 64)
 		if err != nil {
@@ -65,7 +63,6 @@ func NewConfig(values ConnectionMap) (Config, error) {
 		}
 
 		initialOffset = offset
-		break
 	}
 
 	connectionTimeout, err := time.ParseDuration(values[ConnectionTimeoutKey])
@@ -80,7 +77,7 @@ func NewConfig(values ConnectionMap) (Config, error) {
 	config.ConnectionTimeout = connectionTimeout
 
 	if len(config.Brokers) < 1 {
-		return config, errors.New("At least one broker needs to be specified")
+		return config, errors.New("at least one broker needs to be specified")
 	}
 
 	return config, nil

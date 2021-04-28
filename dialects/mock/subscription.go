@@ -3,14 +3,12 @@ package mock
 import (
 	"sync"
 
-	"github.com/jeroenrinzema/commander/internal/circuit"
 	"github.com/jeroenrinzema/commander/internal/types"
 )
 
 // Subscription mock message subscription
 type Subscription struct {
 	messages chan *types.Message
-	breaker  circuit.Breaker
 }
 
 // SubscriptionCollection represents a collection of subscriptions

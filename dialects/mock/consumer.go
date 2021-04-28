@@ -61,7 +61,7 @@ func (consumer *Consumer) Emit(message *types.Message) {
 // a error if a error occurred during processing.
 func (consumer *Consumer) Subscribe(topics ...types.Topic) (<-chan *types.Message, error) {
 	subscription := &Subscription{
-		messages: make(chan *types.Message, 0),
+		messages: make(chan *types.Message),
 	}
 
 	consumer.mutex.Lock()

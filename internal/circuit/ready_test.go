@@ -8,7 +8,8 @@ import (
 
 func TestReadyOnce(t *testing.T) {
 	ready := Ready{}
-	timeout, _ := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	timeout, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
 
 	go ready.Mark()
 

@@ -161,7 +161,7 @@ func TestAwaitEvent(t *testing.T) {
 		event := parent.NewMessage("tested", 1, nil, nil)
 		err := group.ProduceEvent(event)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}()
 
@@ -195,7 +195,7 @@ func TestAwaitEventAction(t *testing.T) {
 		event := parent.NewMessage(action, 1, nil, nil)
 		err := group.ProduceEvent(event)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}()
 

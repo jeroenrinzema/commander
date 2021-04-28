@@ -1,15 +1,11 @@
 # Commander 🚀
 [![GoDoc](https://godoc.org/github.com/jeroenrinzema/commander?status.svg)](https://godoc.org/github.com/jeroenrinzema/commander)
-[![Coverage](https://codecov.io/gh/jeroenrinzema/commander/branch/master/graph/badge.svg)](https://codecov.io/gh/jeroenrinzema/commander)
-[![Coverage Report](https://goreportcard.com/badge/github.com/jeroenrinzema/commander)](https://goreportcard.com/report/github.com/jeroenrinzema/commander)
-[![Test](https://github.com/jeroenrinzema/commander/workflows/test/badge.svg)](https://github.com/jeroenrinzema/commander/actions)
 
 Commander is Go library for writing event-driven applications. Enabling event sourcing, RPC over messages, SAGA's, bidirectional streaming and more! Dialects could be used to stream messages from one to another.
 
 ## Getting started
 
 1. [🚀 Examples](https://github.com/jeroenrinzema/commander/tree/master/examples)
-2. [📚 Documentation](https://godoc.org/github.com/jeroenrinzema/commander)
 
 ---
 

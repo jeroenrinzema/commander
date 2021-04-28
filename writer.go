@@ -34,28 +34,6 @@ func (writer *writer) NewMessage(action string, version int8, key []byte, data [
 }
 
 func (writer *writer) Error(action string, status types.StatusCode, err error) (*Message, error) {
-	return writer.ErrorEOS(action, status, err)
-}
-
-func (writer *writer) ErrorEOS(action string, status types.StatusCode, err error) (*Message, error) {
-	if status == types.NullStatusCode {
-		status = types.StatusInternalServerError
-	}
-
-	var payload []byte
-	if err != nil {
-		payload = []byte(err.Error())
-	}
-
-	message := writer.NewMessage(action, 0, nil, payload)
-	message.Status = status
-	message.EOS = true
-
-	err = writer.group.ProduceEvent(message)
-	return message, err
-}
-
-func (writer *writer) ErrorStream(action string, status types.StatusCode, err error) (*Message, error) {
 	if status == types.NullStatusCode {
 		status = types.StatusInternalServerError
 	}
@@ -73,37 +51,12 @@ func (writer *writer) ErrorStream(action string, status types.StatusCode, err er
 }
 
 func (writer *writer) Event(action string, version int8, key []byte, data []byte) (*Message, error) {
-	return writer.EventEOS(action, version, key, data)
-}
-
-func (writer *writer) EventEOS(action string, version int8, key []byte, data []byte) (*Message, error) {
 	message := writer.NewMessage(action, version, key, data)
-	message.EOS = true
-
-	err := writer.group.ProduceEvent(message)
-	return message, err
-}
-
-func (writer *writer) EventStream(action string, version int8, key []byte, data []byte) (*Message, error) {
-	message := writer.NewMessage(action, version, key, data)
-
 	err := writer.group.ProduceEvent(message)
 	return message, err
 }
 
 func (writer *writer) Command(action string, version int8, key []byte, data []byte) (*Message, error) {
-	return writer.CommandEOS(action, version, key, data)
-}
-
-func (writer *writer) CommandEOS(action string, version int8, key []byte, data []byte) (*Message, error) {
-	message := writer.NewMessage(action, version, key, data)
-	message.EOS = true
-
-	err := writer.group.ProduceCommand(message)
-	return message, err
-}
-
-func (writer *writer) CommandStream(action string, version int8, key []byte, data []byte) (*Message, error) {
 	message := writer.NewMessage(action, version, key, data)
 
 	err := writer.group.ProduceCommand(message)

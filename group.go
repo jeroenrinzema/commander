@@ -98,7 +98,7 @@ func (group *Group) SyncCommand(message *Message) (event *Message, err error) {
 		return event, err
 	}
 
-	event, err = group.AwaitEOS(messages, metadata.ParentID(message.ID))
+	event, err = group.AwaitMessage(messages, metadata.ParentID(message.ID))
 	return event, err
 }
 
@@ -151,35 +151,6 @@ func (group *Group) AwaitMessage(messages <-chan *types.Message, parent metadata
 			continue
 		}
 
-		break
-	}
-
-	return message, nil
-}
-
-// AwaitEOS awaits till the final event stream message is emitted.
-// If no events are returned within the given timeout period a error will be returned.
-func (group *Group) AwaitEOS(messages <-chan *types.Message, parent metadata.ParentID) (message *Message, err error) {
-	group.logger.Debug("awaiting EOS")
-
-	for {
-		message = <-messages
-		if message == nil {
-			return message, ErrTimeout
-		}
-
-		if !message.EOS {
-			message.Ack()
-			continue
-		}
-
-		id, has := metadata.ParentIDFromContext(message.Ctx())
-		if !has || parent != id {
-			message.Ack()
-			continue
-		}
-
-		group.logger.Debug("EOS message reached")
 		break
 	}
 

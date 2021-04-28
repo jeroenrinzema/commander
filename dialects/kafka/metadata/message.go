@@ -54,8 +54,6 @@ headers:
 			}
 
 			message.Version = types.Version(version)
-		case HeaderEOS:
-			message.EOS = message.EOS.Parse(string(record.Value))
 		case HeaderParentID:
 			message.NewCtx(metadata.NewParentIDContext(message.Ctx(), metadata.ParentID(record.Value)))
 		case HeaderParentTimestamp:
@@ -88,10 +86,6 @@ func MessageToMessage(produce *commander.Message) *sarama.ProducerMessage {
 		{
 			Key:   []byte(HeaderVersion),
 			Value: []byte(strconv.Itoa(int(produce.Version))),
-		},
-		{
-			Key:   []byte(HeaderEOS),
-			Value: []byte(produce.EOS.String()),
 		},
 		{
 			Key:   []byte(HeaderStatusCode),

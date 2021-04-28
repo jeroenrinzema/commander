@@ -18,7 +18,6 @@ var (
 	HeaderAction          = "x-action"
 	HeaderStatusCode      = "x-status-code"
 	HeaderVersion         = "x-version"
-	HeaderEOS             = "x-eos"
 	HeaderParentID        = "x-parent-id"
 	HeaderParentTimestamp = "x-parent-timestamp"
 )

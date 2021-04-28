@@ -1,4 +1,4 @@
-package commander
+package circuit
 
 // Retry allowes a given method to be retried x amount of times.
 type Retry struct {

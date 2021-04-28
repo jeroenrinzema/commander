@@ -191,7 +191,7 @@ func (group *Group) ProduceCommand(message *Message) error {
 	topic := topics[0]
 	message.Topic = topic
 
-	retry := Retry{
+	retry := circuit.Retry{
 		Amount: group.Retries,
 	}
 
@@ -223,7 +223,7 @@ func (group *Group) ProduceEvent(message *Message) error {
 	topic := topics[0]
 	message.Topic = topic
 
-	retry := Retry{
+	retry := circuit.Retry{
 		Amount: group.Retries,
 	}
 
